@@ -3,5 +3,7 @@ node_modules/
 __pycache__/
 .env
 backend/models/*.keras
+backend/models/labels.json
+.pytest_cache/
 *.pyc
 frontend/dist/
