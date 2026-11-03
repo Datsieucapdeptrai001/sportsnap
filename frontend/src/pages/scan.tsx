@@ -25,7 +25,7 @@ function ImagePreview({ file }: { file: File }) {
   }, [file])
 
   return (
-    <div className="flex aspect-[16/10] items-center justify-center overflow-hidden rounded-xl bg-muted/50">
+    <div className="surface-enter flex aspect-[16/10] items-center justify-center overflow-hidden rounded-xl bg-muted/40">
       <img
         ref={imageRef}
         alt="Ảnh đã chọn để nhận diện"
@@ -100,6 +100,7 @@ export function ScanPage() {
       <Card aria-label="Chọn ảnh để nhận diện" className="p-4 sm:p-6">
         <input
           ref={inputRef}
+          id="scan-image"
           type="file"
           accept="image/*"
           aria-label="Chọn ảnh từ thư viện"
@@ -118,15 +119,15 @@ export function ScanPage() {
             </div>
           </>
         ) : (
-          <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-primary/[0.03] px-5 py-8 text-center sm:min-h-64">
-            <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border border-primary/15 bg-card text-primary shadow-sm">
+          <label htmlFor="scan-image" className="group flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-primary/20 bg-primary/[0.03] px-5 py-8 text-center transition-all duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:shadow-[inset_0_0_24px_var(--glass-glow)] motion-safe:hover:scale-[1.005] motion-safe:active:scale-[0.98] sm:min-h-64">
+            <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border border-primary/15 bg-card/65 text-primary shadow-sm transition-transform duration-200 motion-safe:group-hover:-translate-y-1">
               <ImagePlus size={30} strokeWidth={1.5} aria-hidden="true" />
             </div>
             <h2 className="text-lg font-semibold">Bắt đầu từ một bức ảnh</h2>
             <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
               Chọn ảnh từ thư viện hoặc chụp ảnh bằng trình chọn ảnh trên điện thoại.
             </p>
-          </div>
+          </label>
         )}
         <Button className="mt-4 w-full" onClick={() => inputRef.current?.click()}>
           <ImageUp size={18} aria-hidden="true" />{file ? 'Chọn ảnh khác' : 'Chọn ảnh từ thư viện'}
@@ -138,7 +139,7 @@ export function ScanPage() {
       </p>
       <div className="mt-6" aria-busy={state.status === 'loading'}>
         {state.status === 'idle' && (
-          <div className="flex gap-3 rounded-xl border border-border px-5 py-5 text-muted-foreground">
+          <div className="glass-surface flex gap-3 rounded-xl border px-5 py-5 text-muted-foreground">
             <ScanLine size={21} className="mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <h2 className="text-sm font-medium text-foreground">Kết quả sẽ xuất hiện tại đây</h2>
@@ -161,7 +162,7 @@ export function ScanPage() {
           </Card>
         )}
         {state.status === 'error' && (
-          <Card className="border-destructive/40">
+          <Card className="border-destructive/40 hover:border-destructive/50">
             <div role="alert" className="flex items-start gap-3">
               <TriangleAlert size={21} className="mt-0.5 shrink-0 text-destructive" aria-hidden="true" />
               <div>

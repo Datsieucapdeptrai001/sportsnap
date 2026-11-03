@@ -13,7 +13,7 @@ export function PredictionCard({ result }: { result: Prediction }) {
   const hasAssets = Boolean(sports3d[result.label])
 
   return (
-    <Card aria-label="Kết quả nhận diện" className={cn(uncertain && 'border-warning/50 bg-warning-surface')}>
+    <Card aria-label="Kết quả nhận diện" className={cn('surface-enter', uncertain && 'border-warning/40 bg-warning-surface/85 hover:border-warning/50')}>
       <div className={cn('mb-5 flex items-center gap-2 text-sm font-medium text-primary', uncertain && 'text-warning')}>
         {uncertain ? <TriangleAlert size={18} aria-hidden="true" /> : <CircleCheck size={18} aria-hidden="true" />}
         {uncertain ? 'Không chắc chắn' : 'Đã nhận diện'}
