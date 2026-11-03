@@ -127,43 +127,15 @@ input:focus-visible {
     border-bottom-right-radius: 6px;
   }
 
-  .sport-reel {
+  .sport-canvas-background {
     position: fixed;
     inset: 0;
     z-index: -10;
     overflow: hidden;
     pointer-events: none;
-    background: #020617;
-  }
-
-  .sport-reel-frame {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 1500ms ease-in-out;
-  }
-
-  .sport-reel-frame[data-active="true"] {
-    opacity: 1;
-  }
-
-  .sport-reel-frame img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: 72% center;
-    animation: sport-reel-pan 24s ease-in-out infinite alternate;
-    animation-play-state: paused;
-  }
-
-  .sport-reel-frame[data-active="true"] img {
-    animation-play-state: var(--reel-play-state, running);
-  }
-
-  .sport-reel-vignette {
     background:
-      linear-gradient(90deg, rgb(2 6 23 / 0.45), transparent 60%),
-      linear-gradient(0deg, rgb(2 6 23 / 0.85), transparent 60%, rgb(2 6 23 / 0.2));
+      radial-gradient(ellipse at 75% 35%, #052e2b 0%, transparent 65%),
+      linear-gradient(145deg, #07111f, #020617 70%);
   }
 
   .sport-tags {
@@ -174,11 +146,6 @@ input:focus-visible {
   .surface-enter {
     animation: surface-enter 200ms ease-out both;
   }
-}
-
-@keyframes sport-reel-pan {
-  from { transform: scale(1.04) translate3d(0, 0, 0); }
-  to { transform: scale(1.12) translate3d(-1%, -1%, 0); }
 }
 
 @keyframes surface-enter {

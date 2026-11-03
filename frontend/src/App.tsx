@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Activity, ChartNoAxesCombined, Layers, ScanLine } from 'lucide-react'
 import { Toaster } from 'sonner'
 import { Card } from './components/ui/card'
-import { SportBackgroundReel } from './components/sport-background-reel'
+import { SportCanvasBackground } from './components/sport-canvas-background'
 import { cn } from './lib/utils'
 import { ScanPage } from './pages/scan'
 
@@ -18,7 +18,7 @@ function App() {
 
   return (
     <div className="relative isolate min-h-svh md:pl-64">
-      <SportBackgroundReel />
+      <SportCanvasBackground />
       <a href="#main-content" className="sr-only z-50 rounded-xl bg-card p-4 focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
         Đến nội dung chính
       </a>
