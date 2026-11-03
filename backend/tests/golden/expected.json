@@ -1,0 +1,42 @@
+[
+  {
+    "file": "red_gradient.png",
+    "label": "rings",
+    "confidence": 0.1851830780506134
+  },
+  {
+    "file": "green_gradient.png",
+    "label": "roller derby",
+    "confidence": 0.2821018099784851
+  },
+  {
+    "file": "blue_gradient.png",
+    "label": "swimming",
+    "confidence": 0.22531095147132874
+  },
+  {
+    "file": "checkerboard.png",
+    "label": "roller derby",
+    "confidence": 0.18902242183685303
+  },
+  {
+    "file": "diagonal_stripes.png",
+    "label": "swimming",
+    "confidence": 0.26718980073928833
+  },
+  {
+    "file": "radial_rings.png",
+    "label": "swimming",
+    "confidence": 0.5701107382774353
+  },
+  {
+    "file": "noise.png",
+    "label": "swimming",
+    "confidence": 0.3385416269302368
+  },
+  {
+    "file": "neutral.png",
+    "label": "golf",
+    "confidence": 0.23569349944591522
+  }
+]

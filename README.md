@@ -1,7 +1,7 @@
 # SportSnap
 
 Ứng dụng nhận diện môn thể thao qua ảnh, sử dụng FastAPI và React + TypeScript.
-Slice 0 cung cấp khung ứng dụng và kiểm tra trạng thái; các tính năng nhận diện được triển khai ở các slice sau.
+Slice 1 cung cấp suy luận ảnh, danh sách lớp và API nhận diện; giao diện tải ảnh được triển khai ở slice sau.
 
 ## Run it
 
@@ -39,6 +39,21 @@ Nếu tệp không đọc được, mô hình lỗi hoặc nhãn không hợp l�
 trả `model_loaded: false, reason: "model_load_failed"`. Chi tiết lỗi chỉ có trong log backend.
 `status: "ok"` cho biết API đang hoạt động; `model_loaded` cho biết mô hình đã sẵn sàng hay chưa.
 
+`GET /api/classes` trả danh sách nhãn theo đúng thứ tự huấn luyện (danh sách rỗng
+khi mô hình chưa sẵn sàng). Gửi một ảnh bằng trường multipart `file`:
+
+```powershell
+curl.exe -X POST http://localhost:8000/api/predict -F "file=@path/to/photo.jpg"
+```
+
+API nhận JPEG, PNG và WebP, mặc định tối đa 12 MB mỗi ảnh. Kết quả gồm `label`,
+`confidence`, `top3`, `is_uncertain`, `threshold` và `latency_ms`.
+`confidence < CONFIDENCE_THRESHOLD` (mặc định 0.60) trả `is_uncertain: true`.
+Lỗi trả `{"error":{"code":"...","message":"..."}}` với thông báo tiếng Việt:
+415 `unsupported_format`, 422 `invalid_image`, 413 `file_too_large`,
+503 `model_not_loaded`; thiếu trường ảnh hoặc multipart không hợp lệ trả
+400 `bad_request`. Lỗi suy luận trả 500 `internal_error`, không lộ chi tiết nội bộ.
+
 `.env` được đọc từ thư mục gốc dù chạy lệnh trong `backend/`. `BASE_DIR` mặc định
 là thư mục gốc; các đường dẫn tương đối trong `.env` được tính từ `BASE_DIR`.
 Giữ `PREPROCESS=mobilenet_v2` theo notebook huấn luyện. Các giới hạn mặc định nằm trong `.env.example`.
@@ -56,7 +71,7 @@ npm run dev
 
 Mở [SportSnap](http://localhost:5173). Vite chuyển tiếp `/api` tới
 `http://localhost:8000`. Trang hiển thị trạng thái kết nối và mô hình bằng tiếng Việt.
-Chưa có chức năng tải ảnh hoặc suy luận ở Slice 0.
+Chưa có giao diện tải ảnh; API suy luận đã sẵn sàng ở Slice 1.
 
 ### Chạy bản build trên một cổng
 
@@ -81,8 +96,15 @@ npx tsc --noEmit
 npm run build
 ```
 
-Bộ kiểm tra xác nhận khởi động khi thiếu từng tệp, lỗi tải mô hình, tải một lần,
-CORS và phục vụ frontend. Kiểm tra tích hợp dùng mô hình thật khi hai tệp có sẵn;
-trên checkout chưa có mô hình, chỉ kiểm tra tích hợp này được bỏ qua.
+Bộ kiểm tra xác nhận trạng thái, suy luận, tiền xử lý, EXIF, ngưỡng không chắc chắn,
+định dạng ảnh, ảnh hỏng, giới hạn dung lượng, CORS và phục vụ frontend.
+Golden test là điều kiện bắt buộc: cần hai tệp mô hình gốc và bộ ảnh trong
+`backend/tests/golden/`; thiếu dữ liệu sẽ báo lỗi thay vì bỏ qua.
+Bộ golden ban đầu gồm tám ảnh mẫu tổng hợp với kết quả thực từ mô hình,
+được cho phép dùng làm mốc hồi quy khi chưa có ảnh xuất từ notebook.
+Bộ này chưa xác nhận độ chính xác trên ảnh thể thao hoặc tính tương đương với
+notebook. Xem `backend/tests/golden/README.md` để tạo bộ ứng viên từ dữ liệu kiểm thử.
+Trên checkout chưa có mô hình, vẫn chạy backend như trên; có thể kiểm tra riêng
+phần không cần mô hình bằng `python -m pytest -q --ignore=tests/golden`.
 
 Xem [SPEC.md](SPEC.md) và [AGENTS.md](AGENTS.md) để biết phạm vi từng slice.

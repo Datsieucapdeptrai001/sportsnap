@@ -7,11 +7,16 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import TypeAdapter
+from starlette.exceptions import HTTPException
 
+from app.api.scan import router as inference_router
 from app.core.config import Settings
-from app.schemas import HealthResponse
+from app.core.errors import APIError
+from app.schemas import ErrorDetail, ErrorResponse, HealthResponse
 
 
 logger = logging.getLogger(__name__)
@@ -62,9 +67,40 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=config.CORS_ORIGINS,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+
+    @application.exception_handler(APIError)
+    async def api_error_handler(request: Request, exc: APIError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content=exc.body.model_dump())
+
+    @application.exception_handler(RequestValidationError)
+    async def validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        body = ErrorResponse(error=ErrorDetail(
+            code="bad_request", message="Yêu cầu không hợp lệ. Vui lòng gửi ảnh trong trường file."
+        ))
+        return JSONResponse(status_code=400, content=body.model_dump())
+
+    @application.exception_handler(HTTPException)
+    async def http_error_handler(request: Request, exc: HTTPException) -> JSONResponse:
+        body = ErrorResponse(error=ErrorDetail(
+            code="bad_request" if exc.status_code < 500 else "internal_error",
+            message="Yêu cầu không hợp lệ." if exc.status_code < 500 else "Đã xảy ra lỗi máy chủ.",
+        ))
+        return JSONResponse(
+            status_code=exc.status_code, content=body.model_dump(), headers=exc.headers
+        )
+
+    @application.exception_handler(Exception)
+    async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Request failed.", exc_info=exc)
+        body = ErrorResponse(error=ErrorDetail(
+            code="internal_error", message="Không thể nhận diện ảnh lúc này. Vui lòng thử lại sau."
+        ))
+        return JSONResponse(status_code=500, content=body.model_dump())
 
     @application.get(
         "/api/health", response_model=HealthResponse, response_model_exclude_none=True
@@ -78,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     # Register API routes first so static serving cannot shadow them.
+    application.include_router(inference_router, prefix="/api")
     if (config.FRONTEND_DIST / "index.html").is_file():
         application.mount("/", StaticFiles(directory=config.FRONTEND_DIST, html=True), name="frontend")
 
