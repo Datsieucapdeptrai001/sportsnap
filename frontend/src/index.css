@@ -16,11 +16,10 @@
   --warning: #92400e;
   --warning-surface: #fffbeb;
   --radius: 0.75rem;
-  --ambient-emerald: #34d399;
-  --ambient-neutral: #94a3b8;
   --glass-shadow: rgb(15 23 42 / 0.04);
   --glass-highlight: rgb(255 255 255 / 0.65);
   --glass-glow: rgb(4 120 87 / 0.05);
+  --hud-surface: rgb(248 250 252 / 0.8);
 }
 
 @theme inline {
@@ -53,11 +52,10 @@
     --destructive: #fca5a5;
     --warning: #fbbf24;
     --warning-surface: #241b0b;
-    --ambient-emerald: #10b981;
-    --ambient-neutral: #475569;
     --glass-shadow: rgb(0 0 0 / 0.16);
     --glass-highlight: rgb(255 255 255 / 0.04);
     --glass-glow: rgb(52 211 153 / 0.07);
+    --hud-surface: rgb(15 23 42 / 0.72);
   }
 }
 
@@ -82,7 +80,7 @@ input:focus-visible {
 @layer components {
   .glass-surface {
     border-color: color-mix(in srgb, var(--border) 60%, transparent);
-    background: color-mix(in srgb, var(--card) 78%, transparent);
+    background: color-mix(in srgb, var(--card) 82%, transparent);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     box-shadow:
@@ -91,31 +89,86 @@ input:focus-visible {
       inset 0 0 20px var(--glass-glow);
   }
 
-  .ambient-mesh {
+  .hud-panel {
+    position: relative;
+    border-color: rgb(16 185 129 / 0.2);
+    background: var(--hud-surface);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    box-shadow:
+      0 20px 64px rgb(0 0 0 / 0.2),
+      0 0 32px rgb(16 185 129 / 0.08),
+      inset 0 1px 0 var(--glass-highlight);
+  }
+
+  .hud-panel::before,
+  .hud-panel::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+    border-color: rgb(16 185 129 / 0.4);
+  }
+
+  .hud-panel::before {
+    top: 8px;
+    left: 8px;
+    border-top-width: 1px;
+    border-left-width: 1px;
+    border-top-left-radius: 6px;
+  }
+
+  .hud-panel::after {
+    right: 8px;
+    bottom: 8px;
+    border-right-width: 1px;
+    border-bottom-width: 1px;
+    border-bottom-right-radius: 6px;
+  }
+
+  .sport-reel {
     position: fixed;
     inset: 0;
     z-index: -10;
     overflow: hidden;
     pointer-events: none;
-    opacity: 0.2;
+    background: #020617;
   }
 
-  .ambient-mesh::before,
-  .ambient-mesh::after {
-    content: "";
+  .sport-reel-frame {
     position: absolute;
-    inset: -20%;
-    background:
-      radial-gradient(ellipse at 20% 20%, var(--ambient-emerald), transparent 45%),
-      radial-gradient(ellipse at 80% 70%, var(--ambient-neutral), transparent 50%);
-    filter: blur(40px);
-    animation: ambient-drift 28s ease-in-out infinite alternate;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1500ms ease-in-out;
   }
 
-  .ambient-mesh::after {
-    background: radial-gradient(ellipse at 70% 35%, var(--ambient-emerald), transparent 45%);
-    animation-duration: 36s;
-    animation-direction: alternate-reverse;
+  .sport-reel-frame[data-active="true"] {
+    opacity: 1;
+  }
+
+  .sport-reel-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 72% center;
+    animation: sport-reel-pan 24s ease-in-out infinite alternate;
+    animation-play-state: paused;
+  }
+
+  .sport-reel-frame[data-active="true"] img {
+    animation-play-state: var(--reel-play-state, running);
+  }
+
+  .sport-reel-vignette {
+    background:
+      linear-gradient(90deg, rgb(2 6 23 / 0.45), transparent 60%),
+      linear-gradient(0deg, rgb(2 6 23 / 0.85), transparent 60%, rgb(2 6 23 / 0.2));
+  }
+
+  .sport-tags {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(110 231 183 / 0.3) transparent;
   }
 
   .surface-enter {
@@ -123,9 +176,9 @@ input:focus-visible {
   }
 }
 
-@keyframes ambient-drift {
-  from { transform: translate3d(-3%, -2%, 0) scale(1); }
-  to { transform: translate3d(3%, 4%, 0) scale(1.06); }
+@keyframes sport-reel-pan {
+  from { transform: scale(1.04) translate3d(0, 0, 0); }
+  to { transform: scale(1.12) translate3d(-1%, -1%, 0); }
 }
 
 @keyframes surface-enter {

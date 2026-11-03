@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { ImagePlus, ImageUp, ScanLine, ShieldCheck, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { PredictionCard } from '../components/prediction-card'
+import { SportTags } from '../components/sport-tags'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
@@ -86,18 +87,19 @@ export function ScanPage() {
 
   return (
     <>
-      <header className="mb-8">
-        <p className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-widest text-primary uppercase">
+      <header className="text-white">
+        <p className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-widest text-emerald-300 uppercase">
           <ScanLine size={16} aria-hidden="true" />Nhận diện qua ảnh
         </p>
         <h1 className="text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
           Môn thể thao nào<br className="hidden sm:block" /> trong ảnh của bạn?
         </h1>
-        <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
+        <p className="mt-4 max-w-lg text-sm leading-relaxed text-slate-200 sm:text-base">
           Chọn một bức ảnh. SportSnap giúp bạn khám phá môn thể thao và các dự đoán phù hợp nhất.
         </p>
       </header>
-      <Card aria-label="Chọn ảnh để nhận diện" className="p-4 sm:p-6">
+      <SportTags />
+      <Card aria-label="Chọn ảnh để nhận diện" className="hud-panel p-4 sm:p-6">
         <input
           ref={inputRef}
           id="scan-image"
@@ -175,7 +177,7 @@ export function ScanPage() {
         )}
         {state.status === 'success' && <PredictionCard result={state.result} />}
       </div>
-      <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.
       </p>
     </>
