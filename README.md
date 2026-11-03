@@ -1,0 +1,3 @@
+# SportSnap
+
+Xem SPEC.md
