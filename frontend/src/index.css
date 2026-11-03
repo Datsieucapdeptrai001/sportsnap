@@ -13,6 +13,9 @@
   --muted-foreground: #475569;
   --border: #e2e8f0;
   --destructive: #b91c1c;
+  --warning: #92400e;
+  --warning-surface: #fffbeb;
+  --radius: 0.75rem;
 }
 
 @theme inline {
@@ -26,6 +29,9 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --font-sans: Inter, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,6 +46,8 @@
     --muted-foreground: #a1a1aa;
     --border: #3f3f46;
     --destructive: #fca5a5;
+    --warning: #fbbf24;
+    --warning-surface: #241b0b;
   }
 }
 
@@ -52,4 +60,19 @@ body {
 
 button:not(:disabled) {
   cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }

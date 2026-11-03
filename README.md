@@ -1,7 +1,7 @@
 # SportSnap
 
 Ứng dụng nhận diện môn thể thao qua ảnh, sử dụng FastAPI và React + TypeScript.
-Slice 1 cung cấp suy luận ảnh, danh sách lớp và API nhận diện; giao diện tải ảnh được triển khai ở slice sau.
+Slice 2 cung cấp trang Quét một ảnh, kết quả nhận diện và điều hướng trên điện thoại/máy tính.
 
 ## Run it
 
@@ -70,8 +70,19 @@ npm run dev
 ```
 
 Mở [SportSnap](http://localhost:5173). Vite chuyển tiếp `/api` tới
-`http://localhost:8000`. Trang hiển thị trạng thái kết nối và mô hình bằng tiếng Việt.
-Chưa có giao diện tải ảnh; API suy luận đã sẵn sàng ở Slice 1.
+`http://localhost:8000`. Tại trang Quét, chọn một ảnh để gửi tới `/api/predict`.
+Trang hiển thị ảnh xem trước, trạng thái tải, kết quả và các lỗi bằng tiếng Việt.
+Kết quả có nhãn gốc từ API, độ tin cậy, ba dự đoán hàng đầu và cảnh báo màu hổ phách
+khi không chắc chắn. Có thể chọn ảnh khác, xóa ảnh hoặc thử lại khi có lỗi.
+Giao diện sáng/tối theo hệ thống. Hai trang Hàng loạt và Phân tích hiện là trang chờ.
+
+Trên Android Chrome, mở ứng dụng qua HTTPS để kiểm tra trình chọn ảnh/chụp ảnh
+của điện thoại; không dùng địa chỉ HTTP LAN để nghiệm thu HTTPS. Live camera
+được triển khai ở Slice 3. Nút xem vùng AI chú ý hiện là nút chờ; AR triển khai
+ở Slice 5. Chỉ hiện nút AR khi có đủ cặp `.glb`/`.usdz` do nhóm cung cấp tại
+`frontend/public/models3d/` và nhãn tương ứng trong `src/lib/sports3d.ts`
+(`football`, `basketball`, `golf`). Thêm tệp trước khi chạy Vite/build lại.
+Không tải tài nguyên 3D từ bên ngoài.
 
 ### Chạy bản build trên một cổng
 

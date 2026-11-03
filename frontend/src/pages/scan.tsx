@@ -1,0 +1,182 @@
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { ImagePlus, ImageUp, ScanLine, ShieldCheck, TriangleAlert, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { PredictionCard } from '../components/prediction-card'
+import { Button } from '../components/ui/button'
+import { Card } from '../components/ui/card'
+import { Skeleton } from '../components/ui/skeleton'
+import { getClasses, predictImage, type Prediction } from '../lib/api'
+import { warnAboutUnmappedClasses } from '../lib/sports3d'
+
+type ScanState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; result: Prediction }
+  | { status: 'error'; message: string }
+
+function ImagePreview({ file }: { file: File }) {
+  const imageRef = useRef<HTMLImageElement>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file)
+    if (imageRef.current) imageRef.current.src = url
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
+  return (
+    <div className="flex aspect-[16/10] items-center justify-center overflow-hidden rounded-xl bg-muted/50">
+      <img
+        ref={imageRef}
+        alt="Ảnh đã chọn để nhận diện"
+        onError={() => setFailed(true)}
+        className={failed ? 'hidden' : 'size-full object-contain'}
+      />
+      {failed && <p className="px-6 text-center text-sm text-muted-foreground">Không thể xem trước ảnh này.</p>}
+    </div>
+  )
+}
+
+export function ScanPage() {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const requestRef = useRef<AbortController | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [state, setState] = useState<ScanState>({ status: 'idle' })
+
+  useEffect(() => () => requestRef.current?.abort(), [])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const controller = new AbortController()
+    getClasses(controller.signal).then(warnAboutUnmappedClasses).catch(() => {
+      if (!controller.signal.aborted) console.warn('Could not validate 3D mapping against /api/classes.')
+    })
+    return () => controller.abort()
+  }, [])
+
+  async function recognize(selected: File) {
+    requestRef.current?.abort()
+    const controller = new AbortController()
+    requestRef.current = controller
+    setState({ status: 'loading' })
+    try {
+      const result = await predictImage(selected, controller.signal)
+      if (!controller.signal.aborted) setState({ status: 'success', result })
+    } catch (error) {
+      if (controller.signal.aborted) return
+      const message = error instanceof Error ? error.message : 'Chưa thể nhận diện ảnh. Vui lòng thử lại.'
+      setState({ status: 'error', message })
+      toast.error(message)
+    }
+  }
+
+  function selectImage(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0]
+    event.target.value = ''
+    if (!selected) return
+    setFile(selected)
+    void recognize(selected)
+  }
+
+  function clearImage() {
+    requestRef.current?.abort()
+    setFile(null)
+    setState({ status: 'idle' })
+  }
+
+  return (
+    <>
+      <header className="mb-8">
+        <p className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-widest text-primary uppercase">
+          <ScanLine size={16} aria-hidden="true" />Nhận diện qua ảnh
+        </p>
+        <h1 className="text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
+          Môn thể thao nào<br className="hidden sm:block" /> trong ảnh của bạn?
+        </h1>
+        <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
+          Chọn một bức ảnh. SportSnap giúp bạn khám phá môn thể thao và các dự đoán phù hợp nhất.
+        </p>
+      </header>
+      <Card aria-label="Chọn ảnh để nhận diện" className="p-4 sm:p-6">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          aria-label="Chọn ảnh từ thư viện"
+          onChange={selectImage}
+          className="sr-only"
+          tabIndex={-1}
+        />
+        {file ? (
+          <>
+            <ImagePreview key={`${file.name}-${file.lastModified}`} file={file} />
+            <div className="mt-4 flex items-center gap-3">
+              <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground" title={file.name}>{file.name}</span>
+              <Button variant="outline" onClick={clearImage} aria-label="Xóa ảnh đã chọn" className="size-11 shrink-0 p-0">
+                <X size={18} aria-hidden="true" />
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed border-primary/30 bg-primary/[0.03] px-5 py-8 text-center sm:min-h-64">
+            <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border border-primary/15 bg-card text-primary shadow-sm">
+              <ImagePlus size={30} strokeWidth={1.5} aria-hidden="true" />
+            </div>
+            <h2 className="text-lg font-semibold">Bắt đầu từ một bức ảnh</h2>
+            <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
+              Chọn ảnh từ thư viện hoặc chụp ảnh bằng trình chọn ảnh trên điện thoại.
+            </p>
+          </div>
+        )}
+        <Button className="mt-4 w-full" onClick={() => inputRef.current?.click()}>
+          <ImageUp size={18} aria-hidden="true" />{file ? 'Chọn ảnh khác' : 'Chọn ảnh từ thư viện'}
+        </Button>
+        <p className="mt-3 text-center text-xs text-muted-foreground">Hỗ trợ JPG, JPEG, PNG và WebP · Mỗi lần một ảnh</p>
+      </Card>
+      <p role="status" aria-live="polite" className="sr-only">
+        {state.status === 'loading' ? 'Đang nhận diện ảnh. Vui lòng đợi.' : state.status === 'success' ? `Đã có kết quả: ${state.result.label}. ${state.result.is_uncertain ? 'Không chắc chắn.' : ''}` : ''}
+      </p>
+      <div className="mt-6" aria-busy={state.status === 'loading'}>
+        {state.status === 'idle' && (
+          <div className="flex gap-3 rounded-xl border border-border px-5 py-5 text-muted-foreground">
+            <ScanLine size={21} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <h2 className="text-sm font-medium text-foreground">Kết quả sẽ xuất hiện tại đây</h2>
+              <p className="mt-1 text-sm leading-relaxed">Ảnh rõ, có người chơi hoặc dụng cụ giúp mô hình dễ nhận diện hơn.</p>
+            </div>
+          </div>
+        )}
+        {state.status === 'loading' && (
+          <Card aria-label="Đang nhận diện ảnh">
+            <p className="mb-5 flex items-center gap-2 text-sm font-medium text-primary">
+              <ScanLine size={18} aria-hidden="true" />Đang nhận diện ảnh…
+            </p>
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="mt-6 h-3 w-full" />
+            <div className="mt-6 space-y-3">
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-5/6" />
+              <Skeleton className="h-5 w-4/6" />
+            </div>
+          </Card>
+        )}
+        {state.status === 'error' && (
+          <Card className="border-destructive/40">
+            <div role="alert" className="flex items-start gap-3">
+              <TriangleAlert size={21} className="mt-0.5 shrink-0 text-destructive" aria-hidden="true" />
+              <div>
+                <h2 className="font-semibold">Chưa thể nhận diện</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{state.message}</p>
+              </div>
+            </div>
+            {file && <Button className="mt-5" variant="outline" onClick={() => void recognize(file)}>Thử lại</Button>}
+          </Card>
+        )}
+        {state.status === 'success' && <PredictionCard result={state.result} />}
+      </div>
+      <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-muted-foreground">
+        <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.
+      </p>
+    </>
+  )
+}
