@@ -55,7 +55,7 @@ function App() {
       </aside>
       <main id="main-content" className="relative mx-auto max-w-[784px] px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:py-12">
         <div hidden={activeTab !== 'scan'}>
-          <ScanPage />
+          <ScanPage active={activeTab === 'scan'} />
         </div>
         {activeTab !== 'scan' && (
           <div className="text-white">

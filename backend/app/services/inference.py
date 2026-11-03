@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.errors import APIError
-from app.schemas import ClassConfidence, Prediction
+from app.schemas import ClassConfidence, FramePrediction, Prediction, ScanResult
 
 
 SUPPORTED_FORMATS = frozenset({"JPEG", "PNG", "WEBP"})
@@ -78,4 +78,41 @@ def predict_image(
         is_uncertain=top3[0].confidence < threshold,
         threshold=threshold,
         latency_ms=(perf_counter_ns() - started) // 1_000_000,
+    )
+
+
+def predict_frames(
+    frames: list[bytes], model: Classifier, labels: list[str], threshold: float
+) -> ScanResult:
+    started = perf_counter_ns()
+    # Decode every frame before inference; one bad frame rejects the whole scan.
+    batch = np.concatenate([preprocess_image(frame) for frame in frames], axis=0)
+    outputs = np.asarray(model.predict(batch, verbose=0))
+    if (
+        outputs.shape != (len(frames), len(labels))
+        or not labels
+        or not np.isfinite(outputs).all()
+        or (outputs < 0).any()
+        or (outputs > 1).any()
+    ):
+        raise ValueError("Model output must contain one probability per frame and label.")
+    probabilities = outputs.mean(axis=0)
+    indices = np.argsort(-probabilities, kind="stable")[:3]
+    top3 = [
+        ClassConfidence(label=labels[int(index)], confidence=float(probabilities[index]))
+        for index in indices
+    ]
+    frame_indices = outputs.argmax(axis=1)
+    return ScanResult(
+        label=top3[0].label,
+        confidence=top3[0].confidence,
+        top3=top3,
+        is_uncertain=top3[0].confidence < threshold,
+        threshold=threshold,
+        latency_ms=(perf_counter_ns() - started) // 1_000_000,
+        per_frame=[
+            FramePrediction(label=labels[int(index)], confidence=float(outputs[row, index]))
+            for row, index in enumerate(frame_indices)
+        ],
+        agreement=float(np.count_nonzero(frame_indices == indices[0]) / len(frames)),
     )

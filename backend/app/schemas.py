@@ -23,6 +23,15 @@ class Prediction(ClassConfidence):
     latency_ms: int = Field(ge=0)
 
 
+class FramePrediction(ClassConfidence):
+    pass
+
+
+class ScanResult(Prediction):
+    per_frame: list[FramePrediction] = Field(min_length=2, max_length=6)
+    agreement: float = Field(ge=0, le=1)
+
+
 class ClassesResponse(BaseModel):
     classes: list[str]
 

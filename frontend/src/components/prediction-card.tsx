@@ -2,13 +2,13 @@ import { Box, CircleCheck, Focus, TriangleAlert, Trophy } from 'lucide-react'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { Progress } from './ui/progress'
-import type { Prediction } from '../lib/api'
+import type { Prediction, ScanResult } from '../lib/api'
 import { sports3d } from '../lib/sports3d'
 import { cn } from '../lib/utils'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
-export function PredictionCard({ result }: { result: Prediction }) {
+export function PredictionCard({ result }: { result: Prediction | ScanResult }) {
   const uncertain = result.is_uncertain
   const hasAssets = Boolean(sports3d[result.label])
 
@@ -32,6 +32,12 @@ export function PredictionCard({ result }: { result: Prediction }) {
         <span className={cn('font-semibold text-primary tabular-nums', uncertain && 'text-warning')}>{percentage.format(result.confidence)}</span>
       </div>
       <Progress value={result.confidence * 100} label="Độ tin cậy" className={uncertain ? 'bg-warning' : undefined} />
+      {'agreement' in result && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Độ đồng thuận giữa các khung hình: <span className="font-semibold text-foreground tabular-nums">{percentage.format(result.agreement)}</span>
+          <span className="ml-1">({result.per_frame.length} khung hình)</span>
+        </p>
+      )}
       {uncertain && (
         <p className="mt-4 text-sm leading-relaxed text-warning">
           Độ tin cậy thấp hơn ngưỡng {percentage.format(result.threshold)}. Ảnh có thể không thuộc các môn mô hình đã học. Hãy thử ảnh rõ hơn, có người chơi hoặc dụng cụ thể thao.

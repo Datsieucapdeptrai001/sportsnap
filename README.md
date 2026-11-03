@@ -1,7 +1,7 @@
 # SportSnap
 
 Ứng dụng nhận diện môn thể thao qua ảnh, sử dụng FastAPI và React + TypeScript.
-Slice 2 cung cấp trang Quét một ảnh, kết quả nhận diện và điều hướng trên điện thoại/máy tính.
+Slice 3 cung cấp camera quét đa khung hình, chọn một ảnh từ thư viện và kết quả nhận diện.
 
 ## Run it
 
@@ -49,6 +49,16 @@ curl.exe -X POST http://localhost:8000/api/predict -F "file=@path/to/photo.jpg"
 API nhận JPEG, PNG và WebP, mặc định tối đa 12 MB mỗi ảnh. Kết quả gồm `label`,
 `confidence`, `top3`, `is_uncertain`, `threshold` và `latency_ms`.
 `confidence < CONFIDENCE_THRESHOLD` (mặc định 0.60) trả `is_uncertain: true`.
+`POST /api/scan` nhận từ 2 đến 6 khung hình trong các trường multipart `files`
+lặp lại. Kết quả lấy trung bình toàn bộ vector xác suất, kèm `per_frame` và
+`agreement` (tỷ lệ khung hình có nhãn đứng đầu trùng nhãn kết quả):
+
+```powershell
+curl.exe -X POST http://localhost:8000/api/scan -F "files=@path/to/frame-1.jpg" -F "files=@path/to/frame-2.jpg"
+```
+
+Thiếu hoặc thừa khung hình trả 400 `bad_request`. Một khung hình hỏng hoặc
+không hợp lệ làm toàn bộ lượt quét thất bại; không bỏ qua khung hình lỗi.
 Lỗi trả `{"error":{"code":"...","message":"..."}}` với thông báo tiếng Việt:
 415 `unsupported_format`, 422 `invalid_image`, 413 `file_too_large`,
 503 `model_not_loaded`; thiếu trường ảnh hoặc multipart không hợp lệ trả
@@ -70,15 +80,27 @@ npm run dev
 ```
 
 Mở [SportSnap](http://localhost:5173). Vite chuyển tiếp `/api` tới
-`http://localhost:8000`. Tại trang Quét, chọn một ảnh để gửi tới `/api/predict`.
-Trang hiển thị ảnh xem trước, trạng thái tải, kết quả và các lỗi bằng tiếng Việt.
-Kết quả có nhãn gốc từ API, độ tin cậy, ba dự đoán hàng đầu và cảnh báo màu hổ phách
-khi không chắc chắn. Có thể chọn ảnh khác, xóa ảnh hoặc thử lại khi có lỗi.
+`http://localhost:8000`. Trang Quét mở camera sau khi được cấp quyền, ưu tiên camera
+sau. Bấm **Quét đa khung hình** để chụp 4 khung hình cách nhau khoảng 300 ms và
+gửi tới `/api/scan`. Khung hình được thu nhỏ tối đa 640 px, JPEG chất lượng 0.85.
+Để giữ toàn bộ payload dưới 1,5 MB (có chừa dung lượng cho multipart), ứng dụng lần
+lượt giảm chất lượng xuống 0.75, 0.65, 0.55, giảm cạnh tối đa xuống 512 px, rồi
+giảm còn 3 hoặc tối thiểu 2 khung hình; nếu vẫn quá lớn sẽ báo lỗi trước khi gửi.
+Kết quả hiển thị nhãn gốc từ API, độ tin cậy, ba dự đoán hàng đầu, độ đồng thuận
+và cảnh báo màu hổ phách khi không chắc chắn.
+
+Chọn **Thư viện** hoặc **Chọn ảnh từ thư viện** để gửi một ảnh tới `/api/predict`.
+Có thể quay lại camera, chọn ảnh khác hoặc thử lại khi có lỗi. Camera dừng khi
+hiện kết quả, chuyển sang thư viện, rời trang hoặc đưa ứng dụng xuống nền;
+bấm mở lại camera để tiếp tục. Lỗi quyền truy cập, thiếu camera, kết nối không
+an toàn, ảnh không hợp lệ, mô hình chưa sẵn sàng và lỗi mạng đều có thông báo tiếng Việt.
 Giao diện sáng/tối theo hệ thống. Hai trang Hàng loạt và Phân tích hiện là trang chờ.
 
-Trên Android Chrome, mở ứng dụng qua HTTPS để kiểm tra trình chọn ảnh/chụp ảnh
-của điện thoại; không dùng địa chỉ HTTP LAN để nghiệm thu HTTPS. Live camera
-được triển khai ở Slice 3. Nút xem vùng AI chú ý hiện là nút chờ; AR triển khai
+Trên Android Chrome và iOS Safari, mở ứng dụng qua HTTPS để dùng camera;
+HTTP chỉ hỗ trợ camera khi chạy ở localhost. Địa chỉ HTTP LAN sẽ hiển thị hướng
+dẫn dùng HTTPS hoặc chọn ảnh từ thư viện. Kiểm tra trên điện thoại: cấp/từ chối
+quyền camera, quét bằng camera sau, xem tiến độ 4 khung hình, độ đồng thuận,
+quay lại camera và chuyển sang chọn ảnh. Nút xem vùng AI chú ý hiện là nút chờ; AR triển khai
 ở Slice 5. Chỉ hiện nút AR khi có đủ cặp `.glb`/`.usdz` do nhóm cung cấp tại
 `frontend/public/models3d/` và nhãn tương ứng trong `src/lib/sports3d.ts`
 (`football`, `basketball`, `golf`). Thêm tệp trước khi chạy Vite/build lại.
@@ -105,10 +127,15 @@ cd backend
 cd ../frontend
 npx tsc --noEmit
 npm run build
+npm test
 ```
 
 Bộ kiểm tra xác nhận trạng thái, suy luận, tiền xử lý, EXIF, ngưỡng không chắc chắn,
 định dạng ảnh, ảnh hỏng, giới hạn dung lượng, CORS và phục vụ frontend.
+Các kiểm tra đa khung hình xác nhận trung bình xác suất (khác bỏ phiếu đa số),
+độ đồng thuận, ngưỡng không chắc chắn, giới hạn 2–6 khung hình và các lỗi API.
+`npm test` kiểm tra chụp/cancel, khoảng cách khung hình, từng bước giảm dung lượng,
+thông báo lỗi camera, gọi API và bộ kiểm tra nền canvas hiện có.
 Golden test là điều kiện bắt buộc: cần hai tệp mô hình gốc và bộ ảnh trong
 `backend/tests/golden/`; thiếu dữ liệu sẽ báo lỗi thay vì bỏ qua.
 Bộ golden ban đầu gồm tám ảnh mẫu tổng hợp với kết quả thực từ mô hình,

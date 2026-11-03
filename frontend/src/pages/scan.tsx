@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
-import { ImagePlus, ImageUp, ScanLine, ShieldCheck, TriangleAlert, X } from 'lucide-react'
+import { Camera, ImagePlus, ImageUp, ScanLine, ShieldCheck, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { PredictionCard } from '../components/prediction-card'
+import { CameraScanner } from '../components/camera-scanner'
 import { SportTags } from '../components/sport-tags'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
-import { getClasses, predictImage, type Prediction } from '../lib/api'
+import { getClasses, predictImage, type Prediction, type ScanResult } from '../lib/api'
 import { warnAboutUnmappedClasses } from '../lib/sports3d'
 
 type ScanState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; result: Prediction }
+  | { status: 'success'; result: Prediction | ScanResult }
   | { status: 'error'; message: string }
 
 function ImagePreview({ file }: { file: File }) {
@@ -38,10 +39,11 @@ function ImagePreview({ file }: { file: File }) {
   )
 }
 
-export function ScanPage() {
+export function ScanPage({ active = true }: { active?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const requestRef = useRef<AbortController | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [mode, setMode] = useState<'camera' | 'gallery'>('camera')
   const [state, setState] = useState<ScanState>({ status: 'idle' })
 
   useEffect(() => () => requestRef.current?.abort(), [])
@@ -85,21 +87,34 @@ export function ScanPage() {
     setState({ status: 'idle' })
   }
 
+  function changeMode(nextMode: 'camera' | 'gallery') {
+    clearImage()
+    setMode(nextMode)
+  }
+
   return (
     <>
       <header className="text-white">
         <p className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-widest text-emerald-300 uppercase">
-          <ScanLine size={16} aria-hidden="true" />Nhận diện qua ảnh
+          <ScanLine size={16} aria-hidden="true" />Nhận diện môn thể thao
         </p>
         <h1 className="text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
           Môn thể thao nào<br className="hidden sm:block" /> trong ảnh của bạn?
         </h1>
         <p className="mt-4 max-w-lg text-sm leading-relaxed text-slate-200 sm:text-base">
-          Chọn một bức ảnh. SportSnap giúp bạn khám phá môn thể thao và các dự đoán phù hợp nhất.
+          Quét bằng camera hoặc chọn ảnh từ thư viện để khám phá môn thể thao và các dự đoán phù hợp nhất.
         </p>
       </header>
       <SportTags />
-      <Card aria-label="Chọn ảnh để nhận diện" className="hud-panel p-4 sm:p-6">
+      <Card aria-label="Camera và thư viện ảnh" className="hud-panel p-4 sm:p-6">
+        <div className="mb-4 flex gap-2" role="group" aria-label="Chế độ nhận diện">
+          <Button className="flex-1" variant={mode === 'camera' ? 'default' : 'outline'} aria-pressed={mode === 'camera'} onClick={() => changeMode('camera')}>
+            <Camera size={18} aria-hidden="true" />Camera
+          </Button>
+          <Button className="flex-1" variant={mode === 'gallery' ? 'default' : 'outline'} aria-pressed={mode === 'gallery'} onClick={() => changeMode('gallery')}>
+            <ImageUp size={18} aria-hidden="true" />Thư viện
+          </Button>
+        </div>
         <input
           ref={inputRef}
           id="scan-image"
@@ -110,7 +125,13 @@ export function ScanPage() {
           className="sr-only"
           tabIndex={-1}
         />
-        {file ? (
+        {mode === 'camera' ? (
+          state.status === 'success' ? (
+            <Button className="w-full" onClick={() => changeMode('camera')}><Camera size={18} aria-hidden="true" />Quay lại camera trực tiếp</Button>
+          ) : (
+            active && <CameraScanner onResult={(result) => setState({ status: 'success', result })} />
+          )
+        ) : file ? (
           <>
             <ImagePreview key={`${file.name}-${file.lastModified}`} file={file} />
             <div className="mt-4 flex items-center gap-3">
@@ -131,10 +152,13 @@ export function ScanPage() {
             </p>
           </label>
         )}
-        <Button className="mt-4 w-full" onClick={() => inputRef.current?.click()}>
+        {mode === 'gallery' && <Button className="mt-4 w-full" onClick={() => inputRef.current?.click()}>
           <ImageUp size={18} aria-hidden="true" />{file ? 'Chọn ảnh khác' : 'Chọn ảnh từ thư viện'}
-        </Button>
-        <p className="mt-3 text-center text-xs text-muted-foreground">Hỗ trợ JPG, JPEG, PNG và WebP · Mỗi lần một ảnh</p>
+        </Button>}
+        {mode === 'camera' && <Button variant="outline" className="mt-4 w-full" onClick={() => { changeMode('gallery'); inputRef.current?.click() }}>
+          <ImageUp size={18} aria-hidden="true" />Chọn ảnh từ thư viện
+        </Button>}
+        {mode === 'gallery' && <p className="mt-3 text-center text-xs text-muted-foreground">Hỗ trợ JPG, JPEG, PNG và WebP · Mỗi lần một ảnh</p>}
       </Card>
       <p role="status" aria-live="polite" className="sr-only">
         {state.status === 'loading' ? 'Đang nhận diện ảnh. Vui lòng đợi.' : state.status === 'success' ? `Đã có kết quả: ${state.result.label}. ${state.result.is_uncertain ? 'Không chắc chắn.' : ''}` : ''}

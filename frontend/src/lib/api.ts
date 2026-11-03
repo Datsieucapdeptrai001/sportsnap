@@ -26,6 +26,13 @@ export interface Prediction extends ClassConfidence {
   latency_ms: number
 }
 
+export type FramePrediction = ClassConfidence
+
+export interface ScanResult extends Prediction {
+  per_frame: FramePrediction[]
+  agreement: number
+}
+
 const errorMessages: Record<string, string> = {
   bad_request: 'Không thể gửi ảnh. Vui lòng chọn lại ảnh và thử lại.',
   unsupported_format: 'Chỉ hỗ trợ ảnh JPG, JPEG, PNG hoặc WebP. Vui lòng chọn ảnh khác.',
@@ -37,10 +44,22 @@ const errorMessages: Record<string, string> = {
 export async function predictImage(file: File, signal?: AbortSignal): Promise<Prediction> {
   const body = new FormData()
   body.append('file', file)
+  return postImages<Prediction>('/api/predict', body, signal)
+}
 
+export async function scanFrames(files: Blob[], signal?: AbortSignal): Promise<ScanResult> {
+  if (files.length < 2 || files.length > 6) {
+    throw new Error('Vui lòng gửi từ 2 đến 6 khung hình để quét.')
+  }
+  const body = new FormData()
+  files.forEach((file, index) => body.append('files', file, `frame-${index + 1}.jpg`))
+  return postImages<ScanResult>('/api/scan', body, signal)
+}
+
+async function postImages<T extends Prediction>(path: string, body: FormData, signal?: AbortSignal): Promise<T> {
   let response: Response
   try {
-    response = await fetch('/api/predict', { method: 'POST', body, signal })
+    response = await fetch(path, { method: 'POST', body, signal })
   } catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.', { cause: error })
@@ -60,7 +79,7 @@ export async function predictImage(file: File, signal?: AbortSignal): Promise<Pr
   }
 
   try {
-    return await response.json() as Prediction
+    return await response.json() as T
   } catch (error) {
     throw new Error('Không đọc được kết quả nhận diện. Vui lòng thử lại.', { cause: error })
   }
