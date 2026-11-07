@@ -118,11 +118,18 @@ Không tải tài nguyên 3D từ bên ngoài.
 
 Mở tab **Phân loại hàng loạt**, kéo thả/chọn nhiều ảnh hoặc một ZIP rồi bấm **Bắt đầu**.
 Trang hiển thị tiến độ tải lên, cập nhật job mỗi giây và thống kê nhãn, số ảnh không chắc chắn,
-số tệp lỗi. Bảng xem trước tối đa 50 dòng, không có thumbnail theo SPEC; bộ lọc nhãn và
+số tệp lỗi. Bảng xem trước tối đa 50 dòng có ảnh thu nhỏ tạo từ File đã chọn trong trình duyệt;
+ghép theo thứ tự gửi, kể cả khi trùng tên hoặc tên đã được làm sạch. Bộ lọc nhãn và
 **Chỉ không chắc chắn** áp dụng cho bảng này. **Tải ZIP** xuất toàn bộ kết quả khi hoàn tất.
+Ảnh thu nhỏ 72×72, bấm để xem lớn, đóng bằng Escape/nút đóng/bấm nền. Trên điện thoại,
+các dòng hiển thị dạng thẻ. Chỉ các dòng đang hiển thị giữ object URL, tối đa 50; URL được
+thu hồi khi lọc bỏ dòng, đổi danh sách ảnh, bắt đầu job mới, hủy/xóa job hoặc rời component.
+Ảnh trong ZIP có ô thay thế vì không có File ảnh riêng phía trình duyệt; không thêm endpoint ảnh.
 Chuyển tab dừng polling, quay lại tiếp tục theo dõi cùng job. Lỗi mạng có nút **Thử lại**.
 **Hủy** dừng job và xóa ảnh tạm; batch model đang chạy sẽ được bỏ kết quả khi kết thúc.
-Sau khi xong có thể bấm **Xóa tệp tạm** để dọn ngay.
+Sau khi xong có thể bấm **Xóa tệp tạm** để dọn ngay: trang giữ trạng thái **Đã hoàn tất**
+và báo **Đã xóa tệp tạm**, đồng thời bỏ nút tải ZIP. DELETE của backend vẫn trả `cancelled`
+cho thao tác này; trước đây UI hiển thị thẳng phản hồi nên dễ nhầm thành người dùng đã hủy job.
 
 `POST /api/bulk` nhận multipart `files` (hoặc `files[]`), trả HTTP 202 `{job_id}`.
 Gửi nhiều ảnh hoặc đúng một `.zip`; đường dẫn trong ZIP được lấy basename, không giải nén
@@ -211,7 +218,9 @@ Các kiểm tra đa khung hình xác nhận trung bình xác suất (khác bỏ 
 thông báo lỗi camera, gọi API và bộ kiểm tra nền canvas hiện có.
 Các kiểm tra bulk xác nhận batch 32/32/6, 300 tệp hỗn hợp, ZIP/CSV, tệp lỗi,
 giới hạn số tệp, hủy job, TTL, tên tệp an toàn, CSV injection và dọn tệp.
-Frontend kiểm tra polling 1 giây, dừng/hủy polling, bộ lọc, tiến độ upload và lỗi API bulk.
+Frontend kiểm tra polling 1 giây, dừng/hủy polling, bộ lọc, tiến độ upload và lỗi API bulk,
+ghép ảnh theo index, giới hạn/thu hồi object URL và phân biệt xóa tệp tạm với hủy phân loại.
+Polling gọi timer qua hàm bọc để tránh lỗi trình duyệt `Illegal invocation` do sai receiver.
 Golden test là điều kiện bắt buộc: cần hai tệp mô hình gốc và bộ ảnh trong
 `backend/tests/golden/`; thiếu dữ liệu sẽ báo lỗi thay vì bỏ qua.
 Bộ golden ban đầu gồm tám ảnh mẫu tổng hợp với kết quả thực từ mô hình,

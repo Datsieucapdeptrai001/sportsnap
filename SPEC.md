@@ -82,7 +82,12 @@ Navigation: bottom tab bar on mobile, left sidebar on desktop.
    If the scan payload exceeds 1.5 MB, follow the reduction sequence in §12. A single "Chọn ảnh từ thư viện" image uses `/api/predict`; `/api/scan` is only for 2–6 camera frames. Result card: sport name, confidence meter, top-3, agreement, a clear
    **"Không chắc chắn"** state, a **"Xem AR"** button (only if a 3D model exists for that sport), a "Xem vùng AI chú ý" button (Grad-CAM).
 2. **Phân loại hàng loạt**: drag-and-drop zone / file picker, upload progress, job progress bar (poll every 1 s),
-   summary (per-sport counts, number uncertain and errors), table preview of the first 50 items without thumbnails, **Download ZIP**.
+   summary (per-sport counts, number uncertain and errors), preview of the first 50 items with client-side thumbnails,
+   **Download ZIP**. Pair results with the original browser Files by submitted index, before filtering; never match by filename.
+   Create object URLs only for visible preview rows (at most 50), reuse retained rows and revoke removed rows' URLs.
+   Clear URLs on a new job, file-list change, cancellation/deletion and unmount. Thumbnails are 72x72, lazy/async loaded,
+   with a large-image dialog closed by Escape, its close button or the backdrop. Use cards on narrow screens.
+   ZIP inputs have placeholders because individual browser image Files are unavailable; no thumbnail API endpoint.
 3. **Phân tích**: reads `/api/insights`: model comparison table, confusion-matrix image, Grad-CAM gallery, and optional ablation data. See §12 for the schema and image endpoint.
 
 ### AR (client side only)
@@ -158,7 +163,10 @@ Job store is in-memory (dict + lock); delete job files 30 minutes after a job re
 3. A single gallery image uses /predict. /scan is only for camera multi-frame (2–6 frames).
 4. Slice 2 uses <input type="file" accept="image/*"> (capture allowed on mobile) -> /predict. Live camera is Slice 3.
 5. GET /bulk/{id} when done also returns: counts {label:n}, uncertain, errors, items (first 50:
-   {filename,label,confidence,folder}). Preview is a table, no thumbnails.
+   {filename,label,confidence,folder}). Preview uses client-side thumbnails from the selected Files, paired by index;
+   filtering keeps original indexes. No image endpoint is added. Only visible rows (at most 50) retain object URLs.
+   Cleaning up a completed job preserves its processing outcome in the UI and marks temporary files as deleted;
+   cancelling a queued/running job still displays cancellation, even if processed equals total while ZIP creation is pending.
 6. experiments.json schema: {"models":[{"name","strategy","accuracy","macro_f1","params_m","size_mb","latency_ms"}],
    "confusion_matrix_image":"cm.png","gradcam_gallery":[{"image","true","pred","note"}],
    "ablation":[{"name","accuracy","delta"}]}  (ablation optional). Images live in backend/data/insights/

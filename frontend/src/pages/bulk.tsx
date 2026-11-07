@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Download, Layers, LoaderCircle, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
@@ -6,7 +6,7 @@ import { Card } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
 import { Skeleton } from '../components/ui/skeleton'
 import { cancelBulkJob, createBulkJob, downloadBulkJob, type BulkState, type BulkStatus } from '../lib/api'
-import { filterBulkItems, isBulkTerminal, pollBulkJob } from '../lib/bulk'
+import { bulkStatusAfterRemoval, createBulkPreviewUrls, filterBulkItems, isBulkTerminal, pairBulkPreviewItems, pollBulkJob } from '../lib/bulk'
 
 const stateLabels: Record<BulkState, string> = {
   queued: 'Đang chờ', running: 'Đang phân loại', done: 'Đã hoàn tất', error: 'Phân loại thất bại', cancelled: 'Đã hủy',
@@ -15,12 +15,61 @@ const fileErrors: Record<string, string> = {
   unsupported_format: 'Định dạng không hỗ trợ', corrupt: 'Ảnh hỏng hoặc không đọc được', too_large: 'Vượt dung lượng cho phép',
 }
 
+function BulkThumbnail({ file, index, filename, previews, onOpen }: {
+  file: File
+  index: number
+  filename: string
+  previews: ReturnType<typeof createBulkPreviewUrls>
+  onOpen: (url: string, filename: string) => void
+}) {
+  const imageRef = useRef<HTMLImageElement>(null)
+  const leaseRef = useRef<ReturnType<typeof previews.acquire>>(undefined)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    const lease = previews.acquire(index, file)
+    leaseRef.current = lease
+    if (lease && imageRef.current) imageRef.current.src = lease.url
+    return () => { lease?.release(); leaseRef.current = undefined }
+  }, [previews, index, file])
+
+  if (failed) return <span className="flex size-[72px] items-center justify-center rounded-xl bg-muted p-1 text-center text-xs text-muted-foreground">Không xem được ảnh</span>
+  return (
+    <button type="button" className="block size-[72px] overflow-hidden rounded-xl bg-muted" aria-label={`Xem ảnh ${filename}`}
+      onClick={() => { if (leaseRef.current) onOpen(leaseRef.current.url, filename) }}>
+      <img ref={imageRef} width={72} height={72} alt={`Ảnh ${filename}`} loading="lazy" decoding="async" className="size-full object-cover" onError={() => setFailed(true)} />
+    </button>
+  )
+}
+
+function BulkLightbox({ url, filename, onClose }: { url: string; filename: string; onClose: () => void }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    const dialog = dialogRef.current
+    dialog?.showModal()
+    return () => dialog?.close()
+  }, [])
+  return (
+    <dialog ref={dialogRef} aria-label={`Xem ảnh ${filename}`} className="fixed inset-0 m-auto w-[calc(100%_-_2rem)] max-w-3xl overflow-visible rounded-xl bg-transparent p-0 text-card-foreground backdrop:bg-black/80"
+      onCancel={onClose} onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div className="rounded-xl bg-card p-3 shadow-xl sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-3"><p className="min-w-0 break-all text-sm">{filename}</p><Button autoFocus variant="outline" className="shrink-0 px-3" aria-label="Đóng ảnh" onClick={onClose}><X size={20} aria-hidden="true" /></Button></div>
+        <img src={url} alt={filename} decoding="async" className="mx-auto max-h-[70svh] max-w-full rounded-xl object-contain" />
+      </div>
+    </dialog>
+  )
+}
+
 export function BulkPage({ active }: { active: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const requestRef = useRef<AbortController | null>(null)
   const stopPolling = useRef<(() => void) | null>(null)
   const urls = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const [files, setFiles] = useState<File[]>([])
+  const [submittedFiles, setSubmittedFiles] = useState<File[]>([])
+  const [previews] = useState(() => createBulkPreviewUrls())
+  const [lightbox, setLightbox] = useState<{ url: string; filename: string } | null>(null)
+  const [filesRemoved, setFilesRemoved] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [job, setJob] = useState<BulkStatus | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -41,8 +90,9 @@ export function BulkPage({ active }: { active: boolean }) {
       stopPolling.current?.()
       downloads.forEach((timer, url) => { clearTimeout(timer); URL.revokeObjectURL(url) })
       downloads.clear()
+      previews.clear()
     }
-  }, [])
+  }, [previews])
 
   useEffect(() => {
     if (!active || !jobId || terminal) return
@@ -57,6 +107,13 @@ export function BulkPage({ active }: { active: boolean }) {
 
   function choose(selected: File[]) {
     if (disabled) return
+    if (!selected.length) return
+    previews.clear()
+    setLightbox(null)
+    setSubmittedFiles([])
+    setJobId(null)
+    setJob(null)
+    setFilesRemoved(false)
     setFiles(selected)
     setError('')
     setLabel('')
@@ -75,6 +132,10 @@ export function BulkPage({ active }: { active: boolean }) {
     const controller = new AbortController()
     requestRef.current = controller
     stopPolling.current?.()
+    previews.clear()
+    setLightbox(null)
+    setSubmittedFiles([...files])
+    setFilesRemoved(false)
     setUploading(true)
     setUploadPercent(0)
     setError('')
@@ -101,7 +162,14 @@ export function BulkPage({ active }: { active: boolean }) {
     requestRef.current = controller
     try {
       const result = await cancelBulkJob(jobId, controller.signal)
-      if (!controller.signal.aborted) { setJob(result); setFiles([]) }
+      if (!controller.signal.aborted) {
+        setJob(bulkStatusAfterRemoval(job, result))
+        setFilesRemoved(true)
+        setLightbox(null)
+        previews.clear()
+        setSubmittedFiles([])
+        setFiles([])
+      }
     } catch (reason) {
       if (!controller.signal.aborted) { showError(reason); setPollVersion((value) => value + 1) }
     } finally {
@@ -110,7 +178,7 @@ export function BulkPage({ active }: { active: boolean }) {
   }
 
   async function download() {
-    if (!jobId || busy) return
+    if (!jobId || busy || filesRemoved) return
     setBusy(true)
     setError('')
     const controller = new AbortController()
@@ -133,7 +201,7 @@ export function BulkPage({ active }: { active: boolean }) {
     }
   }
 
-  const items = filterBulkItems(job?.items ?? [], label, uncertainOnly)
+  const items = useMemo(() => filterBulkItems(pairBulkPreviewItems(job?.items ?? [], submittedFiles), label, uncertainOnly), [job?.items, submittedFiles, label, uncertainOnly])
   const progress = job?.total ? Math.round(job.processed / job.total * 100) : 0
   return (
     <>
@@ -174,20 +242,28 @@ export function BulkPage({ active }: { active: boolean }) {
         </div>
         <p className="text-xs text-muted-foreground">Xem trước tối đa 50 kết quả đầu tiên. Báo cáo trong ZIP chứa tất cả kết quả.</p>
         <div className="flex flex-wrap items-center gap-4">
-          <label className="text-sm">Môn thể thao<select value={label} onChange={(event) => setLabel(event.target.value)} className="ml-2 min-h-11 max-w-48 rounded-xl border bg-background px-3"><option value="">Tất cả</option>{Object.keys(job.counts).map((sport) => <option key={sport} value={sport}>{sport}</option>)}</select></label>
-          <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={uncertainOnly} onChange={(event) => setUncertainOnly(event.target.checked)} className="size-4 accent-emerald-600" />Chỉ không chắc chắn</label>
+          <label className="text-sm">Môn thể thao<select value={label} onChange={(event) => { setLightbox(null); setLabel(event.target.value) }} className="ml-2 min-h-11 max-w-48 rounded-xl border bg-background px-3"><option value="">Tất cả</option>{Object.keys(job.counts).map((sport) => <option key={sport} value={sport}>{sport}</option>)}</select></label>
+          <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={uncertainOnly} onChange={(event) => { setLightbox(null); setUncertainOnly(event.target.checked) }} className="size-4 accent-emerald-600" />Chỉ không chắc chắn</label>
         </div>
         <div className="overflow-x-auto rounded-xl border">
-          <table className="w-full text-left text-sm"><caption className="sr-only">Kết quả phân loại xem trước</caption><thead className="bg-muted/60"><tr><th scope="col" className="p-3">Tên tệp</th><th scope="col" className="p-3">Nhãn / trạng thái</th><th scope="col" className="p-3">Độ tin cậy</th></tr></thead>
-            <tbody>{items.map((item) => <tr key={item.filename} className="border-t"><td className="max-w-56 break-all p-3">{item.filename}</td><td className="p-3">{item.error ? <span className="text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</span> : <><span>{item.label}</span>{item.is_uncertain && <span className="mt-1 block w-fit rounded-full bg-amber-500/15 px-2 py-1 text-xs text-amber-800 dark:text-amber-300">Không chắc chắn</span>}</>}</td><td className="p-3 tabular-nums">{item.confidence === null ? '—' : `${(item.confidence * 100).toFixed(1)}%`}</td></tr>)}</tbody>
+          <table className="block w-full text-left text-sm sm:table"><caption className="sr-only">Kết quả phân loại xem trước</caption><thead className="hidden bg-muted/60 sm:table-header-group"><tr><th scope="col" className="p-3">Ảnh</th><th scope="col" className="p-3">Tên tệp</th><th scope="col" className="p-3">Nhãn / trạng thái</th><th scope="col" className="p-3">Độ tin cậy</th></tr></thead>
+            <tbody className="block sm:table-row-group">{items.map((item) => <tr key={`${jobId}:${item.index}`} className="grid grid-cols-[96px_minmax(0,1fr)] border-t p-1 first:border-t-0 sm:table-row sm:p-0 sm:first:border-t">
+              <td className="row-span-3 p-3 align-top">{item.file ? <BulkThumbnail file={item.file} index={item.index} filename={item.filename} previews={previews} onOpen={(url, filename) => setLightbox({ url, filename })} /> : <span className="flex size-[72px] items-center justify-center rounded-xl bg-muted p-1 text-center text-xs text-muted-foreground">Không có ảnh xem trước</span>}</td>
+              <td className="min-w-0 max-w-56 break-all px-3 pt-3 pb-1 sm:p-3">{item.filename}</td>
+              <td className="min-w-0 px-3 py-1 sm:p-3">{item.error ? <span className="text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</span> : <><span>{item.label}</span>{item.is_uncertain && <span className="mt-1 block w-fit rounded-full bg-amber-500/15 px-2 py-1 text-xs text-amber-800 dark:text-amber-300">Không chắc chắn</span>}</>}</td>
+              <td className="px-3 pt-1 pb-3 tabular-nums sm:p-3"><span className="text-muted-foreground sm:hidden">Độ tin cậy: </span>{item.confidence === null ? '—' : `${(item.confidence * 100).toFixed(1)}%`}</td>
+            </tr>)}</tbody>
           </table>
           {!items.length && <p className="p-6 text-center text-sm text-muted-foreground">{running && !job.processed ? 'Kết quả sẽ xuất hiện khi ảnh được xử lý.' : 'Không có kết quả phù hợp bộ lọc.'}</p>}
         </div>
+        {submittedFiles.length === 1 && submittedFiles[0].name.toLowerCase().endsWith('.zip') && <p className="text-xs text-muted-foreground">Ảnh trong ZIP không có bản xem trước. Chọn trực tiếp các tệp ảnh để xem thumbnail.</p>}
+        {filesRemoved && <p role="status" className="text-sm text-muted-foreground">Đã xóa tệp tạm. Kết quả tổng hợp vẫn được giữ trên trang này.</p>}
         <div className="flex flex-wrap gap-3">
-          {job.status === 'done' && <Button disabled={busy} onClick={() => { void download() }}><Download size={18} aria-hidden="true" />{busy ? 'Đang tải…' : 'Tải ZIP'}</Button>}
-          {job.status !== 'cancelled' && <Button variant="outline" disabled={busy} onClick={() => { void cancel() }}><X size={18} aria-hidden="true" />{running ? 'Hủy' : 'Xóa tệp tạm'}</Button>}
+          {job.status === 'done' && !filesRemoved && <Button disabled={busy} onClick={() => { void download() }}><Download size={18} aria-hidden="true" />{busy ? 'Đang tải…' : 'Tải ZIP'}</Button>}
+          {job.status !== 'cancelled' && !filesRemoved && <Button variant="outline" disabled={busy} onClick={() => { void cancel() }}><X size={18} aria-hidden="true" />{running ? 'Hủy' : 'Xóa tệp tạm'}</Button>}
         </div>
       </Card>}
+      {active && lightbox && <BulkLightbox url={lightbox.url} filename={lightbox.filename} onClose={() => setLightbox(null)} />}
     </>
   )
 }
