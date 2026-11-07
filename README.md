@@ -64,6 +64,12 @@ Lỗi trả `{"error":{"code":"...","message":"..."}}` với thông báo tiếng
 503 `model_not_loaded`; thiếu trường ảnh hoặc multipart không hợp lệ trả
 400 `bad_request`. Lỗi suy luận trả 500 `internal_error`, không lộ chi tiết nội bộ.
 
+Chỉ khi debug ở môi trường phát triển: đặt `DEBUG_SAVE_FRAMES=1` trong `.env`
+và khởi động lại backend để lưu nguyên byte các frame `/api/scan` nhận được vào
+`backend/debug_frames/` (đã được Git bỏ qua). Có thể đổi đường dẫn bằng
+`DEBUG_FRAMES_DIR`, tính từ `BASE_DIR`. Mặc định tắt (`DEBUG_SAVE_FRAMES=0`);
+ảnh debug được giữ lại để đối chiếu, xóa thủ công sau khi kiểm tra.
+
 `.env` được đọc từ thư mục gốc dù chạy lệnh trong `backend/`. `BASE_DIR` mặc định
 là thư mục gốc; các đường dẫn tương đối trong `.env` được tính từ `BASE_DIR`.
 Giữ `PREPROCESS=mobilenet_v2` theo notebook huấn luyện. Các giới hạn mặc định nằm trong `.env.example`.
@@ -81,11 +87,13 @@ npm run dev
 
 Mở [SportSnap](http://localhost:5173). Vite chuyển tiếp `/api` tới
 `http://localhost:8000`. Trang Quét mở camera sau khi được cấp quyền, ưu tiên camera
-sau. Bấm **Quét đa khung hình** để chụp 4 khung hình cách nhau khoảng 300 ms và
-gửi tới `/api/scan`. Khung hình được thu nhỏ tối đa 640 px, JPEG chất lượng 0.85.
+sau với độ phân giải ưu tiên 1280×720, không thu âm. Bấm **Quét đa khung hình**
+để đợi video có dữ liệu và warmup khoảng 500 ms, rồi chụp 4 khung hình cách nhau
+khoảng 300 ms và gửi tới `/api/scan`. Mỗi frame được cắt vuông ở giữa theo kích
+thước video gốc, scale một lần thành 448×448 và nén JPEG chất lượng 0.95.
 Để giữ toàn bộ payload dưới 1,5 MB (có chừa dung lượng cho multipart), ứng dụng lần
-lượt giảm chất lượng xuống 0.75, 0.65, 0.55, giảm cạnh tối đa xuống 512 px, rồi
-giảm còn 3 hoặc tối thiểu 2 khung hình; nếu vẫn quá lớn sẽ báo lỗi trước khi gửi.
+lượt giảm chất lượng xuống 0.90, 0.85, rồi giảm còn 3 hoặc tối thiểu 2 khung hình;
+luôn giữ 448×448, nếu vẫn quá lớn sẽ báo lỗi trước khi gửi.
 Kết quả hiển thị nhãn gốc từ API, độ tin cậy, ba dự đoán hàng đầu, độ đồng thuận
 và cảnh báo màu hổ phách khi không chắc chắn.
 

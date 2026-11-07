@@ -1,6 +1,16 @@
 const MAX_SCAN_BYTES = 1_500_000
 // Leave ample room for multipart boundaries and headers with fixed short filenames.
 const MULTIPART_RESERVE_BYTES = 16_384
+const FRAME_SIDE = 448
+
+export const CAMERA_CONSTRAINTS: MediaStreamConstraints = {
+  video: {
+    facingMode: { ideal: 'environment' },
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+  },
+  audio: false,
+}
 
 export function cameraErrorMessage(error: unknown): string {
   const name = error instanceof DOMException || error instanceof Error ? error.name : ''
@@ -25,15 +35,20 @@ export function checkCameraSupport(): void {
   }
 }
 
-function resizeFrame(source: CanvasImageSource, width: number, height: number, maxSide: number): HTMLCanvasElement {
-  const scale = Math.min(1, maxSide / Math.max(width, height))
+function captureFrame(video: HTMLVideoElement): HTMLCanvasElement {
+  // Use intrinsic video pixels; CSS preview dimensions and transforms do not apply.
+  const side = Math.min(video.videoWidth, video.videoHeight)
+  const sx = (video.videoWidth - side) / 2
+  const sy = (video.videoHeight - side) / 2
   const canvas = document.createElement('canvas')
-  canvas.width = Math.max(1, Math.round(width * scale))
-  canvas.height = Math.max(1, Math.round(height * scale))
+  canvas.width = FRAME_SIDE
+  canvas.height = FRAME_SIDE
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Không thể chụp khung hình trên trình duyệt này. Vui lòng chọn ảnh từ thư viện.')
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
   try {
-    context.drawImage(source, 0, 0, canvas.width, canvas.height)
+    context.drawImage(video, sx, sy, side, side, 0, 0, FRAME_SIDE, FRAME_SIDE)
   } catch (error) {
     throw new Error('Không thể đọc khung hình từ camera. Vui lòng mở lại camera hoặc chọn ảnh từ thư viện.', { cause: error })
   }
@@ -56,24 +71,21 @@ function jpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 
 export async function compressFrames(frames: HTMLCanvasElement[], signal: AbortSignal): Promise<Blob[]> {
   const fits = (blobs: Blob[]) => blobs.reduce((sum, blob) => sum + blob.size, 0) + MULTIPART_RESERVE_BYTES < MAX_SCAN_BYTES
-  for (const quality of [0.85, 0.75, 0.65, 0.55]) {
+  let encoded: Blob[] = []
+  for (const quality of [0.95, 0.90, 0.85]) {
     signal.throwIfAborted()
-    const encoded = await Promise.all(frames.map((frame) => jpeg(frame, quality)))
+    encoded = await Promise.all(frames.map((frame) => jpeg(frame, quality)))
     signal.throwIfAborted()
     if (fits(encoded)) return encoded
   }
-  const smaller = frames.map((frame) => resizeFrame(frame, frame.width, frame.height, 512))
-  const encoded = await Promise.all(smaller.map((frame) => jpeg(frame, 0.55)))
-  signal.throwIfAborted()
-  if (fits(encoded)) return encoded
-  for (const count of [3, 2]) {
+  for (let count = encoded.length - 1; count >= 2; count--) {
     const reduced = encoded.slice(0, count)
     if (fits(reduced)) return reduced
   }
   throw new Error('Khung hình vẫn vượt quá giới hạn 1,5 MB. Vui lòng thử lại với cảnh ít chi tiết hơn hoặc chọn một ảnh từ thư viện.')
 }
 
-function waitBetweenFrames(signal: AbortSignal): Promise<void> {
+function wait(signal: AbortSignal, milliseconds: number): Promise<void> {
   return new Promise((resolve, reject) => {
     signal.throwIfAborted()
     const abort = () => {
@@ -83,7 +95,7 @@ function waitBetweenFrames(signal: AbortSignal): Promise<void> {
     const timer = setTimeout(() => {
       signal.removeEventListener('abort', abort)
       resolve()
-    }, 300)
+    }, milliseconds)
     signal.addEventListener('abort', abort, { once: true })
   })
 }
@@ -91,15 +103,23 @@ function waitBetweenFrames(signal: AbortSignal): Promise<void> {
 export async function captureFrames(
   video: HTMLVideoElement, signal: AbortSignal, onProgress: (count: number) => void,
 ): Promise<Blob[]> {
+  signal.throwIfAborted()
+  // Wait up to five seconds for decoded video pixels, then discard early frames
+  // while exposure and focus settle before taking the first snapshot.
+  for (let attempt = 0; video.readyState < 2 || !video.videoWidth || !video.videoHeight; attempt++) {
+    if (attempt >= 100) throw new Error('Camera chưa có hình ảnh. Vui lòng đợi hoặc mở lại camera.')
+    await wait(signal, 50)
+  }
+  await wait(signal, 500)
   const frames: HTMLCanvasElement[] = []
   for (let index = 0; index < 4; index++) {
     signal.throwIfAborted()
     if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
       throw new Error('Camera chưa có hình ảnh. Vui lòng đợi hoặc mở lại camera.')
     }
-    frames.push(resizeFrame(video, video.videoWidth, video.videoHeight, 640))
+    frames.push(captureFrame(video))
     onProgress(index + 1)
-    if (index < 3) await waitBetweenFrames(signal)
+    if (index < 3) await wait(signal, 300)
   }
   return compressFrames(frames, signal)
 }

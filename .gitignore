@@ -7,3 +7,4 @@ backend/models/labels.json
 .pytest_cache/
 *.pyc
 frontend/dist/
+backend/debug_frames/

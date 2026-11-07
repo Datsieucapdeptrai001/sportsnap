@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, ScanLine, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { scanFrames, type ScanResult } from '../lib/api'
-import { cameraErrorMessage, captureFrames, checkCameraSupport } from '../lib/camera'
+import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSupport } from '../lib/camera'
 import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
 
@@ -44,7 +44,7 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult) => 
         return
       }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS)
         if (disposed || failed) { stop(); return }
         if (!video) { stop(); return }
         stream.getVideoTracks().forEach((track) => track.addEventListener('ended', interrupted))

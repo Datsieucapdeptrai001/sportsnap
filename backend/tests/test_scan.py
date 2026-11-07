@@ -167,3 +167,40 @@ def test_wrong_field_and_malformed_requests_use_error_envelope(inference_client:
         "/api/scan", content=b"broken", headers={"Content-Type": "multipart/form-data"},
     )
     assert_error(response, 400, "bad_request")
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_debug_frames_are_opt_in_original_bytes_and_scan_only(
+    inference_client: TestClient, classifier: Mock, image_bytes: bytes, enabled: bool,
+) -> None:
+    config = inference_client.app.state.settings
+    assert config.DEBUG_SAVE_FRAMES is False
+    assert config.DEBUG_FRAMES_DIR == config.BASE_DIR / "backend/debug_frames"
+    config.DEBUG_SAVE_FRAMES = enabled
+    classifier.predict.return_value = np.tile([0.7, 0.1, 0.1, 0.1], (2, 1))
+    for _ in range(2):
+        response = inference_client.post("/api/scan", files=uploads(image_bytes, 2))
+        assert response.status_code == 200, response.text
+    if enabled:
+        saved = list(config.DEBUG_FRAMES_DIR.iterdir())
+        assert len(saved) == 4
+        assert all(path.suffix == ".png" and path.read_bytes() == image_bytes for path in saved)
+    else:
+        assert not config.DEBUG_FRAMES_DIR.exists()
+
+    classifier.predict.return_value = np.array([[0.7, 0.1, 0.1, 0.1]])
+    response = inference_client.post("/api/predict", files={"file": ("photo.png", image_bytes, "image/png")})
+    assert response.status_code == 200, response.text
+    assert len(list(config.DEBUG_FRAMES_DIR.glob("*"))) == (4 if enabled else 0)
+
+
+def test_debug_write_failure_does_not_break_scan(
+    inference_client: TestClient, classifier: Mock, image_bytes: bytes,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inference_client.app.state.settings.DEBUG_SAVE_FRAMES = True
+    monkeypatch.setattr(Path, "write_bytes", Mock(side_effect=PermissionError("debug directory is read-only")))
+    classifier.predict.return_value = np.tile([0.7, 0.1, 0.1, 0.1], (2, 1))
+    response = inference_client.post("/api/scan", files=uploads(image_bytes, 2))
+    assert response.status_code == 200, response.text
+    assert response.json()["label"] == "class_a"

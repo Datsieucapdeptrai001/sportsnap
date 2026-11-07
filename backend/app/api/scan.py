@@ -1,4 +1,7 @@
+import logging
+from pathlib import Path
 from typing import Annotated
+from uuid import uuid4
 
 from fastapi import APIRouter, File, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
@@ -9,6 +12,21 @@ from app.services.inference import SUPPORTED_CONTENT_TYPES, predict_frames, pred
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def save_debug_frames(frames: list[bytes], content_types: list[str | None], directory: Path) -> None:
+    """Save original upload bytes only when explicitly enabled for development."""
+    scan_id = uuid4().hex
+    suffixes = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        for index, (data, content_type) in enumerate(zip(frames, content_types), start=1):
+            suffix = suffixes.get(content_type or "", ".bin")
+            (directory / f"{scan_id}-{index}{suffix}").write_bytes(data)
+    except OSError:
+        # Optional diagnostics must not prevent classification.
+        logger.warning("Could not save scan debug frames.", exc_info=True)
 
 
 async def read_image(file: UploadFile, max_upload_mb: int) -> bytes:
@@ -76,6 +94,10 @@ async def scan(
             )
         config = request.app.state.settings
         frames = [await read_image(file, config.MAX_UPLOAD_MB) for file in files]
+        if config.DEBUG_SAVE_FRAMES:
+            await run_in_threadpool(
+                save_debug_frames, frames, [file.content_type for file in files], config.DEBUG_FRAMES_DIR
+            )
         return await run_in_threadpool(
             predict_frames, frames, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD
         )

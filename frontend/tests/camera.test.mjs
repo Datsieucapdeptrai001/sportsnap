@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { cameraErrorMessage, captureFrames, checkCameraSupport, compressFrames } from '../src/lib/camera.ts'
+import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSupport, compressFrames } from '../src/lib/camera.ts'
 
 function replaceGlobal(t, name, value) {
   const previous = Object.getOwnPropertyDescriptor(globalThis, name)
@@ -14,16 +14,21 @@ function replaceGlobal(t, name, value) {
 function setupCanvas(t, size = () => 100_000) {
   const encodes = []
   const draws = []
-  const createCanvas = (width = 640, height = 360) => ({
-    width, height,
-    getContext: () => ({ drawImage: (...args) => draws.push(args) }),
-    toBlob(callback, type, quality) {
-      encodes.push({ width: this.width, height: this.height, quality })
-      callback(new Blob([new Uint8Array(size(this.width, quality))], { type }))
-    },
-  })
+  const contexts = []
+  const createCanvas = () => {
+    const context = { drawImage: (...args) => draws.push(args) }
+    contexts.push(context)
+    return {
+      width: 448, height: 448,
+      getContext: () => context,
+      toBlob(callback, type, quality) {
+        encodes.push({ width: this.width, height: this.height, quality })
+        callback(new Blob([new Uint8Array(size(this.width, quality))], { type }))
+      },
+    }
+  }
   replaceGlobal(t, 'document', { createElement: () => createCanvas() })
-  return { frames: Array.from({ length: 4 }, () => createCanvas()), encodes, draws }
+  return { frames: Array.from({ length: 4 }, () => createCanvas()), encodes, draws, contexts }
 }
 
 for (const [name, pattern] of [
@@ -55,35 +60,44 @@ test('supported secure browser passes the camera check', (t) => {
   assert.doesNotThrow(checkCameraSupport)
 })
 
-test('ordinary scans retain four JPEGs at quality 0.85 with multipart payload below 1.5 MB', async (t) => {
+test('camera requests rear-facing 1280x720 video without audio', () => {
+  assert.deepEqual(CAMERA_CONSTRAINTS, {
+    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: false,
+  })
+})
+
+test('ordinary scans retain four 448px JPEGs at quality 0.95 with multipart payload below 1.5 MB', async (t) => {
   const env = setupCanvas(t)
   const blobs = await compressFrames(env.frames, new AbortController().signal)
   assert.equal(blobs.length, 4)
   assert.ok(blobs.every((blob) => blob.type === 'image/jpeg'))
-  assert.deepEqual(env.encodes.map((item) => item.quality), [0.85, 0.85, 0.85, 0.85])
+  assert.deepEqual(env.encodes, Array(4).fill({ width: 448, height: 448, quality: 0.95 }))
   const body = new FormData()
   blobs.forEach((blob, index) => body.append('files', blob, `frame-${index + 1}.jpg`))
   assert.ok((await new Response(body).blob()).size < 1_500_000)
 })
 
-for (const quality of [0.75, 0.65, 0.55]) {
-  test(`compression stops at quality ${quality} before resizing or dropping frames`, async (t) => {
+for (const quality of [0.90, 0.85]) {
+  test(`compression stops at quality ${quality} before dropping frames, without resizing`, async (t) => {
     const env = setupCanvas(t, (_width, current) => current > quality ? 400_000 : 300_000)
     const blobs = await compressFrames(env.frames, new AbortController().signal)
     assert.equal(blobs.length, 4)
-    const qualities = [0.85, 0.75, 0.65, 0.55]
+    const qualities = [0.95, 0.90, 0.85]
     assert.deepEqual(env.encodes.map((item) => item.quality), qualities.slice(0, qualities.indexOf(quality) + 1).flatMap((value) => Array(4).fill(value)))
     assert.equal(env.draws.length, 0)
+    assert.ok(env.encodes.every((item) => item.width === 448 && item.height === 448))
   })
 }
 
-for (const [frameSize, count] of [[300_000, 4], [490_000, 3], [700_000, 2]]) {
-  test(`after all quality steps, 512px compression retains ${count} frames within the payload limit`, async (t) => {
-    const env = setupCanvas(t, (width) => width > 512 ? 500_000 : frameSize)
+for (const [frameSize, count] of [[490_000, 3], [700_000, 2]]) {
+  test(`after all quality steps, compression retains ${count} frames at 448px within the payload limit`, async (t) => {
+    const env = setupCanvas(t, () => frameSize)
     const blobs = await compressFrames(env.frames, new AbortController().signal)
     assert.equal(blobs.length, count)
-    assert.deepEqual(env.encodes.map((item) => item.quality), [0.85, 0.75, 0.65, 0.55, 0.55].flatMap((value) => Array(4).fill(value)))
-    assert.deepEqual(env.encodes.slice(-4), Array(4).fill({ width: 512, height: 288, quality: 0.55 }))
+    assert.deepEqual(env.encodes.map((item) => item.quality), [0.95, 0.90, 0.85].flatMap((value) => Array(4).fill(value)))
+    assert.ok(env.encodes.every((item) => item.width === 448 && item.height === 448))
+    assert.equal(env.draws.length, 0)
     const body = new FormData()
     blobs.forEach((blob, index) => body.append('files', blob, `frame-${index + 1}.jpg`))
     assert.ok((await new Response(body).blob()).size < 1_500_000)
@@ -95,21 +109,65 @@ test('oversized scans fail without sending fewer than two frames', async (t) => 
   await assert.rejects(compressFrames(env.frames, new AbortController().signal), /1,5 MB/)
 })
 
-test('capture takes four frames about 300ms apart and preserves portrait aspect ratio within 640px', async (t) => {
+for (const [width, height, crop] of [
+  [1280, 720, [280, 0, 720, 720]],
+  [1080, 1920, [0, 420, 1080, 1080]],
+]) {
+  test(`${width}x${height} video is center-cropped once to 448px square without stretching or mirroring`, async (t) => {
+    const env = setupCanvas(t)
+    const times = []
+    const video = { readyState: 2, videoWidth: width, videoHeight: height, clientWidth: 240, clientHeight: 180 }
+    const started = performance.now()
+    const blobs = await captureFrames(video, new AbortController().signal, (count) => times.push({ count, time: performance.now() }))
+    assert.equal(blobs.length, 4)
+    assert.deepEqual(times.map((item) => item.count), [1, 2, 3, 4])
+    assert.ok(times[0].time - started >= 480, 'first capture waits for 500ms warmup')
+    for (let index = 1; index < times.length; index++) assert.ok(times[index].time - times[index - 1].time >= 280)
+    assert.deepEqual(env.encodes, Array(4).fill({ width: 448, height: 448, quality: 0.95 }))
+    assert.equal(env.draws.length, 4, 'one drawImage per captured frame')
+    for (const args of env.draws) {
+      assert.deepEqual(args, [video, ...crop, 0, 0, 448, 448])
+      assert.equal(args[3] / args[4], args[7] / args[8], 'crop and output have the same aspect ratio')
+    }
+    assert.ok(env.contexts.slice(4).every((context) => context.imageSmoothingEnabled && context.imageSmoothingQuality === 'high'))
+  })
+}
+
+test('capture waits for intrinsic video dimensions, then warms up before drawing', async (t) => {
   const env = setupCanvas(t)
-  const times = []
-  const video = { readyState: 2, videoWidth: 1080, videoHeight: 1920 }
-  const blobs = await captureFrames(video, new AbortController().signal, (count) => times.push({ count, time: performance.now() }))
-  assert.equal(blobs.length, 4)
-  assert.deepEqual(times.map((item) => item.count), [1, 2, 3, 4])
-  for (let index = 1; index < times.length; index++) assert.ok(times[index].time - times[index - 1].time >= 280)
-  assert.deepEqual(env.encodes, Array(4).fill({ width: 360, height: 640, quality: 0.85 }))
-  assert.ok(env.draws.every((args) => args[0] === video))
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const video = { readyState: 0, videoWidth: 0, videoHeight: 0 }
+  const controller = new AbortController()
+  const pending = captureFrames(video, controller.signal, () => controller.abort())
+  const rejection = assert.rejects(pending, { name: 'AbortError' })
+  await t.mock.timers.tick(50)
+  assert.equal(env.draws.length, 0)
+  Object.assign(video, { readyState: 2, videoWidth: 1280, videoHeight: 720 })
+  await t.mock.timers.tick(50)
+  await t.mock.timers.tick(499)
+  assert.equal(env.draws.length, 0)
+  await t.mock.timers.tick(1)
+  await rejection
+  assert.equal(env.draws.length, 1)
+  assert.equal(env.encodes.length, 0)
 })
 
 test('unready video is rejected before drawing or uploading', async (t) => {
   const env = setupCanvas(t)
-  await assert.rejects(captureFrames({ readyState: 0, videoWidth: 0, videoHeight: 0 }, new AbortController().signal, () => {}), /chưa có hình ảnh/)
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const rejection = assert.rejects(captureFrames({ readyState: 0, videoWidth: 0, videoHeight: 0 }, new AbortController().signal, () => {}), /chưa có hình ảnh/)
+  for (let index = 0; index < 100; index++) await t.mock.timers.tick(50)
+  await rejection
+  assert.equal(env.draws.length, 0)
+  assert.equal(env.encodes.length, 0)
+})
+
+test('cancelling during warmup stops all drawing and encoding', async (t) => {
+  const env = setupCanvas(t)
+  const controller = new AbortController()
+  const pending = captureFrames({ readyState: 2, videoWidth: 1280, videoHeight: 720 }, controller.signal, () => {})
+  controller.abort()
+  await assert.rejects(pending, { name: 'AbortError' })
   assert.equal(env.draws.length, 0)
   assert.equal(env.encodes.length, 0)
 })
@@ -117,9 +175,9 @@ test('unready video is rejected before drawing or uploading', async (t) => {
 test('cancelling during the capture interval stops subsequent frames and encoding', async (t) => {
   const env = setupCanvas(t)
   const controller = new AbortController()
-  const pending = captureFrames({ readyState: 2, videoWidth: 1280, videoHeight: 720 }, controller.signal, () => {})
-  controller.abort()
-  await assert.rejects(pending, { name: 'AbortError' })
+  await assert.rejects(captureFrames(
+    { readyState: 2, videoWidth: 1280, videoHeight: 720 }, controller.signal, () => controller.abort(),
+  ), { name: 'AbortError' })
   assert.equal(env.draws.length, 1)
   assert.equal(env.encodes.length, 0)
 })

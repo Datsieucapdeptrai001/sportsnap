@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     MAX_UPLOAD_MB: int = Field(default=12, gt=0)
     MAX_BULK_FILES: int = Field(default=2000, gt=0)
     FRONTEND_DIST: Path = Path("frontend/dist")
+    DEBUG_SAVE_FRAMES: bool = False
+    DEBUG_FRAMES_DIR: Path = Path("backend/debug_frames")
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     @model_validator(mode="after")
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
         if not self.BASE_DIR.is_absolute():
             self.BASE_DIR = PROJECT_ROOT / self.BASE_DIR
         self.BASE_DIR = self.BASE_DIR.resolve()
-        for name in ("MODEL_PATH", "LABELS_PATH", "FRONTEND_DIST"):
+        for name in ("MODEL_PATH", "LABELS_PATH", "FRONTEND_DIST", "DEBUG_FRAMES_DIR"):
             path: Path = getattr(self, name)
             setattr(self, name, (self.BASE_DIR / path).resolve())
         return self
