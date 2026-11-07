@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Camera, ScanLine, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { scanFrames, type ScanResult } from '../lib/api'
-import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSupport } from '../lib/camera'
+import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSupport, getCropOverlay } from '../lib/camera'
 import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
 
@@ -12,12 +12,35 @@ type CameraState =
   | { status: 'error'; message: string }
 
 export function CameraScanner({ onResult }: { onResult: (result: ScanResult) => void }) {
+  const guideId = useId()
+  const previewRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const requestRef = useRef<AbortController | null>(null)
   const busyRef = useRef(false)
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<CameraState>({ status: 'starting' })
   const [scanError, setScanError] = useState<string | null>(null)
+  const [overlay, setOverlay] = useState<ReturnType<typeof getCropOverlay>>(null)
+
+  useEffect(() => {
+    const video = videoRef.current
+    const preview = previewRef.current
+    if (!video || !preview) return
+    const updateOverlay = () => {
+      const { width, height } = preview.getBoundingClientRect()
+      setOverlay(getCropOverlay(video.videoWidth, video.videoHeight, width, height))
+    }
+    const observer = new ResizeObserver(updateOverlay)
+    observer.observe(preview)
+    video.addEventListener('loadedmetadata', updateOverlay)
+    // Video resize fires when intrinsic dimensions change, including rotation.
+    video.addEventListener('resize', updateOverlay)
+    return () => {
+      observer.disconnect()
+      video.removeEventListener('loadedmetadata', updateOverlay)
+      video.removeEventListener('resize', updateOverlay)
+    }
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
@@ -96,26 +119,27 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult) => 
   const scanning = state.status === 'capturing' || state.status === 'sending'
   const statusText = state.status === 'capturing' ? `Đang quét: ${state.count}/4…`
     : state.status === 'sending' ? 'Đang nhận diện khung hình…'
-      : state.status === 'starting' ? 'Đang mở camera…' : 'Đưa môn thể thao vào khung hình'
+      : state.status === 'starting' ? 'Đang mở camera…' : 'Camera đã sẵn sàng'
 
   return (
     <div>
-      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted/40">
+      <div ref={previewRef} className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
         <video
           ref={videoRef} playsInline muted autoPlay aria-label="Camera trực tiếp"
-          className="h-full w-full object-cover"
+          aria-describedby={state.status !== 'error' ? guideId : undefined}
+          className="h-full w-full object-contain object-center"
           onCanPlay={() => setState((current) => current.status === 'starting' ? { status: 'ready' } : current)}
         />
         {state.status === 'starting' && <Skeleton className="absolute inset-0 h-full w-full" />}
-        {state.status !== 'error' && (
-          <div className="absolute inset-x-0 bottom-0 bg-black/60 px-4 py-3 text-center text-sm text-white" role="status" aria-live="polite">
-            {statusText}
-            {state.status === 'capturing' && (
-              <div className="mt-2 flex justify-center gap-2" aria-hidden="true">
-                {[1, 2, 3, 4].map((frame) => <span key={frame} className={`h-1.5 w-8 rounded-full ${frame <= state.count ? 'bg-emerald-300' : 'bg-white/25'}`} />)}
-              </div>
-            )}
-          </div>
+        {overlay && state.status !== 'starting' && state.status !== 'error' && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute border-2 border-emerald-300"
+            style={{
+              left: overlay.left, top: overlay.top, width: overlay.size, height: overlay.size,
+              boxShadow: '0 0 0 100vmax rgb(0 0 0 / 0.3)',
+            }}
+          />
         )}
         {state.status === 'error' && (
           <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card/95 px-6 text-center">
@@ -124,6 +148,19 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult) => 
           </div>
         )}
       </div>
+      {state.status !== 'error' && <>
+        <p id={guideId} className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
+          Đưa vật thể vào giữa khung vuông, chiếm phần lớn khung hình. Tránh quay lại màn hình.
+        </p>
+        <div className="mt-3 text-center text-sm text-muted-foreground" role="status" aria-live="polite">
+          {statusText}
+          {state.status === 'capturing' && (
+            <div className="mt-2 flex justify-center gap-2" aria-hidden="true">
+              {[1, 2, 3, 4].map((frame) => <span key={frame} className={`h-1.5 w-8 rounded-full ${frame <= state.count ? 'bg-primary' : 'bg-muted'}`} />)}
+            </div>
+          )}
+        </div>
+      </>}
       {state.status === 'error' ? (
         <Button className="mt-4 w-full" variant="outline" onClick={() => {
           setScanError(null)

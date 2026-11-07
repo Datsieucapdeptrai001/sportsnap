@@ -35,11 +35,28 @@ export function checkCameraSupport(): void {
   }
 }
 
+function centerCrop(width: number, height: number): { x: number; y: number; size: number } {
+  const size = Math.min(width, height)
+  return { x: (width - size) / 2, y: (height - size) / 2, size }
+}
+
+export function getCropOverlay(
+  videoWidth: number, videoHeight: number, previewWidth: number, previewHeight: number,
+): { left: number; top: number; size: number } | null {
+  if (![videoWidth, videoHeight, previewWidth, previewHeight].every((value) => Number.isFinite(value) && value > 0)) return null
+  // Match the centered object-contain video, including any letterboxing.
+  const scale = Math.min(previewWidth / videoWidth, previewHeight / videoHeight)
+  const crop = centerCrop(videoWidth, videoHeight)
+  return {
+    left: (previewWidth - videoWidth * scale) / 2 + crop.x * scale,
+    top: (previewHeight - videoHeight * scale) / 2 + crop.y * scale,
+    size: crop.size * scale,
+  }
+}
+
 function captureFrame(video: HTMLVideoElement): HTMLCanvasElement {
   // Use intrinsic video pixels; CSS preview dimensions and transforms do not apply.
-  const side = Math.min(video.videoWidth, video.videoHeight)
-  const sx = (video.videoWidth - side) / 2
-  const sy = (video.videoHeight - side) / 2
+  const { x: sx, y: sy, size: side } = centerCrop(video.videoWidth, video.videoHeight)
   const canvas = document.createElement('canvas')
   canvas.width = FRAME_SIDE
   canvas.height = FRAME_SIDE

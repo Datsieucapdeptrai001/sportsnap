@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSupport, compressFrames } from '../src/lib/camera.ts'
+import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSupport, compressFrames, getCropOverlay } from '../src/lib/camera.ts'
 
 function replaceGlobal(t, name, value) {
   const previous = Object.getOwnPropertyDescriptor(globalThis, name)
@@ -109,6 +109,42 @@ test('oversized scans fail without sending fewer than two frames', async (t) => 
   await assert.rejects(compressFrames(env.frames, new AbortController().signal), /1,5 MB/)
 })
 
+for (const [width, height, previewWidth, previewHeight, expected] of [
+  [1280, 720, 400, 300, { left: 87.5, top: 37.5, size: 225 }],
+  [1080, 1920, 400, 300, { left: 115.625, top: 65.625, size: 168.75 }],
+  [720, 720, 400, 300, { left: 50, top: 0, size: 300 }],
+  [1280, 720, 300, 400, { left: 65.625, top: 115.625, size: 168.75 }],
+  [1920, 1080, 1920, 1080, { left: 420, top: 0, size: 1080 }],
+]) {
+  test(`overlay maps ${width}x${height} video into a contained ${previewWidth}x${previewHeight} preview`, () => {
+    assert.deepEqual(getCropOverlay(width, height, previewWidth, previewHeight), expected)
+  })
+}
+
+test('overlay follows responsive preview sizing and camera rotation without clipping', () => {
+  for (const width of [240, 320, 390, 768]) {
+    for (const [videoWidth, videoHeight] of [[1280, 720], [720, 1280]]) {
+      const height = width * 3 / 4
+      const overlay = getCropOverlay(videoWidth, videoHeight, width, height)
+      assert.ok(overlay)
+      assert.equal(overlay.left + overlay.size / 2, width / 2)
+      assert.equal(overlay.top + overlay.size / 2, height / 2)
+      assert.ok(overlay.left >= 0 && overlay.top >= 0)
+      assert.ok(overlay.left + overlay.size <= width && overlay.top + overlay.size <= height)
+    }
+  }
+})
+
+test('overlay is absent before metadata/layout is ready or dimensions are invalid', () => {
+  for (const invalid of [0, -1, NaN, Infinity]) {
+    for (let index = 0; index < 4; index++) {
+      const dimensions = [1280, 720, 400, 300]
+      dimensions[index] = invalid
+      assert.equal(getCropOverlay(...dimensions), null)
+    }
+  }
+})
+
 for (const [width, height, crop] of [
   [1280, 720, [280, 0, 720, 720]],
   [1080, 1920, [0, 420, 1080, 1080]],
@@ -128,6 +164,21 @@ for (const [width, height, crop] of [
     for (const args of env.draws) {
       assert.deepEqual(args, [video, ...crop, 0, 0, 448, 448])
       assert.equal(args[3] / args[4], args[7] / args[8], 'crop and output have the same aspect ratio')
+      // Map the displayed overlay back into source pixels and compare it with
+      // the actual drawImage crop, rather than testing only the guide in isolation.
+      for (const [previewWidth, previewHeight] of [[240, 180], [390, 292.5], [300, 400]]) {
+        const overlay = getCropOverlay(width, height, previewWidth, previewHeight)
+        assert.ok(overlay)
+        const scale = Math.min(previewWidth / width, previewHeight / height)
+        const videoLeft = (previewWidth - width * scale) / 2
+        const videoTop = (previewHeight - height * scale) / 2
+        for (const [actual, expected] of [
+          [(overlay.left - videoLeft) / scale, args[1]],
+          [(overlay.top - videoTop) / scale, args[2]],
+          [overlay.size / scale, args[3]],
+          [overlay.size / scale, args[4]],
+        ]) assert.ok(Math.abs(actual - expected) < 1e-8)
+      }
     }
     assert.ok(env.contexts.slice(4).every((context) => context.imageSmoothingEnabled && context.imageSmoothingQuality === 'high'))
   })

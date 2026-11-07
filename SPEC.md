@@ -209,3 +209,21 @@ Bulk browsing/display: `BULK_RESULTS_PAGE_SIZE=24`, `BULK_RESULTS_MAX_LIMIT=100`
 15. Error codes: 400 bad_request, 404 job_not_found, 409 job_not_ready, 410 job_expired,
     404 image_not_found, 413 file_too_large | too_many_files, 415 unsupported_format, 422 invalid_image, 501 gradcam_unsupported,
     503 model_not_loaded, 500 internal_error. Body always {"error":{"code","message"}} with a Vietnamese user-facing message.
+
+## 13. Known issues
+
+- **Camera scans of screens (domain shift):** recognition is poor on the saved
+  baseball screen-recapture frames, despite correct predictions on the 100 held-out
+  test images for the 20 model classes. The comparison on 2026-11-07 verified that
+  the backend model is byte-identical (SHA256) to the notebook export, and labels
+  match in length and order. Backend preprocessing matches the documented notebook
+  contract in §§4/12 (RGB, 224x224, bilinear, MobileNetV2 normalization), with no
+  embedded model preprocessing. The notebook-style `load_img` nearest resize and
+  horizontal-flip TTA were also compared; neither made baseball top-1 on these
+  frames. Thus this is not a model-file or label-order mismatch; screen recapture
+  is the suspected domain shift, not a proven isolated cause. All test images were
+  already 224x224, so their accuracy does not distinguish resize methods.
+  Camera guidance shows the exact center-square crop over an undistorted preview
+  and asks users to fill the square and avoid filming a screen. Validate further
+  with original baseball photos and real camera scenes; do not change the model or
+  backend preprocessing based on these screen-recapture results alone.
