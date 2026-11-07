@@ -6,6 +6,7 @@ import re
 import shutil
 import tempfile
 import unicodedata
+import warnings
 from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -17,12 +18,13 @@ from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
 
 import numpy as np
+from PIL import Image, ImageOps, UnidentifiedImageError
 from starlette.datastructures import UploadFile
 
 from app.core.config import Settings
 from app.core.errors import APIError
-from app.schemas import BulkItem, BulkStatus, ClassConfidence
-from app.services.inference import Classifier, SUPPORTED_CONTENT_TYPES, preprocess_image
+from app.schemas import BulkItem, BulkResultItem, BulkResults, BulkResultsQuery, BulkStatus, BulkSummary, ClassConfidence
+from app.services.inference import Classifier, SUPPORTED_CONTENT_TYPES, SUPPORTED_FORMATS, preprocess_image
 
 
 logger = logging.getLogger(__name__)
@@ -77,6 +79,7 @@ class BulkJob:
     io_lock: Lock = field(default_factory=Lock)
     future: Future[None] | None = None
     downloads: int = 0
+    files_removed: bool = False
 
 
 class BulkJobStore:
@@ -267,24 +270,99 @@ class BulkJobStore:
         self.cleanup()
         with self.lock:
             job = self._get(job_id)
-            counts: dict[str, int] = {}
-            for item in job.items:
-                if item.label:
-                    counts[item.label] = counts.get(item.label, 0) + 1
             return BulkStatus(
-                status=job.status, processed=len(job.items), total=len(job.inputs),
-                uncertain=sum(item.is_uncertain for item in job.items),
-                errors=sum(item.error is not None for item in job.items), counts=counts,
+                status=job.status, **self._summary(job).model_dump(),
+                # Keep the old status payload compatible; result browsing uses results().
                 items=[item.model_copy(deep=True) for item in job.items[:50]], error=job.error,
+                files_removed=job.files_removed,
             )
+
+    @staticmethod
+    def _summary(job: BulkJob) -> BulkSummary:
+        counts: dict[str, int] = {}
+        for item in job.items:
+            if item.label:
+                counts[item.label] = counts.get(item.label, 0) + 1
+        return BulkSummary(
+            total=len(job.inputs), processed=len(job.items), counts=counts,
+            uncertain=sum(item.is_uncertain for item in job.items),
+            errors=sum(item.error is not None for item in job.items),
+        )
+
+    def results(self, job_id: str, query: BulkResultsQuery) -> BulkResults:
+        limit = query.limit if query.limit is not None else self.config.BULK_RESULTS_PAGE_SIZE
+        if limit > self.config.BULK_RESULTS_MAX_LIMIT:
+            raise APIError(400, "bad_request", f"Mỗi trang chỉ được có tối đa {self.config.BULK_RESULTS_MAX_LIMIT} kết quả.")
+        self.cleanup()
+        with self.lock:
+            job = self._get(job_id)
+            summary = self._summary(job)
+            # Snapshot all processed results before filtering, sorting or paging.
+            rows = [(index, item) for index, item in enumerate(job.items)
+                    if (not query.label or item.label == query.label)
+                    and (not query.uncertain or item.is_uncertain)]
+        if query.sort == "filename":
+            rows.sort(key=lambda row: (row[1].filename.casefold(), row[0]))
+        else:
+            direction = -1 if query.sort == "confidence_desc" else 1
+            rows.sort(key=lambda row: (
+                row[1].confidence is None,
+                direction * row[1].confidence if row[1].confidence is not None else 0,
+                row[0],
+            ))
+        return BulkResults(
+            items=[BulkResultItem(index=index, **item.model_dump()) for index, item in rows[query.offset:query.offset + limit]],
+            total=len(rows), offset=query.offset, limit=limit, summary=summary,
+        )
+
+    def image(self, job_id: str, index: int, thumbnail: bool) -> bytes:
+        self.cleanup()
+        with self.lock:
+            job = self._get(job_id)
+            if index < 0 or index >= len(job.inputs):
+                raise APIError(404, "image_not_found", "Không tìm thấy ảnh trong lượt phân loại.")
+            source = job.inputs[index]
+            invalid = source.error is not None or (index < len(job.items) and job.items[index].error is not None)
+        # Serialise cache generation with deletion, without holding the store lock.
+        with job.io_lock:
+            if (invalid or job.files_removed or job.cancel.is_set()
+                    or job_id in self.expired or not source.path.is_file()):
+                raise APIError(404, "image_not_found", "Ảnh không còn tồn tại hoặc không thể đọc được.")
+            directory = job.directory / ("thumbs" if thumbnail else "images")
+            cached = directory / f"{index}.jpg"
+            if cached.is_file():
+                return cached.read_bytes()
+            side = self.config.BULK_THUMB_MAX_SIDE if thumbnail else self.config.BULK_IMAGE_MAX_SIDE
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", Image.DecompressionBombWarning)
+                    with Image.open(source.path) as original:
+                        if original.format not in SUPPORTED_FORMATS:
+                            raise ValueError("Unsupported display image format")
+                        original.verify()
+                    with Image.open(source.path) as original:
+                        # Display-only resizing; model preprocessing stays untouched.
+                        image = ImageOps.exif_transpose(original).convert("RGB")
+                        image.thumbnail((side, side), Image.Resampling.LANCZOS)
+                        directory.mkdir(exist_ok=True)
+                        image.save(cached, format="JPEG", quality=self.config.BULK_PREVIEW_JPEG_QUALITY)
+                return cached.read_bytes()
+            except (OSError, ValueError, SyntaxError, UnidentifiedImageError,
+                    Image.DecompressionBombWarning, Image.DecompressionBombError) as exc:
+                cached.unlink(missing_ok=True)
+                raise APIError(404, "image_not_found", "Ảnh bị hỏng hoặc không thể đọc được.") from exc
 
     def cancel_job(self, job_id: str) -> BulkStatus:
         self.cleanup()
         with self.lock:
             job = self._get(job_id)
             job.cancel.set()
-            job.status = "cancelled"
-            job.finished_at = monotonic()
+            # Deleting files after completion is cleanup, not cancellation.
+            if job.status not in TERMINAL:
+                job.status = "cancelled"
+            job.files_removed = True
+            if job.finished_at is None:
+                job.finished_at = monotonic()
             if job.future:
                 job.future.cancel()
         self._remove_files(job)
@@ -295,7 +373,7 @@ class BulkJobStore:
         # Open before responding, and keep a lease until streaming finishes.
         with self.lock:
             job = self._get(job_id)
-            if job.status != "done":
+            if job.status != "done" or job.files_removed:
                 raise APIError(409, "job_not_ready", "Chỉ có thể tải ZIP khi phân loại đã hoàn tất.")
             with job.io_lock:
                 stream = (job.directory / "result.zip").open("rb")

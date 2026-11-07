@@ -1,24 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { bulkStatusAfterRemoval, createBulkPreviewUrls, filterBulkItems, isBulkTerminal, pairBulkPreviewItems, pollBulkJob } from '../src/lib/bulk.ts'
-import { cancelBulkJob, createBulkJob, downloadBulkJob, getBulkJob } from '../src/lib/api.ts'
+import { BULK_PAGE_SIZE, bulkPagination, bulkResultsQuery, bulkStatusAfterRemoval, changeBulkFilters, initialBulkView, isBulkTerminal, moveBulkLightbox, pollBulkJob, toggleBulkLabel } from '../src/lib/bulk.ts'
+import { cancelBulkJob, createBulkJob, downloadBulkJob, getBulkImageUrl, getBulkJob, getBulkResults, getBulkThumbnailUrl } from '../src/lib/api.ts'
 
 const status = (state) => ({ status: state, processed: 1, total: 2, items: [], counts: {}, errors: 0, uncertain: 0, error: null })
 const flush = () => new Promise((resolve) => setImmediate(resolve))
-
-test('filter combines exact label and uncertainty without mutating results', () => {
-  const items = [
-    { filename: 'a', label: 'sport a', is_uncertain: false },
-    { filename: 'b', label: 'sport a', is_uncertain: true },
-    { filename: 'c', label: 'sport b', is_uncertain: true },
-    { filename: 'd', label: null, is_uncertain: false, error: 'corrupt' },
-  ]
-  assert.deepEqual(filterBulkItems(items, '', false), items)
-  assert.deepEqual(filterBulkItems(items, 'sport a', true).map((item) => item.filename), ['b'])
-  assert.deepEqual(filterBulkItems(items, '', true).map((item) => item.filename), ['b', 'c'])
-  assert.deepEqual(filterBulkItems(items, 'missing', false), [])
-  assert.equal(items.length, 4)
-})
 
 for (const terminal of ['done', 'error', 'cancelled']) {
   test(`polls sequentially every 1s and stops at ${terminal}`, async () => {
@@ -173,116 +159,6 @@ test('bulk upload rejects malformed success and server limits', async (t) => {
   await assert.rejects(promise, /Số tệp/)
 })
 
-test('preview pairs by submitted index despite duplicate and sanitized filenames', () => {
-  const files = [new File(['first'], 'same.png', { type: 'image/png' }), new File(['second'], 'same.png', { type: 'image/png' })]
-  const items = [{ filename: 'same.png', label: 'a' }, { filename: 'same_2.png', label: 'b', is_uncertain: true }]
-  const rows = pairBulkPreviewItems(items, files)
-  assert.equal(rows[0].file, files[0])
-  assert.equal(rows[1].file, files[1])
-  const filtered = filterBulkItems(rows, 'b', true)
-  assert.equal(filtered.length, 1)
-  assert.equal(filtered[0].index, 1)
-  assert.equal(filtered[0].file, files[1])
-  assert.equal(items[1].index, undefined)
-})
-
-test('non-image and corrupt rows never shift subsequent file indexes', () => {
-  const files = [new File(['notes'], 'notes.txt'), new File(['bad'], 'bad.png'), new File(['image'], 'actual.png')]
-  const rows = pairBulkPreviewItems([
-    { filename: 'notes.txt', error: 'unsupported_format' },
-    { filename: 'bad.png', error: 'corrupt' },
-    { filename: 'renamed.png', label: 'sport' },
-  ], files)
-  assert.equal(rows[0].file, undefined)
-  assert.equal(rows[1].file, files[1])
-  assert.equal(rows[2].file, files[2])
-  assert.equal(rows[2].index, 2)
-})
-
-test('ZIP and missing local files have no image preview', () => {
-  const items = [{ filename: 'nested.png' }, { filename: 'other.png' }]
-  assert.ok(pairBulkPreviewItems(items, [new File(['zip'], 'photos.ZIP')]).every((row) => row.file === undefined))
-  assert.ok(pairBulkPreviewItems(items, []).every((row) => row.file === undefined))
-})
-
-function objectUrlTracker() {
-  const created = [], revoked = []
-  const objectUrls = {
-    createObjectURL(file) { const url = `blob:${created.length}`; created.push({ file, url }); return url },
-    revokeObjectURL(url) { revoked.push(url) },
-  }
-  return { created, revoked, previews: createBulkPreviewUrls(objectUrls) }
-}
-
-test('2,000 submitted files allocate URLs only for the filtered first 50 preview rows', () => {
-  const files = Array.from({ length: 2000 }, (_, index) => new File(['image'], `${index}.png`))
-  const items = files.map((file, index) => ({ filename: file.name, label: index % 2 ? 'b' : 'a' }))
-  const tracker = objectUrlTracker()
-  const rows = pairBulkPreviewItems(items, files)
-  assert.equal(rows.length, 50)
-  assert.equal(tracker.created.length, 0)
-  const filtered = filterBulkItems(rows, 'b', false)
-  const leases = filtered.map((row) => tracker.previews.acquire(row.index, row.file))
-  assert.equal(tracker.created.length, 25)
-  assert.deepEqual(tracker.created.map((entry) => entry.file), filtered.map((row) => files[row.index]))
-  leases.forEach((lease) => lease.release())
-  assert.equal(tracker.revoked.length, 25)
-})
-
-test('retained rows reuse URLs while removed filter rows release theirs', () => {
-  const tracker = objectUrlTracker()
-  const files = [new File(['a'], 'a.png'), new File(['b'], 'b.png')]
-  const first = tracker.previews.acquire(0, files[0])
-  const second = tracker.previews.acquire(1, files[1])
-  assert.equal(tracker.previews.acquire(1, files[1]).url, second.url)
-  assert.equal(tracker.created.length, 2)
-  first.release()
-  assert.deepEqual(tracker.revoked, [first.url])
-  const restored = tracker.previews.acquire(0, files[0])
-  assert.notEqual(restored.url, first.url)
-  assert.equal(tracker.created.length, 3)
-  tracker.previews.clear()
-  assert.equal(tracker.revoked.length, 3)
-})
-
-for (const lifecycle of ['new job', 'cancel/delete', 'new file list', 'unmount']) {
-  test(`${lifecycle} revokes every preview URL and tolerates repeated effect cleanup`, () => {
-    const tracker = objectUrlTracker()
-    const first = tracker.previews.acquire(0, new File(['a'], 'a.png'))
-    const second = tracker.previews.acquire(1, new File(['b'], 'b.png'))
-    tracker.previews.clear()
-    first.release()
-    second.release()
-    tracker.previews.clear()
-    assert.deepEqual(tracker.revoked, [first.url, second.url])
-    assert.equal(new Set(tracker.revoked).size, tracker.created.length)
-  })
-}
-
-test('stale cleanup cannot revoke a replacement URL at the same index', () => {
-  const tracker = objectUrlTracker()
-  const old = tracker.previews.acquire(0, new File(['a'], 'same.png'))
-  const replacement = tracker.previews.acquire(0, new File(['b'], 'same.png'))
-  assert.deepEqual(tracker.revoked, [old.url])
-  old.release()
-  assert.deepEqual(tracker.revoked, [old.url])
-  tracker.previews.clear()
-  const nextJob = tracker.previews.acquire(0, new File(['next'], 'same.png'))
-  replacement.release()
-  assert.deepEqual(tracker.revoked, [old.url, replacement.url])
-  nextJob.release()
-  assert.equal(tracker.revoked.length, 3)
-})
-
-test('preview cache never retains more than 50 object URLs', () => {
-  const tracker = objectUrlTracker()
-  for (let index = 0; index < 50; index++) assert.ok(tracker.previews.acquire(index, new File(['image'], `${index}.png`)))
-  assert.equal(tracker.previews.acquire(50, new File(['extra'], 'extra.png')), undefined)
-  assert.equal(tracker.created.length, 50)
-  tracker.previews.clear()
-  assert.equal(tracker.revoked.length, 50)
-})
-
 test('deleting temporary files preserves the completed processing outcome', () => {
   const completed = { ...status('done'), processed: 100, total: 100 }
   const response = { ...completed, status: 'cancelled' }
@@ -336,4 +212,92 @@ test('default polling invokes browser timers without binding them to the depende
   assert.deepEqual(errors, [])
   assert.deepEqual(updates, ['running', 'running'])
   assert.deepEqual(cleared, [123])
+})
+
+test('sport chip toggles its exact server label and resets pagination', () => {
+  const original = { ...initialBulkView, page: 4, uncertain: true }
+  const selected = toggleBulkLabel(original, 'polo')
+  assert.equal(selected.label, 'polo')
+  assert.equal(selected.page, 1)
+  assert.equal(selected.uncertain, true)
+  assert.equal(toggleBulkLabel(selected, 'polo').label, '')
+  assert.equal(toggleBulkLabel(selected, 'football').label, 'football')
+  assert.equal(original.page, 4)
+})
+
+for (const change of [{ label: '' }, { uncertain: true }, { sort: 'filename' }]) {
+  test(`filter change ${JSON.stringify(change)} resets to page one`, () => {
+    const updated = changeBulkFilters({ ...initialBulkView, label: 'polo', page: 4 }, change)
+    assert.equal(updated.page, 1)
+    for (const [key, value] of Object.entries(change)) assert.equal(updated[key], value)
+  })
+}
+
+for (const [total, pages] of [[0, 1], [24, 1], [25, 2], [100, 5], [2000, 84]]) {
+  test(`${total} results have ${pages} pages of 24`, () => {
+    const pagination = bulkPagination(total, 1)
+    assert.equal(pagination.page, 1)
+    assert.equal(pagination.pages, pages)
+    assert.ok(pagination.numbers.length <= 5)
+  })
+}
+
+test('page numbers stay bounded at the beginning, middle and end', () => {
+  assert.deepEqual(bulkPagination(2000, 40).numbers, [38, 39, 40, 41, 42])
+  assert.deepEqual(bulkPagination(2000, 1000).numbers, [80, 81, 82, 83, 84])
+  assert.equal(bulkPagination(100, -1).page, 1)
+  assert.equal(bulkPagination(100, 999).page, 5)
+})
+
+test('view becomes a server query without slicing results locally', () => {
+  assert.equal(BULK_PAGE_SIZE, 24)
+  assert.deepEqual(bulkResultsQuery({ label: 'polo', uncertain: true, sort: 'confidence_asc', page: 4 }), {
+    label: 'polo', uncertain: true, sort: 'confidence_asc', offset: 72, limit: 24,
+  })
+})
+
+test('lightbox follows the current sorted page and wraps without treating index as position', () => {
+  const items = [{ index: 91 }, { index: 7 }, { index: 75 }]
+  assert.equal(moveBulkLightbox(items, 91, 1), 7)
+  assert.equal(moveBulkLightbox(items, 7, -1), 91)
+  assert.equal(moveBulkLightbox(items, 75, 1), 91)
+  assert.equal(moveBulkLightbox(items, 91, -1), 75)
+})
+
+test('lightbox handles empty and single-image pages and stale selection', () => {
+  assert.equal(moveBulkLightbox([], 0, 1), null)
+  assert.equal(moveBulkLightbox([{ index: 72 }], 72, -1), 72)
+  assert.equal(moveBulkLightbox([{ index: 72 }], 72, 1), 72)
+  assert.equal(moveBulkLightbox([{ index: 72 }, { index: 80 }], 999, 1), 72)
+})
+
+test('results API sends filters, order and offset and preserves stable image indexes', async (t) => {
+  const controller = new AbortController()
+  const result = { items: Array.from({ length: 24 }, (_, index) => ({ index: 75 + index, label: 'polo' })), total: 25, offset: 0, limit: 24, summary: { total: 100, counts: { polo: 25 } } }
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    const parsed = new URL(url, 'http://localhost')
+    assert.equal(parsed.pathname, '/api/bulk/a%2Fb/results')
+    assert.deepEqual(Object.fromEntries(parsed.searchParams), { label: 'polo', uncertain: 'true', sort: 'confidence_desc', offset: '0', limit: '24' })
+    assert.equal(options.signal, controller.signal)
+    return Response.json(result)
+  })
+  assert.deepEqual(await getBulkResults('a/b', { label: 'polo', uncertain: true, sort: 'confidence_desc', offset: 0, limit: 24 }, controller.signal), result)
+})
+
+test('thumbnail and full image URLs work for ZIP results without browser file references', () => {
+  assert.equal(getBulkThumbnailUrl('a/b', 75), '/api/bulk/a%2Fb/thumb/75')
+  assert.equal(getBulkImageUrl('a/b', 75), '/api/bulk/a%2Fb/image/75')
+  for (const index of [-1, 0.5, NaN]) assert.throws(() => getBulkThumbnailUrl('job', index), /không hợp lệ/)
+})
+
+test('results request errors are safe in Vietnamese and respect abort', async (t) => {
+  const query = bulkResultsQuery(initialBulkView)
+  const fetch = t.mock.method(globalThis, 'fetch', async () => new Response('bad json'))
+  await assert.rejects(getBulkResults('job', query), /Không đọc được kết quả/)
+  fetch.mock.mockImplementation(async () => { throw new TypeError('private network failure') })
+  await assert.rejects(getBulkResults('job', query), /kiểm tra mạng/)
+  const controller = new AbortController()
+  controller.abort()
+  fetch.mock.mockImplementation(async () => { throw controller.signal.reason })
+  await assert.rejects(getBulkResults('job', query, controller.signal), { name: 'AbortError' })
 })

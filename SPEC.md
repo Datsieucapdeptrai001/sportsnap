@@ -60,8 +60,12 @@ sportsnap/
 | `POST /scan` | multipart `files[]` (2–6 frames) | `ScanResult` |
 | `POST /gradcam` | multipart `file` | `{label, confidence, overlay_png_base64}` |
 | `POST /bulk` | multipart `files[]` or one `.zip` | `{job_id}` |
-| `GET /bulk/{job_id}` | – | `{status: queued\|running\|done\|error, processed, total, uncertain, error?}`; when done also includes `counts` (`{label:n}`), `errors`, and `items` (first 50 `{filename,label,confidence,folder}`) |
+| `GET /bulk/{job_id}` | – | `{status: queued\|running\|done\|error\|cancelled, processed, total, uncertain, counts, errors, files_removed, error?}`; use `/results` to browse results |
+| `GET /bulk/{job_id}/results` | `label`, `uncertain`, `sort`, `offset`, `limit` query parameters | `{items: [{index,filename,label,confidence,is_uncertain,top3,folder,error}], total, offset, limit, summary: {total,processed,counts,uncertain,errors}}` |
+| `GET /bulk/{job_id}/thumb/{index}` | integer input index | private JPEG thumbnail, longest side <=256 px, generated lazily and cached in the job directory |
+| `GET /bulk/{job_id}/image/{index}` | integer input index | private JPEG display image from the original upload, longest side <=2048 px by default |
 | `GET /bulk/{job_id}/download` | – | ZIP (see §7) |
+| `DELETE /bulk/{job_id}` | – | cancel queued/running jobs and delete temporary files; preserve done/error outcomes when cleaning up completed jobs, return `files_removed:true` |
 | `GET /insights` | – | contents of `data/experiments.json` |
 | `GET /insights/files/{name}` | – | image from `backend/data/insights/`; reject path traversal |
 
@@ -81,13 +85,16 @@ Navigation: bottom tab bar on mobile, left sidebar on desktop.
    a capture button that grabs 4 frames ~300 ms apart, downscales each to max 640 px (JPEG q=0.85), POSTs to `/api/scan`.
    If the scan payload exceeds 1.5 MB, follow the reduction sequence in §12. A single "Chọn ảnh từ thư viện" image uses `/api/predict`; `/api/scan` is only for 2–6 camera frames. Result card: sport name, confidence meter, top-3, agreement, a clear
    **"Không chắc chắn"** state, a **"Xem AR"** button (only if a 3D model exists for that sport), a "Xem vùng AI chú ý" button (Grad-CAM).
-2. **Phân loại hàng loạt**: drag-and-drop zone / file picker, upload progress, job progress bar (poll every 1 s),
-   summary (per-sport counts, number uncertain and errors), preview of the first 50 items with client-side thumbnails,
-   **Download ZIP**. Pair results with the original browser Files by submitted index, before filtering; never match by filename.
-   Create object URLs only for visible preview rows (at most 50), reuse retained rows and revoke removed rows' URLs.
-   Clear URLs on a new job, file-list change, cancellation/deletion and unmount. Thumbnails are 72x72, lazy/async loaded,
-   with a large-image dialog closed by Escape, its close button or the backdrop. Use cards on narrow screens.
-   ZIP inputs have placeholders because individual browser image Files are unavailable; no thumbnail API endpoint.
+2. **Phân loại hàng loạt**: drag-and-drop zone / file picker, upload progress, job progress bar (poll every 1 s).
+   Show whole-job totals, processed, uncertain and errors. Browse ALL processed results through `/results`, 24 cards/page,
+   with numbered pagination, a 4–5-column desktop grid and a 2-column mobile grid. Each card has a lazy/async loaded square
+   object-cover thumbnail, filename, predicted label, confidence bar/percentage and uncertainty badge.
+   A sticky toolbar contains clickable per-sport count chips (toggle to filter, highlight the active chip), sort selection,
+   an uncertain-only checkbox, Download ZIP and cleanup/cancel buttons. Filter/sort changes reset pagination.
+   Use backend thumbnails for both direct uploads and ZIPs; image identity is the stable input index, never a filename.
+   The lightbox shows the bounded original display image, filename, confidence and top-3 predictions; Escape/backdrop/close
+   button closes it, left/right arrows navigate only within the current page. Abort stale requests on filter/page/job changes
+   and unmount. No client-side thumbnail object URLs or fixed-size result preview.
 3. **Phân tích**: reads `/api/insights`: model comparison table, confusion-matrix image, Grad-CAM gallery, and optional ablation data. See §12 for the schema and image endpoint.
 
 ### AR (client side only)
@@ -147,6 +154,8 @@ Job store is in-memory (dict + lock); delete job files 30 minutes after a job re
 
 ## 10. Config (`.env`)
 `MODEL_PATH`, `LABELS_PATH`, `PREPROCESS` (mobilenet_v2), `CONFIDENCE_THRESHOLD`, `MAX_UPLOAD_MB`, `MAX_BULK_FILES`.
+Bulk browsing/display: `BULK_RESULTS_PAGE_SIZE=24`, `BULK_RESULTS_MAX_LIMIT=100`, `BULK_THUMB_MAX_SIDE=256`,
+`BULK_IMAGE_MAX_SIDE=2048`, `BULK_PREVIEW_JPEG_QUALITY=85`. Display resizing never changes model preprocessing or originals in ZIP.
 
 ## 11. Pitfalls to respect
 - Camera needs HTTPS (or localhost). iOS Safari needs `playsinline` on `<video>`.
@@ -162,11 +171,17 @@ Job store is in-memory (dict + lock); delete job files 30 minutes after a job re
    unsupported_format | corrupt | too_large and the job continues. Same for non-images inside a ZIP.
 3. A single gallery image uses /predict. /scan is only for camera multi-frame (2–6 frames).
 4. Slice 2 uses <input type="file" accept="image/*"> (capture allowed on mobile) -> /predict. Live camera is Slice 3.
-5. GET /bulk/{id} when done also returns: counts {label:n}, uncertain, errors, items (first 50:
-   {filename,label,confidence,folder}). Preview uses client-side thumbnails from the selected Files, paired by index;
-   filtering keeps original indexes. No image endpoint is added. Only visible rows (at most 50) retain object URLs.
-   Cleaning up a completed job preserves its processing outcome in the UI and marks temporary files as deleted;
-   cancelling a queued/running job still displays cancellation, even if processed equals total while ZIP creation is pending.
+5. `/bulk/{id}/results` filters and sorts the complete processed result set BEFORE pagination. `label` matches the exact model
+   label; `uncertain=true` means uncertain-only, false/empty means all. `sort` is `confidence_desc` (default), `confidence_asc`
+   or `filename` (case-insensitive A–Z); error rows with empty confidence are last in both confidence orders, ties use input index.
+   `offset` defaults to 0, `limit` defaults to 24, at most 100 (configurable). Empty query values use defaults; invalid queries
+   return 400 bad_request. Response `total` counts matches, while `summary` always describes the entire job, independent of filters.
+   Items carry stable zero-based input indexes including error rows. `/thumb/{index}` caches JPEGs in `thumbs/`, `/image/{index}`
+   caches bounded JPEGs in `images/`; both preserve aspect ratio, apply EXIF orientation for display and use `Cache-Control: private, no-store`.
+   Image endpoints never accept filenames. Missing/corrupt/unsupported/oversized images or out-of-range indexes return 404
+   image_not_found; unknown/expired jobs use job_not_found/job_expired. Caches are deleted with job files on DELETE or TTL.
+   Cleaning up a completed job preserves done/error on both backend and frontend and sets files_removed; cancelling a queued/running
+   job still displays cancellation, even if processed equals total while ZIP creation is pending. Browsing metadata remains until TTL.
 6. experiments.json schema: {"models":[{"name","strategy","accuracy","macro_f1","params_m","size_mb","latency_ms"}],
    "confusion_matrix_image":"cm.png","gradcam_gallery":[{"image","true","pred","note"}],
    "ablation":[{"name","accuracy","delta"}]}  (ablation optional). Images live in backend/data/insights/
@@ -192,5 +207,5 @@ Job store is in-memory (dict + lock); delete job files 30 minutes after a job re
 14. Scan payload > 1.5 MB: client lowers JPEG quality 0.85 -> 0.75 -> 0.65 -> 0.55, then max side 512,
     then drops to 3 frames (minimum 2).
 15. Error codes: 400 bad_request, 404 job_not_found, 409 job_not_ready, 410 job_expired,
-    413 file_too_large | too_many_files, 415 unsupported_format, 422 invalid_image, 501 gradcam_unsupported,
+    404 image_not_found, 413 file_too_large | too_many_files, 415 unsupported_format, 422 invalid_image, 501 gradcam_unsupported,
     503 model_not_loaded, 500 internal_error. Body always {"error":{"code","message"}} with a Vietnamese user-facing message.

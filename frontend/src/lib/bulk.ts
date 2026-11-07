@@ -1,54 +1,44 @@
-import { getBulkJob, type BulkItem, type BulkState, type BulkStatus } from './api.ts'
+import { getBulkJob, type BulkResultItem, type BulkResultsQuery, type BulkSort, type BulkState, type BulkStatus } from './api.ts'
 
 export function isBulkTerminal(status: BulkState): boolean {
   return status === 'done' || status === 'error' || status === 'cancelled'
 }
 
-export function filterBulkItems<T extends BulkItem>(items: T[], label: string, uncertainOnly: boolean): T[] {
-  return items.filter((item) => (!label || item.label === label) && (!uncertainOnly || item.is_uncertain))
+export const BULK_PAGE_SIZE = 24
+
+export interface BulkView {
+  label: string
+  uncertain: boolean
+  sort: BulkSort
+  page: number
 }
 
-export interface BulkPreviewRow extends BulkItem {
-  index: number
-  file?: File
+export const initialBulkView: BulkView = { label: '', uncertain: false, sort: 'confidence_desc', page: 1 }
+
+export function changeBulkFilters(view: BulkView, change: Partial<Omit<BulkView, 'page'>>): BulkView {
+  return { ...view, ...change, page: 1 }
 }
 
-export function pairBulkPreviewItems(items: BulkItem[], files: File[]): BulkPreviewRow[] {
-  const archive = files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')
-  // Pair before filtering: API preview items retain the submitted file order.
-  return items.slice(0, 50).map((item, index) => {
-    const file = archive ? undefined : files[index]
-    const image = file && (/^image\/(jpeg|png|webp)$/.test(file.type) || /\.(jpe?g|png|webp)$/i.test(file.name))
-    return { ...item, index, file: image ? file : undefined }
-  })
+export function toggleBulkLabel(view: BulkView, label: string): BulkView {
+  return changeBulkFilters(view, { label: view.label === label ? '' : label })
 }
 
-type ObjectUrls = Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>
+export function bulkResultsQuery(view: BulkView): BulkResultsQuery {
+  return { label: view.label, uncertain: view.uncertain, sort: view.sort, offset: (Math.max(1, view.page) - 1) * BULK_PAGE_SIZE, limit: BULK_PAGE_SIZE }
+}
 
-export function createBulkPreviewUrls(objectUrls: ObjectUrls = URL) {
-  const entries = new Map<number, { file: File; url: string }>()
-  function release(index: number, entry: { file: File; url: string }) {
-    // A stale effect cleanup must never release a replacement file's URL.
-    if (entries.get(index) !== entry) return
-    objectUrls.revokeObjectURL(entry.url)
-    entries.delete(index)
-  }
-  return {
-    acquire(index: number, file: File) {
-      let entry = entries.get(index)
-      if (entry && entry.file !== file) { release(index, entry); entry = undefined }
-      if (!entry) {
-        if (entries.size >= 50) return undefined
-        entry = { file, url: objectUrls.createObjectURL(file) }
-        entries.set(index, entry)
-      }
-      const current = entry
-      return { url: current.url, release: () => release(index, current) }
-    },
-    clear() {
-      entries.forEach((entry, index) => release(index, entry))
-    },
-  }
+export function bulkPagination(total: number, requestedPage: number) {
+  const pages = Math.max(1, Math.ceil(total / BULK_PAGE_SIZE))
+  const page = Math.min(pages, Math.max(1, requestedPage))
+  const count = Math.min(5, pages)
+  const start = Math.min(Math.max(1, page - 2), pages - count + 1)
+  return { page, pages, numbers: Array.from({ length: count }, (_, index) => start + index) }
+}
+
+export function moveBulkLightbox(items: Pick<BulkResultItem, 'index'>[], current: number, direction: -1 | 1): number | null {
+  if (!items.length) return null
+  const position = items.findIndex((item) => item.index === current)
+  return items[(position < 0 ? 0 : position + direction + items.length) % items.length].index
 }
 
 export function bulkStatusAfterRemoval(previous: BulkStatus | null, removed: BulkStatus): BulkStatus {

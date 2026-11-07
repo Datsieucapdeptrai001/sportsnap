@@ -117,6 +117,27 @@ export interface BulkStatus {
   counts: Record<string, number>
   items: BulkItem[]
   error: string | null
+  files_removed?: boolean
+}
+
+export type BulkSort = 'confidence_asc' | 'confidence_desc' | 'filename'
+
+export interface BulkResultItem extends BulkItem { index: number }
+
+export interface BulkResultsQuery {
+  label: string
+  uncertain: boolean
+  sort: BulkSort
+  offset: number
+  limit: number
+}
+
+export interface BulkResults {
+  items: BulkResultItem[]
+  total: number
+  offset: number
+  limit: number
+  summary: Pick<BulkStatus, 'total' | 'processed' | 'uncertain' | 'errors' | 'counts'>
 }
 
 function bulkError(payload: unknown, status: number): Error {
@@ -161,10 +182,10 @@ export function createBulkJob(
   })
 }
 
-async function bulkRequest(jobId: string, method: 'GET' | 'DELETE', signal?: AbortSignal, download = false): Promise<Response> {
+async function bulkRequest(jobId: string, method: 'GET' | 'DELETE', signal?: AbortSignal, suffix = ''): Promise<Response> {
   let response: Response
   try {
-    response = await fetch(`/api/bulk/${encodeURIComponent(jobId)}${download ? '/download' : ''}`, { method, signal })
+    response = await fetch(`/api/bulk/${encodeURIComponent(jobId)}${suffix}`, { method, signal })
   } catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể kết nối. Vui lòng kiểm tra mạng và thử lại.', { cause: error })
@@ -187,10 +208,28 @@ export async function cancelBulkJob(jobId: string, signal?: AbortSignal): Promis
 }
 
 export async function downloadBulkJob(jobId: string, signal?: AbortSignal): Promise<Blob> {
-  const response = await bulkRequest(jobId, 'GET', signal, true)
+  const response = await bulkRequest(jobId, 'GET', signal, '/download')
   try { return await response.blob() }
   catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể tải ZIP. Vui lòng kiểm tra mạng và thử lại.', { cause: error })
   }
 }
+
+export async function getBulkResults(jobId: string, query: BulkResultsQuery, signal?: AbortSignal): Promise<BulkResults> {
+  const params = new URLSearchParams({
+    label: query.label, uncertain: String(query.uncertain), sort: query.sort,
+    offset: String(query.offset), limit: String(query.limit),
+  })
+  const response = await bulkRequest(jobId, 'GET', signal, `/results?${params}`)
+  try { return await response.json() as BulkResults }
+  catch (error) { throw new Error('Không đọc được kết quả phân loại. Vui lòng thử lại.', { cause: error }) }
+}
+
+function bulkImageUrl(jobId: string, index: number, kind: 'thumb' | 'image'): string {
+  if (!Number.isInteger(index) || index < 0) throw new Error('Chỉ số ảnh không hợp lệ.')
+  return `/api/bulk/${encodeURIComponent(jobId)}/${kind}/${index}`
+}
+
+export const getBulkThumbnailUrl = (jobId: string, index: number): string => bulkImageUrl(jobId, index, 'thumb')
+export const getBulkImageUrl = (jobId: string, index: number): string => bulkImageUrl(jobId, index, 'image')

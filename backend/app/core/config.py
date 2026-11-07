@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     BULK_MAX_ACTIVE_JOBS: int = Field(default=2, gt=0)
     BULK_CLEANUP_INTERVAL_SECONDS: int = Field(default=60, gt=0)
     BULK_TEMP_DIR: Path = Path("backend/tmp/bulk")
+    BULK_RESULTS_PAGE_SIZE: int = Field(default=24, gt=0, le=100)
+    BULK_RESULTS_MAX_LIMIT: int = Field(default=100, gt=0, le=100)
+    BULK_THUMB_MAX_SIDE: int = Field(default=256, gt=0, le=256)
+    BULK_IMAGE_MAX_SIDE: int = Field(default=2048, gt=0, le=4096)
+    BULK_PREVIEW_JPEG_QUALITY: int = Field(default=85, ge=1, le=95)
     FRONTEND_DIST: Path = Path("frontend/dist")
     DEBUG_SAVE_FRAMES: bool = False
     DEBUG_FRAMES_DIR: Path = Path("backend/debug_frames")
@@ -32,6 +37,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def resolve_paths(self) -> Self:
+        if self.BULK_RESULTS_PAGE_SIZE > self.BULK_RESULTS_MAX_LIMIT:
+            raise ValueError("Bulk page size cannot exceed the maximum page limit.")
         if not self.BASE_DIR.is_absolute():
             self.BASE_DIR = PROJECT_ROOT / self.BASE_DIR
         self.BASE_DIR = self.BASE_DIR.resolve()

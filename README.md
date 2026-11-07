@@ -118,24 +118,41 @@ Không tải tài nguyên 3D từ bên ngoài.
 
 Mở tab **Phân loại hàng loạt**, kéo thả/chọn nhiều ảnh hoặc một ZIP rồi bấm **Bắt đầu**.
 Trang hiển thị tiến độ tải lên, cập nhật job mỗi giây và thống kê nhãn, số ảnh không chắc chắn,
-số tệp lỗi. Bảng xem trước tối đa 50 dòng có ảnh thu nhỏ tạo từ File đã chọn trong trình duyệt;
-ghép theo thứ tự gửi, kể cả khi trùng tên hoặc tên đã được làm sạch. Bộ lọc nhãn và
-**Chỉ không chắc chắn** áp dụng cho bảng này. **Tải ZIP** xuất toàn bộ kết quả khi hoàn tất.
-Ảnh thu nhỏ 72×72, bấm để xem lớn, đóng bằng Escape/nút đóng/bấm nền. Trên điện thoại,
-các dòng hiển thị dạng thẻ. Chỉ các dòng đang hiển thị giữ object URL, tối đa 50; URL được
-thu hồi khi lọc bỏ dòng, đổi danh sách ảnh, bắt đầu job mới, hủy/xóa job hoặc rời component.
-Ảnh trong ZIP có ô thay thế vì không có File ảnh riêng phía trình duyệt; không thêm endpoint ảnh.
+số tệp lỗi. Lưới hiển thị 24 thẻ/trang, 4–5 cột trên desktop, 2 cột trên điện thoại.
+Thumbnail từ backend hoạt động cho cả ảnh chọn trực tiếp và ZIP. Bấm thẻ để xem ảnh lớn,
+tên tệp, độ tin cậy và top-3; dùng mũi tên trái/phải để chuyển ảnh trong trang hiện tại,
+Escape/nút đóng/bấm nền để đóng. Không tạo object URL cho thumbnail phía client.
+Bấm chip đếm theo môn để lọc, bấm lại để bỏ lọc; chọn sắp xếp theo độ tin cậy hoặc tên tệp,
+kết hợp **Chỉ không chắc chắn**. Bộ lọc chạy trên toàn bộ job trước khi phân trang.
+Thanh lọc, **Tải ZIP**, **Xóa tệp tạm**/**Hủy** dính khi cuộn. Thay bộ lọc sẽ về trang đầu.
 Chuyển tab dừng polling, quay lại tiếp tục theo dõi cùng job. Lỗi mạng có nút **Thử lại**.
 **Hủy** dừng job và xóa ảnh tạm; batch model đang chạy sẽ được bỏ kết quả khi kết thúc.
 Sau khi xong có thể bấm **Xóa tệp tạm** để dọn ngay: trang giữ trạng thái **Đã hoàn tất**
-và báo **Đã xóa tệp tạm**, đồng thời bỏ nút tải ZIP. DELETE của backend vẫn trả `cancelled`
-cho thao tác này; trước đây UI hiển thị thẳng phản hồi nên dễ nhầm thành người dùng đã hủy job.
+và báo **Đã xóa tệp tạm**, đồng thời bỏ nút tải ZIP. Backend cũng giữ trạng thái `done`/`error`
+khi dọn job đã xong và trả `files_removed:true`; chỉ job đang chờ/chạy mới chuyển `cancelled`.
 
 `POST /api/bulk` nhận multipart `files` (hoặc `files[]`), trả HTTP 202 `{job_id}`.
 Gửi nhiều ảnh hoặc đúng một `.zip`; đường dẫn trong ZIP được lấy basename, không giải nén
 theo đường dẫn gốc. Tệp không hỗ trợ/hỏng/quá lớn được giữ trong `loi/`, không làm hỏng job.
 `GET /api/bulk/{job_id}` trả `queued|running|done|error|cancelled`, `processed`, `total`,
-`counts`, `uncertain`, `errors`, tối đa 50 `items` (kèm `top3`, `is_uncertain`, `error`).
+`counts`, `uncertain`, `errors`, `files_removed`. Trang kết quả đọc endpoint phân trang riêng:
+
+```text
+GET /api/bulk/{job_id}/results?label=polo&uncertain=false&sort=confidence_desc&offset=0&limit=24
+GET /api/bulk/{job_id}/thumb/{index}
+GET /api/bulk/{job_id}/image/{index}
+```
+
+`results` trả `items`, `total` sau lọc, `offset`, `limit`, và `summary` toàn job.
+Mỗi item có `index` ổn định theo thứ tự tệp đầu vào, không phụ thuộc lọc/sắp xếp/tên trùng.
+`label` trống lấy tất cả; `uncertain=true` chỉ lấy ảnh không chắc chắn;
+`sort=confidence_desc|confidence_asc|filename`. Mặc định 24 kết quả/trang, tối đa 100;
+`offset` không âm. Tham số không hợp lệ trả 400 tiếng Việt. Dòng lỗi không có confidence
+nằm cuối cả hai kiểu sắp xếp độ tin cậy.
+Thumbnail là JPEG cạnh dài tối đa 256 px; ảnh xem lớn lấy từ ảnh gốc, xuất JPEG tối đa
+2.048 px, giữ tỉ lệ và hướng EXIF. Các bản xem được tạo lười/cache trong thư mục job,
+không sửa ảnh gốc tải về ZIP hoặc tiền xử lý model. Header ảnh là `Cache-Control: private, no-store`.
+Index không tồn tại/ảnh lỗi trả 404 `image_not_found`; job hết hạn trả 410 `job_expired`.
 Trạng thái lỗi là `error` theo SPEC §5. `GET /api/bulk/{job_id}/download` chỉ cho tải khi
 `done`; trước đó trả 409 `job_not_ready`. `DELETE /api/bulk/{job_id}` hủy và dọn tệp.
 
@@ -157,6 +174,11 @@ Cấu hình trong `.env.example` (khởi động lại backend sau khi đổi):
 | `BULK_TTL_SECONDS` | 1800 | Giữ job 30 phút sau done/error/cancelled |
 | `BULK_CLEANUP_INTERVAL_SECONDS` | 60 | Chu kỳ dọn job hết hạn |
 | `BULK_TEMP_DIR` | `backend/tmp/bulk` | Thư mục tạm, tính từ `BASE_DIR`, được Git bỏ qua |
+| `BULK_RESULTS_PAGE_SIZE` | 24 | Limit mặc định của API results |
+| `BULK_RESULTS_MAX_LIMIT` | 100 | Limit tối đa của API results |
+| `BULK_THUMB_MAX_SIDE` | 256 | Cạnh dài thumbnail JPEG, không vượt 256 px |
+| `BULK_IMAGE_MAX_SIDE` | 2048 | Cạnh dài ảnh xem lớn JPEG |
+| `BULK_PREVIEW_JPEG_QUALITY` | 85 | Chất lượng JPEG cho bản xem |
 
 Một worker xử lý lần lượt các job; khóa model dùng chung với `/predict` và `/scan`.
 Không giữ cả bộ ảnh trong RAM; ảnh upload và ZIP kết quả nằm trên đĩa.
@@ -219,7 +241,9 @@ thông báo lỗi camera, gọi API và bộ kiểm tra nền canvas hiện có.
 Các kiểm tra bulk xác nhận batch 32/32/6, 300 tệp hỗn hợp, ZIP/CSV, tệp lỗi,
 giới hạn số tệp, hủy job, TTL, tên tệp an toàn, CSV injection và dọn tệp.
 Frontend kiểm tra polling 1 giây, dừng/hủy polling, bộ lọc, tiến độ upload và lỗi API bulk,
-ghép ảnh theo index, giới hạn/thu hồi object URL và phân biệt xóa tệp tạm với hủy phân loại.
+query lọc/phân trang, chuyển ảnh lightbox theo index và phân biệt xóa tệp tạm với hủy phân loại.
+Backend còn kiểm tra lọc polo ngoài nhóm kết quả đầu, sort/phân trang trên toàn job,
+thumbnail ZIP, tỉ lệ/kích thước JPEG, chống traversal và dọn cache cùng job.
 Polling gọi timer qua hàm bọc để tránh lỗi trình duyệt `Illegal invocation` do sai receiver.
 Golden test là điều kiện bắt buộc: cần hai tệp mô hình gốc và bộ ảnh trong
 `backend/tests/golden/`; thiếu dữ liệu sẽ báo lỗi thay vì bỏ qua.

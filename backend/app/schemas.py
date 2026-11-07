@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class HealthResponse(BaseModel):
@@ -59,6 +59,45 @@ class BulkStatus(BaseModel):
     counts: dict[str, int] = Field(default_factory=dict)
     items: list[BulkItem] = Field(default_factory=list)
     error: str | None = None
+    files_removed: bool = False
+
+
+BulkSort = Literal["confidence_asc", "confidence_desc", "filename"]
+
+
+class BulkResultsQuery(BaseModel):
+    label: str = ""
+    uncertain: bool = False
+    sort: BulkSort = "confidence_desc"
+    offset: int = Field(default=0, ge=0)
+    limit: int | None = Field(default=None, ge=1, le=100)
+
+    @field_validator("uncertain", "sort", "offset", "limit", mode="before")
+    @classmethod
+    def empty_query_defaults(cls, value: object, info: ValidationInfo) -> object:
+        if value != "":
+            return value
+        return {"uncertain": False, "sort": "confidence_desc", "offset": 0, "limit": None}[info.field_name]
+
+
+class BulkResultItem(BulkItem):
+    index: int = Field(ge=0)
+
+
+class BulkSummary(BaseModel):
+    total: int = Field(ge=0)
+    processed: int = Field(ge=0)
+    uncertain: int = Field(ge=0)
+    errors: int = Field(ge=0)
+    counts: dict[str, int]
+
+
+class BulkResults(BaseModel):
+    items: list[BulkResultItem]
+    total: int = Field(ge=0)
+    offset: int = Field(ge=0)
+    limit: int = Field(ge=1, le=100)
+    summary: BulkSummary
 
 
 class ErrorDetail(BaseModel):

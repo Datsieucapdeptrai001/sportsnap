@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Query, Request
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
-from starlette.responses import StreamingResponse
+from starlette.responses import Response, StreamingResponse
 
 from app.core.errors import APIError
-from app.schemas import BulkCreated, BulkStatus, ErrorResponse
+from app.schemas import BulkCreated, BulkResults, BulkResultsQuery, BulkStatus, ErrorResponse
 from app.services.bulk_job import BulkJobStore
 
 
@@ -64,6 +66,28 @@ async def create_bulk(request: Request) -> BulkCreated:
 @router.get("/{job_id}", response_model=BulkStatus)
 def get_bulk(request: Request, job_id: str) -> BulkStatus:
     return request.app.state.bulk_jobs.snapshot(job_id)
+
+
+@router.get("/{job_id}/results", response_model=BulkResults)
+def get_bulk_results(request: Request, job_id: str, query: Annotated[BulkResultsQuery, Query()]) -> BulkResults:
+    return request.app.state.bulk_jobs.results(job_id, query)
+
+
+def image_response(request: Request, job_id: str, index: int, thumbnail: bool) -> Response:
+    return Response(
+        request.app.state.bulk_jobs.image(job_id, index, thumbnail), media_type="image/jpeg",
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/{job_id}/thumb/{index}")
+def get_bulk_thumbnail(request: Request, job_id: str, index: int) -> Response:
+    return image_response(request, job_id, index, True)
+
+
+@router.get("/{job_id}/image/{index}")
+def get_bulk_image(request: Request, job_id: str, index: int) -> Response:
+    return image_response(request, job_id, index, False)
 
 
 @router.get("/{job_id}/download")
