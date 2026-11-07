@@ -1,21 +1,20 @@
+import manifest from '../../public/models/manifest.json'
+
 export interface Sport3DAssets {
   glb: string
-  usdz: string
+  usdz?: string
 }
 
-// Exact API labels; only enable a mapping when both team-supplied assets exist.
-const candidates: Record<string, Sport3DAssets> = {
-  football: { glb: '/models3d/football.glb', usdz: '/models3d/football.usdz' },
-  basketball: { glb: '/models3d/basketball.glb', usdz: '/models3d/basketball.usdz' },
-  golf: { glb: '/models3d/golf.glb', usdz: '/models3d/golf.usdz' },
-}
+// Exact training labels are recorded by the generator, including "canoe slamon".
+// GLB inventory only; native AR and optional iOS USDZ are a later UI task.
+const candidates: Record<string, Sport3DAssets> = Object.fromEntries(
+  Object.entries(manifest.models).map(([label, asset]) => [label, { glb: `/models/${asset.file}` }]),
+)
 
-const availableAssets = import.meta.glob('/public/models3d/*.{glb,usdz}', { query: '?url', import: 'default' })
+const availableAssets = import.meta.glob('/public/models/*.glb', { query: '?url', import: 'default' })
 
 export const sports3d: Readonly<Partial<Record<string, Sport3DAssets>>> = Object.fromEntries(
-  Object.entries(candidates).filter(([, assets]) =>
-    `/public${assets.glb}` in availableAssets && `/public${assets.usdz}` in availableAssets,
-  ),
+  Object.entries(candidates).filter(([, assets]) => `/public${assets.glb}` in availableAssets),
 )
 
 export function warnAboutUnmappedClasses(classes: string[]): void {
