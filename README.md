@@ -1,7 +1,7 @@
 # SportSnap
 
 Ứng dụng nhận diện môn thể thao qua ảnh, sử dụng FastAPI và React + TypeScript.
-Slice 4 bổ sung phân loại hàng loạt và tải ZIP bên cạnh camera quét đa khung hình.
+Slice 5 bổ sung xem 3D và Web AR từ kết quả Quét và lightbox phân loại hàng loạt.
 
 ## Run it
 
@@ -108,11 +108,62 @@ Trên Android Chrome và iOS Safari, mở ứng dụng qua HTTPS để dùng cam
 HTTP chỉ hỗ trợ camera khi chạy ở localhost. Địa chỉ HTTP LAN sẽ hiển thị hướng
 dẫn dùng HTTPS hoặc chọn ảnh từ thư viện. Kiểm tra trên điện thoại: cấp/từ chối
 quyền camera, quét bằng camera sau, xem tiến độ 4 khung hình, độ đồng thuận,
-quay lại camera và chuyển sang chọn ảnh. Nút xem vùng AI chú ý hiện là nút chờ; AR triển khai
-ở Slice 5. Chỉ hiện nút AR khi có đủ cặp `.glb`/`.usdz` do nhóm cung cấp tại
-`frontend/public/models3d/` và nhãn tương ứng trong `src/lib/sports3d.ts`
-(`football`, `basketball`, `golf`). Thêm tệp trước khi chạy Vite/build lại.
-Không tải tài nguyên 3D từ bên ngoài.
+quay lại camera và chuyển sang chọn ảnh. Nút xem vùng AI chú ý vẫn là nút chờ của
+Slice 6. AR dùng các GLB đã commit tại `frontend/public/models/`, không tải asset ngoài.
+
+### Xem 3D và AR trên điện thoại (Slice 5)
+
+Nút **Xem AR** hoạt động khi nhãn nằm trong manifest và kết quả chắc chắn
+(`is_uncertain=false`), áp dụng cho ảnh đơn, kết quả camera và lightbox Bulk.
+Kết quả chưa chắc chắn hoặc thiếu model sẽ vô hiệu hóa nút và giải thích bằng tiếng Việt.
+Thư viện `@google/model-viewer` chỉ tải khi mở dialog, không tải cùng trang Quét/Bulk.
+Dialog có tiến độ tải thật, lỗi có nút **Thử lại**, xoay/zoom 3D và nút **Xem trong AR**.
+Đóng bằng ESC hoặc nút X để trả focus về nút mở. Thiết bị không hỗ trợ AR vẫn xem 3D được.
+
+Chạy backend và Vite theo phần Run it phía trên. Máy tính cần `cloudflared` đã cài;
+mở terminal thứ ba và giữ lệnh này chạy:
+
+```powershell
+cloudflared tunnel --url http://localhost:5173
+```
+
+Lệnh in ra một URL HTTPS dạng `https://<hostname>.trycloudflare.com`.
+Trong terminal Vite, dừng `npm run dev` bằng Ctrl+C rồi cho phép **đúng hostname đó**
+và chạy lại (thay giá trị ví dụ dưới đây bằng hostname thực, không kèm `https://`):
+
+```powershell
+$env:__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS = 'my-sportsnap-test.trycloudflare.com'
+npm run dev
+```
+
+Biến này tránh lỗi Vite "Blocked request" khi truy cập tunnel. Mở URL HTTPS trên
+điện thoại; `/api` đi qua cùng tunnel tới proxy Vite rồi tới `http://localhost:8000`.
+Không cần mở một tunnel riêng cho backend. GLB tại `/models/<file>.glb` cũng phải
+truy cập được qua URL HTTPS này để trình xem AR gốc tải được.
+Tham khảo [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)
+và [Vite allowed hosts](https://vite.dev/config/server-options#server-allowedhosts).
+
+Các bước kiểm thử thủ công:
+
+1. Dùng Chrome trên Samsung S24 Ultra/Android hoặc Safari trên iPhone/iPad,
+   mở URL HTTPS; cho phép camera khi quét hoặc khi trình xem AR yêu cầu.
+2. Chọn một ảnh thể thao rõ từ thư viện, đợi kết quả chắc chắn rồi bấm **Xem AR**.
+   Lặp lại với **Quét đa khung hình**; thử thêm **Xem AR** trong lightbox Bulk.
+3. Đợi tải xong, kéo để xoay mô hình rồi bấm **Xem trong AR**. Android ưu tiên
+   WebXR, sau đó Scene Viewer; iOS dùng Quick Look. Không khai báo `ios-src` nên
+   model-viewer tự tạo USDZ từ GLB khi mở Quick Look, có thể cần chờ thêm lần đầu.
+4. Hướng camera chậm về mặt bàn/sàn có đủ sáng, đặt vật, xoay và véo phóng/thu.
+   Chín diorama mới có cạnh khoảng 0,35 m; 11 model cũ có kích thước khác nhau,
+   có thể cần thu nhỏ. `ar-scale="auto"` cho phép đổi kích thước.
+5. Trở lại trang, đóng dialog bằng X/ESC (nếu có bàn phím), kiểm tra focus về
+   **Xem AR**. Trong Bulk, đóng AR phải giữ lightbox ảnh bên dưới còn mở.
+6. Kiểm tra nút bị khóa và chú thích với kết quả chưa chắc chắn. Trên desktop
+   không hỗ trợ AR, kiểm tra thông báo và khả năng xem 3D. Để thử lỗi tải, dùng
+   DevTools chặn request GLB trước khi mở, bỏ chặn rồi bấm **Thử lại**.
+
+Chưa thể xác nhận đặt vật thực tế bằng test node hay trình duyệt desktop; cần
+thực hiện các bước trên trên điện thoại. Dừng tunnel bằng Ctrl+C sau khi thử.
+Chi tiết iOS/Android theo [tài liệu AR chính thức của model-viewer](https://modelviewer.dev/examples/augmentedreality/).
 
 ### Phân loại hàng loạt (Slice 4)
 
@@ -238,6 +289,8 @@ Các kiểm tra đa khung hình xác nhận trung bình xác suất (khác bỏ 
 độ đồng thuận, ngưỡng không chắc chắn, giới hạn 2–6 khung hình và các lỗi API.
 `npm test` kiểm tra chụp/cancel, khoảng cách khung hình, từng bước giảm dung lượng,
 thông báo lỗi camera, gọi API và bộ kiểm tra nền canvas hiện có.
+Các test AR kiểm tra bật/tắt nút theo đủ 20 nhãn manifest và `is_uncertain`, đường
+dẫn GLB thật, nhãn không có model, nạp thư viện lazy/dùng chung/thử lại và tiến độ tải.
 Các kiểm tra bulk xác nhận batch 32/32/6, 300 tệp hỗn hợp, ZIP/CSV, tệp lỗi,
 giới hạn số tệp, hủy job, TTL, tên tệp an toàn, CSV injection và dọn tệp.
 Frontend kiểm tra polling 1 giây, dừng/hủy polling, bộ lọc, tiến độ upload và lỗi API bulk,

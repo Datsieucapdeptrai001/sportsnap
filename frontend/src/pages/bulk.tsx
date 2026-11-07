@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
 import { Skeleton } from '../components/ui/skeleton'
+import { SportArButton } from '../components/sport-ar-button'
 import { cancelBulkJob, createBulkJob, downloadBulkJob, getBulkImageUrl, getBulkResults, getBulkThumbnailUrl, type BulkResultItem, type BulkResults, type BulkSort, type BulkState, type BulkStatus } from '../lib/api'
 import { BULK_PAGE_SIZE, bulkPagination, bulkResultsQuery, bulkStatusAfterRemoval, changeBulkFilters, initialBulkView, isBulkTerminal, moveBulkLightbox, pollBulkJob, toggleBulkLabel } from '../lib/bulk'
 
@@ -58,6 +59,7 @@ function BulkLightbox({ jobId, item, items, onChange, onClose }: {
           <p className="flex flex-wrap items-center gap-3 font-semibold">{item.label}<span className="tabular-nums">{((item.confidence ?? 0) * 100).toFixed(1)}%</span>{item.is_uncertain && <UncertainBadge />}</p>
           <h3 className="text-sm font-medium">Ba dự đoán hàng đầu</h3>
           <ul className="space-y-2 text-sm">{item.top3.map((prediction) => <li key={prediction.label} className="flex justify-between gap-4"><span>{prediction.label}</span><span className="tabular-nums">{(prediction.confidence * 100).toFixed(1)}%</span></li>)}</ul>
+          <SportArButton key={item.index} label={item.label ?? ''} isUncertain={item.is_uncertain} />
         </>}
       </div>
     </dialog>

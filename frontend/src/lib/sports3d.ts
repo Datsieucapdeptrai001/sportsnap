@@ -6,7 +6,7 @@ export interface Sport3DAssets {
 }
 
 // Exact training labels are recorded by the generator, including "canoe slamon".
-// GLB inventory only; native AR and optional iOS USDZ are a later UI task.
+// Quick Look generates USDZ from GLB when no explicit iOS asset is provided.
 const candidates: Record<string, Sport3DAssets> = Object.fromEntries(
   Object.entries(manifest.models).map(([label, asset]) => [label, { glb: `/models/${asset.file}` }]),
 )

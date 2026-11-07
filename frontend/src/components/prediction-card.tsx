@@ -1,16 +1,15 @@
-import { Box, CircleCheck, Focus, TriangleAlert, Trophy } from 'lucide-react'
+import { CircleCheck, Focus, TriangleAlert, Trophy } from 'lucide-react'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { Progress } from './ui/progress'
 import type { Prediction, ScanResult } from '../lib/api'
-import { sports3d } from '../lib/sports3d'
+import { SportArButton } from './sport-ar-button'
 import { cn } from '../lib/utils'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
 export function PredictionCard({ result }: { result: Prediction | ScanResult }) {
   const uncertain = result.is_uncertain
-  const hasAssets = Boolean(sports3d[result.label])
 
   return (
     <Card aria-label="Kết quả nhận diện" className={cn('surface-enter', uncertain && 'border-warning/40 bg-warning-surface/85 hover:border-warning/50')}>
@@ -55,12 +54,11 @@ export function PredictionCard({ result }: { result: Prediction | ScanResult }) 
           ))}
         </ol>
       </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        {hasAssets && <Button variant="outline" disabled aria-describedby="ar-note"><Box size={17} aria-hidden="true" />Xem AR</Button>}
+      <div className="mt-6 flex flex-wrap items-start gap-3">
+        <SportArButton label={result.label} isUncertain={uncertain} />
         <Button variant="outline" disabled aria-describedby="gradcam-note"><Focus size={17} aria-hidden="true" />Xem vùng AI chú ý</Button>
       </div>
       <p id="gradcam-note" className="mt-3 text-xs leading-relaxed text-muted-foreground">Tính năng xem vùng AI chú ý sẽ có trong bản cập nhật sau.</p>
-      {hasAssets && <p id="ar-note" className="mt-2 text-xs text-muted-foreground">Tính năng xem AR sẽ có trong bản cập nhật sau.</p>}
     </Card>
   )
 }

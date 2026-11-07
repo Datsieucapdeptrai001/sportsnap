@@ -35,7 +35,7 @@ sportsnap/
 │   ├── tests/                 # golden tests + API tests
 │   └── requirements.txt       # pin tensorflow==2.20.0
 └── frontend/                  # Vite + React + TS + Tailwind + shadcn/ui
-    ├── public/models3d/       # <sport>.glb and <sport>.usdz
+    ├── public/models/         # committed <sport>.glb and manifest.json
     └── src/ (pages/ components/ lib/api.ts lib/sports3d.ts)
 ```
 
@@ -98,11 +98,22 @@ Navigation: bottom tab bar on mobile, left sidebar on desktop.
 3. **Phân tích**: reads `/api/insights`: model comparison table, confusion-matrix image, Grad-CAM gallery, and optional ablation data. See §12 for the schema and image endpoint.
 
 ### AR (client side only)
-Use the `<model-viewer>` web component:
-`<model-viewer src="/models3d/football.glb" ios-src="/models3d/football.usdz" ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" camera-controls>`.
-Mapping `sport label -> {glb, usdz}` lives in `lib/sports3d.ts` and uses exact labels from `labels.json`. No asset for a sport -> hide the AR button, show a 2D icon.
-First three sports: **football, basketball, golf**. The team places assets in `frontend/public/models3d/`; do not download them. Warn in the dev console if a mapping key is absent from `/api/classes`. Asset sources and licences are recorded in `docs/ASSETS.md`.
-(Android uses GLB via Scene Viewer/WebXR; iOS uses USDZ via Quick Look.)
+Use `@google/model-viewer`, dynamically imported only after opening the AR dialog:
+`<model-viewer src="/models/<file>.glb" alt="..." ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="auto" camera-controls auto-rotate shadow-intensity="1" environment-image="neutral" loading="lazy">`.
+Respect reduced-motion preferences by disabling auto-rotation when requested.
+Mapping lives in `lib/sports3d.ts`, reads the committed `public/models/manifest.json`,
+and uses exact training labels (20 generated GLBs). Enable "Xem AR" only for a
+mapped label with `is_uncertain=false`; otherwise disable it with a Vietnamese
+explanation. This applies to Scan gallery/camera results and Bulk lightbox results.
+The native dialog has loading/progress, load-error retry, a "Xem trong AR" button,
+3D-only fallback for unsupported/insecure environments, Escape/X dismissal and
+focus restoration. Keep arrow keys inside the AR dialog when nested in Bulk.
+Android uses GLB via WebXR/Scene Viewer. Without `ios-src`, model-viewer generates
+USDZ at runtime for iOS Quick Look; no asset files are added or changed.
+All assets use meters and Y-up. Nine dioramas use tabletop display scale; the
+other eleven retain their existing dimensions. `ar-scale="auto"` permits resizing.
+Sources and scale conventions are recorded in `docs/ASSETS.md`. Warn in the dev
+console if a mapping key is absent from `/api/classes`.
 
 ## 7. Bulk ZIP layout
 ```
@@ -132,8 +143,13 @@ Job store is in-memory (dict + lock); delete job files 30 minutes after a job re
 **Slice 4 — Bulk.** `/api/bulk*`, bulk page, ZIP download.
 *Accept:* 300 mixed images (incl. 3 corrupt files and 1 non-image) produce correct ZIP layout and `report.csv`; UI never freezes.
 
-**Slice 5 — AR.** `<model-viewer>` flow for 3 sports.
-*Accept:* "Xem AR" opens the native AR placement on the test phone (Samsung S24 Ultra, Chrome); button hidden when no asset.
+**Slice 5 — AR. Completed implementation.** Lazy `<model-viewer>` dialog for the
+20 manifest labels, shared by Scan (single image and camera) and Bulk lightbox.
+*Accept:* certain mapped results enable AR; uncertain/missing models have disabled
+buttons with explanations; progress, retry, rotatable 3D fallback and keyboard/focus
+behavior work. Required automated checks pass. Physical-device acceptance remains
+manual: verify native placement on Samsung S24 Ultra/Chrome and iOS Safari using
+the HTTPS steps in README; do not infer that result from desktop or node tests.
 
 **Slice 6 — Grad-CAM & Insights.** `/api/gradcam`, Insights page.
 *Accept:* heatmap overlay returned for MobileNetV2 using the nested base model and `out_relu` (fallback last Conv2D), as specified in §12; Insights renders from `experiments.json` with no hard-coded numbers.
@@ -198,8 +214,9 @@ Bulk browsing/display: `BULK_RESULTS_PAGE_SIZE=24`, `BULK_RESULTS_MAX_LIMIT=100`
     Duplicate filenames get _2, _3 suffix. Folders inside an input ZIP are ignored (flatten by basename).
     report.csv gets an extra "error" column; error rows have folder=loi and empty predicted/confidence.
 11. Job expiry: 30 min after a job reaches done/error; afterwards GET returns 410 job_expired. Running jobs never expire.
-12. 3D assets: the team places files in frontend/public/models3d/. Do not download assets. sports3d.ts is keyed by
-    exact labels in labels.json (football, basketball, golf); warn in the dev console if a key is not in /api/classes.
+12. 3D assets: use the committed generated GLBs in frontend/public/models/ and manifest.json; do not download assets.
+    sports3d.ts maps exact manifest/training labels; warn in the dev console if a key is absent from /api/classes.
+    Runtime USDZ generation for Quick Look does not modify stored assets or the classifier.
 13. Clean checkout: model files are git-ignored. The app must start without them: /api/health returns 200
     {model_loaded:false, reason:"model_missing"}; prediction endpoints return 503 model_not_loaded.
     Slice 0 accept: model_loaded true when files exist, false+reason when absent, never a crash.

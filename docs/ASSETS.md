@@ -3,13 +3,16 @@
 Bộ 20 vật đại diện low-poly do nhóm SportSnap tự dựng hoàn toàn bằng Python/bpy.
 GLB không dùng asset, texture, font hay add-on bên thứ ba. Exporter glTF có sẵn
 trong **Blender 5.2.1 LTS**; vật liệu PBR màu đơn, roughness/metallic theo loại bề mặt.
-Đây là bước chuẩn bị asset, chưa triển khai UI AR hoặc kiểm thử đặt vật trên điện thoại.
+UI Slice 5 đã dùng bộ asset này trong dialog 3D/AR; đặt vật thực tế trên điện thoại
+vẫn cần kiểm thử thủ công theo README.
 
 Theo yêu cầu tác vụ này, đường dẫn GLB là `frontend/public/models/` (thay cho
 `models3d/` được dự kiến trong SPEC). Ánh xạ trong `frontend/src/lib/sports3d.ts`
-đọc manifest, kiểm tra tệp tồn tại qua Vite glob; USDZ chưa được tạo.
-Nút AR hiện tại vẫn là nút chờ bị vô hiệu hóa. README Run it không cần thêm bước
-Blender vì GLB và manifest được commit sẵn.
+đọc manifest, kiểm tra tệp tồn tại qua Vite glob. Không có file USDZ được commit;
+model-viewer tự tạo USDZ lúc mở iOS Quick Look khi không khai báo `ios-src`.
+Nút AR chỉ bật cho kết quả chắc chắn có model; thư viện nạp lazy khi mở dialog.
+Không thay đổi GLB/manifest trong tác vụ UI AR. README Run it không cần thêm bước
+Blender vì GLB và manifest đã được commit sẵn.
 
 Mỗi file dùng mét, trục Y hướng lên theo glTF, tâm đáy tại (0, 0, 0). Cảnh dựng nội bộ
 của Blender dùng Z-up rồi exporter đổi sang Y-up. Chín môn được nâng cấp bên dưới dùng
