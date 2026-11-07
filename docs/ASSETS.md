@@ -12,8 +12,11 @@ Nút AR hiện tại vẫn là nút chờ bị vô hiệu hóa. README Run it kh
 Blender vì GLB và manifest được commit sẵn.
 
 Mỗi file dùng mét, trục Y hướng lên theo glTF, tâm đáy tại (0, 0, 0). Cảnh dựng nội bộ
-của Blender dùng Z-up rồi exporter đổi sang Y-up. Giữ kích thước vật thể thật; khi làm
-UI đặt trên bàn cần cho phép người dùng thu nhỏ các dụng cụ lớn (thuyền, xe, thảm, khung).
+của Blender dùng Z-up rồi exporter đổi sang Y-up. Chín môn được nâng cấp bên dưới dùng
+**đơn vị mét, tỉ lệ trưng bày (display scale), không phải kích thước thực**.
+Cạnh dài nhất của chúng nằm trong 0,25–0,40 m, bệ dày khoảng 0,015 m; dụng cụ mảnh
+được làm dày, bóng/puck được phóng lớn tương đối để đọc được ở thumbnail 200 px.
+Mười một môn còn lại giữ nguyên GLB và quy ước kích thước cũ của lần tạo đầu.
 Giới hạn mỗi file: 2.000.000 byte và 30.000 tam giác, đo từ chính GLB sau export;
 `manifest.json` lưu dung lượng, tam giác, kích thước `[X,Y,Z]` và SHA256.
 
@@ -45,8 +48,31 @@ bầu dục Mỹ: đã xem ảnh `backend/debug_frames/model_compare/test_data/f
 (cầu thủ mặc đồ bảo hộ và cầm bóng bầu dục Mỹ). Đây là xác nhận từ ảnh mẫu cục bộ,
 không phải xác minh toàn bộ dataset. Không thay đổi nhãn hoặc dữ liệu mô hình.
 Hai giày nghệ thuật có lưỡi dao và toe pick; derby dùng quad, rollerblade dùng inline;
-golf dùng hình học lõm dimple, không phải đốm màu; swimming chỉ gồm mũ rỗng và kính.
+golf dùng hình học lõm dimple, không phải đốm màu. Swimming có bệ hồ bơi, ba dây phao,
+vạch đáy, bục xuất phát, mũ và kính.
 Số 7 trên stock car được dựng từ nét hình học, không dùng font hoặc nhãn hiệu xe.
+
+## Nâng cấp chín môn ở tỉ lệ trưng bày
+
+Giữ nguyên tên file/đường dẫn và nguồn tự tạo của bảng trên. Chỉ chín mục này có
+`scale: "display"` trong manifest; `dimensions_m` vẫn là kích thước hình học theo mét.
+Không chuẩn hóa hay thêm bệ cho 11 môn ngoài phạm vi. Hai hình người capsule của
+đấu vật là ngoại lệ được yêu cầu trong lần nâng cấp này, tự dựng từ primitive.
+
+| môn | dấu hiệu nhận diện ở thumbnail |
+| --- | --- |
+| baseball | Bệ cỏ hình kim cương, đất nâu, ba base và home plate trắng; gậy, bóng lớn có chỉ đỏ, găng da có túi bắt bóng và ngón tay. |
+| field hockey | Bệ cỏ có vạch sân và vòng cung D; gậy móc cong dày, bóng trắng lớn và khung thành nhỏ. |
+| hockey | Bệ băng xanh nhạt, vạch đỏ/xanh và vòng faceoff; puck đen lớn, gậy có bản lưỡi rộng và khung thành đỏ có lưới. |
+| polo | Bệ cỏ, hai cột goal không xà ngang có đầu đỏ, gậy dài đầu búa lớn, bóng trắng và mũ polo có vành/đai cằm. |
+| rugby | Bệ cỏ, cột goal chữ H màu navy để tăng tương phản, đệm chân cột và bóng rugby lớn có các đường kẻ đặt phía trước. |
+| figure skating women | Bệ băng tròn có vệt cong; một bốt trắng cổ thon, cuff mở, dây buộc, đế nâu, lưỡi dài và toe pick. |
+| figure skating pairs | Bệ băng có hai vệt cong giao nhau; hai bốt trắng thon đặt đối xứng, cùng lưỡi dao và toe pick. |
+| olympic wrestling | Bệ thảm tròn nhiều vòng màu; hai hình người capsule đỏ/xanh đang khóa vai và ôm eo, có tay/chân và đầu cầu. |
+| swimming | Bệ nước xanh, đúng ba dây phao đỏ/trắng, vạch T dưới đáy, bục xuất phát; mũ và kính phóng lớn đặt cạnh. |
+
+Ảnh gốc từng model vẫn render 640×520. Contact sheet ghép ảnh rộng tối đa 200 px
+để đánh giá trực tiếp độ đọc của silhouette, màu nền và chi tiết chính.
 
 ## Tự tạo lại
 
@@ -82,7 +108,7 @@ Các ảnh/báo cáo debug bị gitignore và không commit. Đèn, nền và ca
 được export vào GLB. Contact sheet ghép bằng `tools/blender/contact_sheet.py`.
 
 Kiểm tra liên kết tài liệu, tồn tại GLB, header/buffer nhị phân, hash, tam giác,
-trục Y, tâm đáy và kích thước thực từ vertex bằng `npm test` trong `frontend/`.
+trục Y, tâm đáy và kích thước hình học từ vertex bằng `npm test` trong `frontend/`.
 Bộ kiểm thử có thể chạy trên clean checkout không có `labels.json`; nếu nhãn cục bộ
 có sẵn, test còn đối chiếu thứ tự/độ phủ của manifest với chính file đó.
 
@@ -108,3 +134,22 @@ Kết quả thử nằm trong `backend/debug_frames/model_asset_checks/` (gitign
   sandbox chặn socketpair nội bộ của asyncio/TestClient; không đổi code backend.
 - SHA256 classifier/labels trước và sau tác vụ không thay đổi. Chưa kiểm thử AR
   trên điện thoại vì UI AR không thuộc phạm vi tác vụ này.
+
+### Kiểm tra bản nâng cấp chín môn
+
+- Chỉ tạo lại từng môn bằng `--only`; đúng 9 GLB và 9 bản ghi manifest thay đổi.
+  Đối chiếu SHA256 và toàn bộ bản ghi xác nhận 11 môn còn lại giữ nguyên.
+- Đã xem contact sheet ở độ rộng ảnh 200 px, qua hai vòng sửa: tăng độ đầy khung
+  và tương phản cột goal; đưa dây buộc giày bám theo bề mặt thân bốt.
+- Cả 9 model có cạnh dài nhất 0,330–0,360 m, bệ dày 0,015 m, Y-up và tâm đáy ở gốc.
+  Từng file đều đạt giới hạn dung lượng/tam giác; số đo chi tiết nằm trong manifest.
+- Generator integration check pass với 20/20 GLB và manifest giống byte khi dựng
+  lại; kiểm tra lỗi riêng từng môn và sửa bằng `--only` vẫn pass.
+- Frontend 111 tests, TypeScript, production build và backend 141 tests đều pass.
+  Không sửa frontend, backend, classifier, labels hoặc preprocessing.
+
+Đánh giá trực quan: **polo vẫn là môn kém đặc trưng nhất ở 200 px**, có thể nhầm
+với croquet vì gậy đầu búa và bệ cỏ tương tự nhau; mũ polo và hai cột goal là dấu
+hiệu phân biệt chính. Không có hình ngựa trong bố cục dụng cụ được yêu cầu.
+Các chi tiết nhỏ như toe pick, dây găng và ô lưới rõ hơn trong ảnh 640×520;
+ở 200 px, nhận diện chủ yếu dựa vào silhouette, bệ và dụng cụ lớn.

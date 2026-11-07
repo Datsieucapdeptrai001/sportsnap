@@ -26,6 +26,10 @@ def main() -> None:
     baseline_path = generator.ROOT/'frontend/public/models/manifest.json'
     baseline = json.loads(baseline_path.read_text(encoding='utf-8'))
     assert len(baseline['models']) == 20, 'Generate all production models first'
+    for label in generator.DISPLAY_SPORTS:
+        entry = baseline['models'][label]
+        assert entry['scale'] == 'display', label
+        assert .25 <= max(entry['dimensions_m']) <= .40, label
     output = generator.ROOT/'backend/debug_frames/model_asset_checks'
     report_path = generator.ROOT/'backend/debug_frames/model_previews/generation_report.json'
     previous_report = report_path.read_bytes() if report_path.exists() else None

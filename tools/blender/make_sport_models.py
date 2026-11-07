@@ -24,6 +24,9 @@ ROOT = Path(__file__).resolve().parents[2]
 TAU = math.tau
 Point = tuple[float, float, float]
 M: dict[str, Any] = {}
+DISPLAY_SPORTS = frozenset({'baseball', 'field hockey', 'hockey', 'polo', 'rugby',
+                          'figure skating women', 'figure skating pairs',
+                          'olympic wrestling', 'swimming'})
 
 
 def material(name: str, color: tuple[float, float, float], roughness: float = .55,
@@ -147,8 +150,81 @@ def profile(name: str, points: Sequence[tuple[float, float]], width: float,
     return mesh(name, vertices, faces, mat)
 
 
+def display_base(surface: str, size: tuple[float, float] = (.35, .28),
+                 circular: bool = False) -> None:
+    """Tabletop diorama, meters at display scale; base thickness is 15 mm."""
+    for name, color in {'grass': (.025, .23, .055), 'clay': (.40, .14, .045),
+                        'ice': (.32, .69, .87), 'water': (.015, .36, .65),
+                        'skin': (.65, .35, .19), 'leather': (.52, .22, .055)}.items():
+        M[name] = material(name, color, .36 if name in ('ice', 'water') else .7)
+    if circular:
+        rod('Beveled display plinth', (0, 0, .002), (0, 0, .013), size[0]/2, surface, vertices=64)
+        rod('Plinth bottom bevel', (0, 0, 0), (0, 0, .002), size[0]/2-.003,
+            surface, size[0]/2, vertices=64)
+        rod('Plinth top bevel', (0, 0, .013), (0, 0, .015), size[0]/2,
+            surface, size[0]/2-.003, vertices=64)
+    else:
+        box('Beveled display plinth', (0, 0, .0075), (*size, .015), surface, .006)
+
+
+def flat_polygon(name: str, points: Sequence[tuple[float, float]], z: float, mat: str) -> Any:
+    return mesh(name, [(x, y, z) for x, y in points], [tuple(range(len(points)))], mat)
+
+
+def arc(name: str, center: tuple[float, float], radii: tuple[float, float],
+        start: float, end: float, z: float, thickness: float, mat: str) -> None:
+    line(name, [(center[0]+radii[0]*math.cos(start+(end-start)*i/48),
+                 center[1]+radii[1]*math.sin(start+(end-start)*i/48), z)
+                for i in range(49)], thickness, mat)
+
+
+def capsule(name: str, a: Point, b: Point, radius: float, mat: str) -> None:
+    rod(name, a, b, radius, mat, vertices=12)
+    for point in (a, b):
+        ball(name+' rounded end', point, (radius,)*3, mat, 16, 8)
+
+
+def dome(name: str, center: Point, radii: Point, mat: str) -> None:
+    vertices = [(center[0]+radii[0]*math.sin(math.pi*j/20)*math.cos(TAU*i/32),
+                 center[1]+radii[1]*math.sin(math.pi*j/20)*math.sin(TAU*i/32),
+                 center[2]+radii[2]*math.cos(math.pi*j/20))
+                for j in range(11) for i in range(32)]
+    faces = [(j*32+i, j*32+(i+1) % 32, (j+1)*32+(i+1) % 32, (j+1)*32+i)
+             for j in range(10) for i in range(32)]
+    mesh(name, vertices, faces, mat)
+
+
+def goal_frame(ice: bool) -> None:
+    front, back, width, height = .068, .116, .13, .095
+    frame = 'red' if ice else 'white'
+    for x in (-width/2, width/2):
+        rod('Goal front post', (x, front, .016), (x, front, height), .004, frame)
+        line('Goal side frame', [(x, front, height), (x, back, height*.8),
+                                 (x, back, .018), (x, front, .018)], .003, frame)
+    rod('Goal crossbar', (-width/2, front, height), (width/2, front, height), .004, frame)
+    for i in range(9):
+        x = -width/2+width*i/8
+        line('Goal back net vertical', [(x, back, .018), (x, back, height*.8),
+                                        (x, front, height)], .0011, 'white')
+    for i in range(1, 6):
+        z = .018+(height*.8-.018)*i/5
+        line('Goal back and side net', [(-width/2, front, z), (-width/2, back, z),
+              (width/2, back, z), (width/2, front, z)], .0011, 'white')
+
+
 def baseball() -> None:
-    r, c = .0366, Vector((0, 0, .0366))
+    display_base('grass', (.255, .255))
+    bpy.context.object.rotation_euler.z = math.pi/4
+    flat_polygon('Infield dirt diamond', [(0, -.146), (.125, -.021), (0, .104),
+                                          (-.125, -.021)], .0156, 'clay')
+    line('Diamond baselines', [(0, -.13, .017), (.107, -.023, .017),
+         (0, .084, .017), (-.107, -.023, .017), (0, -.13, .017)], .002, 'white')
+    flat_polygon('White five-sided home plate', [(-.013, -.115), (.013, -.115),
+                 (.013, -.13), (0, -.143), (-.013, -.13)], .018, 'white')
+    for x, y in ((.107, -.023), (0, .084), (-.107, -.023)):
+        base = box('White base bag', (x, y, .019), (.018, .018, .004), 'white', .002)
+        base.rotation_euler.z = math.pi/4
+    r, c = .033, Vector((.068, -.053, .05))
     ball('Leather baseball', tuple(c), (r, r, r), 'white')
     for side in (-1, 1):
         pts = []
@@ -156,16 +232,28 @@ def baseball() -> None:
             t = TAU*i/96
             direction = Vector((side*.57+.16*math.cos(2*t), .82*math.cos(t), .82*math.sin(t))).normalized()
             pts.append(tuple(c+direction*(r+.0003)))
-        line('Red curved seam', pts, .00045, 'red')
+        line('Red curved seam', pts, .0011, 'red')
         for i in range(0, 96, 4):
             p = Vector(pts[i]); normal = (p-c).normalized()
             tangent = (Vector(pts[(i+1) % 96])-p).normalized()
             cross = normal.cross(tangent).normalized()
-            line('Red herringbone stitch', [tuple(p-cross*.0016-tangent*.0008),
-                                            tuple(p+cross*.0016+tangent*.0008)], .00045, 'red')
-    rod('Wooden bat barrel', (-.4, .085, .031), (.12, .085, .031), .031, 'wood', .021)
-    rod('Bat handle', (.12, .085, .031), (.43, .085, .031), .021, 'wood', .012)
-    rod('Bat knob', (.43, .085, .031), (.445, .085, .031), .023, 'brown')
+            line('Red herringbone stitch', [tuple(p-cross*.003-tangent*.001),
+                                            tuple(p+cross*.003+tangent*.001)], .0008, 'red')
+    rod('Wooden bat barrel', (-.108, .033, .032), (.015, .08, .032), .014, 'wood', .01)
+    rod('Bat handle', (.015, .08, .032), (.066, .093, .032), .01, 'brown', .006)
+    rod('Bat knob', (.066, .093, .032), (.074, .095, .032), .012, 'wood')
+    ball('Glove padded palm', (-.05, -.047, .032), (.044, .037, .019), 'leather')
+    ball('Glove dark catching pocket', (-.05, -.053, .047), (.029, .025, .007), 'brown')
+    for i in range(4):
+        x = -.083+i*.018
+        capsule('Glove raised finger', (x, -.026, .039),
+                (x-.007, .007+(.008 if i in (1, 2) else 0), .056), .009, 'leather')
+        line('Glove finger stitch', [(x, -.021, .049), (x-.006, .002, .064)], .0011, 'wood')
+    capsule('Glove thumb', (-.02, -.052, .035), (.002, -.021, .053), .011, 'leather')
+    for i in range(4):
+        rod('Glove web lacing', (-.025, -.01+i*.006, .057),
+            (-.005, -.021+i*.006, .057), .0018, 'brown')
+    box('Glove wrist cuff', (-.05, -.08, .033), (.052, .018, .025), 'leather', .005)
 
 
 def basketball() -> None:
@@ -205,10 +293,16 @@ def canoe_slamon() -> None:
 
 
 def field_hockey() -> None:
-    line('Curved field hockey stick', [(0, 0, 1), (0, 0, .22), (.01, 0, .1),
-         (.06, 0, .04), (.16, 0, .035), (.21, 0, .07), (.21, 0, .14)], .024, 'yellow')
-    rod('Stick grip', (0, 0, .72), (0, 0, 1.01), .028, 'navy')
-    ball('Hockey ball', (.32, 0, .0365), (.0365,)*3, 'white')
+    display_base('grass')
+    line('Pitch outline', [(-.16, -.12, .017), (.16, -.12, .017), (.16, .12, .017),
+                           (-.16, .12, .017)], .0017, 'white', True)
+    arc('Shooting D', (0, .068), (.102, .105), math.pi, TAU, .017, .0022, 'white')
+    goal_frame(False)
+    line('Thick hooked field hockey stick', [(-.11, .044, .025), (.033, -.083, .025),
+         (.054, -.105, .025), (.077, -.108, .025), (.092, -.092, .025),
+         (.086, -.073, .025)], .007, 'yellow')
+    rod('Navy field hockey grip', (-.11, .044, .025), (-.068, .007, .025), .0085, 'navy')
+    ball('Oversized white hockey ball', (.113, -.057, .04), (.024,)*3, 'white')
 
 
 def boot(y: float, style: str) -> None:
@@ -252,12 +346,69 @@ def boot(y: float, style: str) -> None:
             wheel((x, y, .05), .05, .025, 'teal')
 
 
+def display_skate(offset: tuple[float, float], angle: float) -> None:
+    before = set(bpy.context.scene.objects)
+    # Elliptical loft: narrow ankle, shaped instep, rounded toe, visibly open cuff.
+    sections = [(.051, .01, .084, .027), (.07, .012, .083, .029),
+                (.089, -.002, .063, .026), (.113, -.034, .03, .022),
+                (.168, -.038, .026, .019)]
+    vertices = [(cx+rx*math.cos(TAU*i/24), ry*math.sin(TAU*i/24), z)
+                for z, cx, rx, ry in sections for i in range(24)]
+    faces = [(j*24+i, j*24+(i+1) % 24, (j+1)*24+(i+1) % 24, (j+1)*24+i)
+             for j in range(len(sections)-1) for i in range(24)]
+    mesh('Slender white leather figure boot', vertices, faces, 'white')
+    ball('Dark open cuff', (-.038, 0, .165), (.022, .016, .003), 'brown', 24, 12)
+    line('White padded elliptical cuff', [(-.038+.026*math.cos(TAU*i/48),
+         .019*math.sin(TAU*i/48), .168) for i in range(48)], .003, 'white', True)
+    box('Brown leather sole', (.012, 0, .047), (.175, .058, .012), 'brown', .008)
+    box('Stacked heel', (-.048, 0, .037), (.036, .045, .018), 'brown', .003)
+    for x in (-.048, .065):
+        box('Blade stanchion', (x, 0, .032), (.018, .017, .024), 'silver', .002)
+    profile('Long curved figure blade', [(-.091, .022), (-.07, .017), (.075, .017),
+            (.112, .031), (.113, .039), (.069, .029), (-.09, .031)], .0045, 0, 'silver')
+    for i in range(4):
+        x = .088+i*.006
+        profile('Toe-pick tooth', [(x, .021+i*.002), (x+.004, .029+i*.002),
+                                  (x+.006, .023+i*.002)], .006, 0, 'silver')
+    def tongue_surface(y: float, z: float) -> Point:
+        for lower, upper in zip(sections, sections[1:]):
+            if lower[0] <= z <= upper[0]:
+                t = (z-lower[0])/(upper[0]-lower[0])
+                cx, rx, ry = [lower[i]*(1-t)+upper[i]*t for i in (1, 2, 3)]
+                return (cx+rx*math.sqrt(max(0, 1-(y/ry)**2))+.0008, y, z)
+        raise ValueError('Lace point must stay on the boot tongue')
+
+    for z in (.084, .10, .119, .139, .158):
+        for side in (-1, 1):
+            line('Crossed navy laces following leather surface',
+                 [tongue_surface(side*.014*(1-2*i/8), z-.005+.01*i/8)
+                  for i in range(9)], .0015, 'navy')
+    for side in (-1, 1):
+        arc('Lace bow loop', (-.012, side*.014), (.012, .007), 0, TAU, .169, .0014, 'navy')
+    bpy.context.view_layer.update()
+    from mathutils import Matrix
+    transform = Matrix.Translation((offset[0], offset[1], 0)) @ Matrix.Rotation(angle, 4, 'Z')
+    for obj in set(bpy.context.scene.objects)-before:
+        obj.matrix_world = transform @ obj.matrix_world
+
+
+def skate_trail(center: tuple[float, float], start: float, end: float) -> None:
+    arc('Curved blue blade tracing', center, (.119, .092), start, end, .0168, .0016, 'blue')
+    arc('Ice scratch glint', center, (.124, .097), start, end, .017, .0009, 'white')
+
+
 def figure_skating_pairs() -> None:
-    boot(-.085, 'ice'); boot(.085, 'ice')
+    display_base('ice', (.35, .30))
+    skate_trail((-.035, -.012), math.pi*.2, math.pi*1.8)
+    skate_trail((.035, .012), -math.pi*.8, math.pi*.8)
+    display_skate((-.025, -.061), -.28)
+    display_skate((.025, .061), .28)
 
 
 def figure_skating_women() -> None:
-    boot(0, 'ice')
+    display_base('ice', (.33, .33), True)
+    skate_trail((-.01, .005), math.pi*.2, math.pi*1.8)
+    display_skate((0, -.012), -.12)
 
 
 def oval_ball(rugby_style: bool) -> None:
@@ -359,11 +510,19 @@ def high_jump() -> None:
 
 
 def hockey() -> None:
-    rod('Black rubber puck', (.27, 0, 0), (.27, 0, .0254), .0381, 'black', vertices=48)
-    line('Ice hockey shaft and blade', [(-.23, 0, 1.58), (-.09, 0, .13),
-         (.04, 0, .045), (.43, 0, .045)], .025, 'navy')
-    box('Flat stick blade', (.22, 0, .045), (.44, .027, .08), 'black', .02)
-    rod('Taped grip', (-.23, 0, 1.58), (-.208, 0, 1.35), .028, 'white')
+    display_base('ice')
+    for y, color in ((-.054, 'blue'), (.007, 'red'), (.051, 'blue')):
+        rod('Rink colored stripe', (-.162, y, .0165), (.162, y, .0165), .0022, color)
+    arc('Rink center faceoff circle', (0, .007), (.042, .042), 0, TAU, .017, .0018, 'red')
+    arc('Rink boundary', (0, 0), (.16, .122), 0, TAU, .017, .0015, 'blue')
+    goal_frame(True)
+    rod('Large thick black puck', (-.077, -.052, .016), (-.077, -.052, .04), .03, 'black', vertices=40)
+    ring('Puck rim', (-.077, -.052, .037), .029, .0012, 'navy')
+    line('Thick ice hockey shaft', [(.116, .042, .025), (.008, -.087, .025),
+                                   (-.011, -.104, .025)], .006, 'navy')
+    rod('White taped hockey grip', (.116, .042, .025), (.082, .001, .025), .0075, 'white')
+    blade = box('Broad ice hockey blade', (-.043, -.105, .026), (.075, .015, .021), 'black', .005)
+    blade.rotation_euler.z = -.1
 
 
 def nascar_racing() -> None:
@@ -392,22 +551,56 @@ def nascar_racing() -> None:
 
 
 def olympic_wrestling() -> None:
-    rod('Round wrestling mat', (0, 0, 0), (0, 0, .055), 6, 'blue', vertices=96)
-    for name, inner, outer, mat in (('Orange passivity zone', 4, 4.5, 'orange'),
-                                     ('Center circle marking', .475, .525, 'white')):
-        vertices = [(r*math.cos(TAU*i/96), r*math.sin(TAU*i/96), .056)
+    display_base('navy', (.35, .35), True)
+    for name, inner, outer, mat in (('Outer blue safety zone', .145, .169, 'blue'),
+                                   ('Orange passivity ring', .123, .145, 'orange'),
+                                   ('Gold wrestling area', 0, .123, 'yellow'),
+                                   ('Center circle', .028, .031, 'white')):
+        vertices = [(r*math.cos(TAU*i/96), r*math.sin(TAU*i/96), .0158)
                     for r in (inner, outer) for i in range(96)]
         mesh(name, vertices, [(i, i+96, (i+1) % 96+96, (i+1) % 96)
                               for i in range(96)], mat)
-    for x in (-.8, .8):
-        box('Starting mark', (x, 0, .061), (.04, .35, .008), 'white')
+    # Two original mannequin figures in a standing collar-and-waist wrestling tie.
+    for color, hip, shoulder, head, knees, feet in (
+        ('red', (-.057, -.008, .088), (-.021, -.02, .142), (-.025, -.023, .178),
+         [(-.086, -.043, .055), (-.067, .043, .055)], [(-.102, -.06, .024), (-.084, .065, .024)]),
+        ('blue', (.063, .012, .088), (.025, .01, .139), (.033, .017, .175),
+         [(.085, -.044, .054), (.085, .054, .054)], [(.105, -.063, .024), (.106, .073, .024)]),
+    ):
+        capsule(color+' singlet capsule torso', hip, shoulder, .024, color)
+        capsule(color+' neck', shoulder, head, .009, 'skin')
+        ball(color+' mannequin head', head, (.016, .015, .019), 'skin', 24, 12)
+        for knee, foot in zip(knees, feet):
+            capsule(color+' singlet thigh', hip, knee, .013, color)
+            capsule(color+' shin', knee, foot, .01, 'skin')
+            box(color+' wrestling shoe', (foot[0], foot[1]-.006, .023), (.03, .022, .014), 'black', .005)
+    for name, shoulder, elbow, hand, color in (
+        ('Red collar tie', (-.021, -.038, .141), (.019, -.05, .151), (.043, -.002, .151), 'red'),
+        ('Red waist grip', (-.021, .002, .137), (-.004, .048, .112), (.059, .032, .101), 'red'),
+        ('Blue collar tie', (.025, -.01, .14), (.012, -.065, .147), (-.032, -.037, .155), 'blue'),
+        ('Blue waist grip', (.025, .029, .136), (.002, .054, .117), (-.053, .011, .104), 'blue'),
+    ):
+        capsule(name+' upper arm', shoulder, elbow, .01, color)
+        capsule(name+' forearm', elbow, hand, .009, 'skin')
+        ball(name+' gripping hand', hand, (.011,)*3, 'skin', 16, 8)
 
 
 def polo() -> None:
-    rod('Polo mallet shaft', (0, 0, .065), (.16, 0, 1.34), .012, 'wood', .016)
-    rod('Mallet grip', (.125, 0, 1.1), (.16, 0, 1.34), .021, 'brown')
-    rod('Cigar-shaped mallet head', (-.115, 0, .06), (.115, 0, .06), .032, 'wood', vertices=20)
-    ball('Polo ball', (.25, 0, .042), (.042,)*3, 'white')
+    display_base('grass')
+    rod('Polo goal line', (-.16, .082, .017), (.16, .082, .017), .002, 'white')
+    for x in (-.117, .117):
+        rod('Tall white polo goal post', (x, .082, .016), (x, .082, .177), .005, 'white')
+        rod('Goal post safety padding', (x, .082, .017), (x, .082, .057), .008, 'red')
+        rod('High-contrast polo post tip', (x, .082, .131), (x, .082, .177), .0053, 'red')
+    rod('Thick polo mallet shaft', (-.09, -.05, .037), (-.049, -.016, .24), .005, 'wood')
+    rod('Leather mallet grip', (-.058, -.023, .194), (-.049, -.016, .24), .007, 'brown')
+    rod('Large transverse polo hammer', (-.126, -.05, .033), (-.054, -.05, .033), .014, 'wood', vertices=24)
+    ball('Large white polo ball', (.073, -.075, .041), (.025,)*3, 'white')
+    dome('Polo helmet shell', (.054, .026, .03), (.047, .043, .041), 'navy')
+    ball('Polo helmet visor', (.054, -.009, .03), (.052, .034, .005), 'navy')
+    line('Helmet chin strap', [(.009, .024, .029), (.025, .018, .018),
+         (.082, .018, .018), (.099, .024, .029)], .003, 'brown')
+    rod('Helmet top button', (.054, .026, .068), (.054, .026, .075), .005, 'navy')
 
 
 def rings() -> None:
@@ -431,32 +624,48 @@ def rollerblade_racing() -> None:
 
 
 def rugby() -> None:
-    oval_ball(True)
+    display_base('grass')
+    for x in (-.094, .094):
+        rod('High-contrast H goal upright', (x, .082, .016), (x, .082, .25), .0055, 'navy')
+        box('Upright blue padding', (x, .082, .047), (.021, .022, .063), 'blue', .004)
+    rod('High-contrast H goal crossbar', (-.098, .082, .123), (.098, .082, .123), .0055, 'navy')
+    for y in (-.11, .075):
+        rod('Rugby field goal line', (-.157, y, .017), (.157, y, .017), .0022, 'white')
+    c, length, radius = Vector((0, -.057, .068)), .088, .052
+    ball('Oversized rugby ball', tuple(c), (length, radius, radius), 'white', 40, 20)
+    for a in (0, math.pi/2, math.pi, 3*math.pi/2):
+        line('Rugby panel seam', [tuple(c+Vector((length*math.cos(t),
+             (radius+.0007)*math.sin(t)*math.cos(a), (radius+.0007)*math.sin(t)*math.sin(a))))
+             for t in [math.pi*i/48 for i in range(49)]], .0014, 'navy')
+    for x in (-.055, .055):
+        section = radius*math.sqrt(1-(x/length)**2)
+        ring('Rugby colored end stripe', (x, c.y, c.z), section+.0005, .004, 'teal', 'YZ', 64)
 
 
 def swimming() -> None:
-    # Open-bottom hemisphere cap, not a person's head.
-    vertices = []
-    for j in range(13):
-        t = math.pi/2*j/12
-        for i in range(48):
-            a = TAU*i/48
-            vertices.append((.10*math.sin(t)*math.cos(a), .12*math.sin(t)*math.sin(a),
-                             .002+.12*math.cos(t)))
-    faces = [(j*48+i, j*48+(i+1) % 48, (j+1)*48+(i+1) % 48, (j+1)*48+i)
-             for j in range(12) for i in range(48)]
-    cap = mesh('Open silicone swim cap', vertices, faces, 'blue')
-    bpy.context.view_layer.objects.active = cap
-    mod = cap.modifiers.new('Silicone thickness', 'SOLIDIFY'); mod.thickness = .002
-    bpy.ops.object.modifier_apply(modifier=mod.name)
-    for x in (-.038, .038):
-        ball('Goggle lens', (x, -.175, .022), (.032, .022, .009), 'glass')
-        pts = [(x+.034*math.cos(TAU*i/48), -.175+.024*math.sin(TAU*i/48), .024) for i in range(48)]
-        line('Goggle seal', pts, .005, 'black', True)
-    rod('Goggle nose bridge', (-.008, -.175, .024), (.008, -.175, .024), .004, 'black')
-    line('Goggle head strap', [(-.07, -.175, .02), (-.115, -.1, .018),
-         (-.115, .05, .018), (0, .14, .018), (.115, .05, .018),
-         (.115, -.1, .018), (.07, -.175, .02)], .004, 'navy')
+    display_base('water', (.36, .28))
+    for y in (-.08, 0, .08):
+        for i in range(28):
+            x = -.163+i*.012
+            rod('Red white lane float', (x, y, .021), (x+.009, y, .021),
+                .0043, 'red' if i % 2 == 0 else 'white', vertices=10)
+    for y in (-.04, .04):
+        rod('Pool floor lane stripe', (-.154, y, .0165), (.152, y, .0165), .0028, 'navy')
+        rod('Pool floor T marking', (-.133, y-.021, .0165), (-.133, y+.021, .0165), .0028, 'navy')
+    for y in (.045, .095):
+        box('Starting block support', (-.125, y, .043), (.012, .012, .055), 'white', .002)
+    box('Starting block platform', (-.125, .07, .078), (.065, .069, .014), 'white', .004)
+    box('Starting block blue anti-slip top', (-.125, .07, .086), (.056, .061, .004), 'blue', .002)
+    box('Starting block number one', (-.125, .034, .07), (.005, .003, .017), 'navy')
+    dome('Oversized blue silicone swimming cap', (.069, -.031, .02), (.049, .052, .042), 'blue')
+    arc('Cap pale lower rim', (.069, -.031), (.049, .052), 0, TAU, .021, .002, 'white')
+    for x in (.044, .091):
+        ball('Oversized goggle lens', (x, -.104, .027), (.02, .014, .007), 'glass', 24, 12)
+        line('Goggle black seal', [(x+.021*math.cos(TAU*i/32),
+             -.104+.015*math.sin(TAU*i/32), .029) for i in range(32)], .003, 'black', True)
+    rod('Goggle bridge', (.064, -.104, .029), (.071, -.104, .029), .003, 'black')
+    line('Swimming goggle strap', [(.023, -.104, .025), (.013, -.066, .023),
+         (.069, -.048, .023), (.124, -.066, .023), (.113, -.104, .025)], .003, 'navy')
 
 
 def uneven_bars() -> None:
@@ -516,6 +725,9 @@ def ground_and_join(label: str) -> Any:
     obj['author'] = 'SportSnap team'
     obj['source'] = 'tools/blender/make_sport_models.py; original procedural geometry'
     obj['sport'] = label
+    if label in DISPLAY_SPORTS:
+        obj['scale_convention'] = 'display scale, not real-world size'
+        obj['base_thickness_m'] = .015
     return obj
 
 
@@ -571,7 +783,8 @@ def canonicalize_triangle_order(path: Path) -> None:
 
 def preview(obj: Any, path: Path) -> None:
     scene = bpy.context.scene
-    points = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
+    # Use the actual silhouette, not the empty corners around round/diamond plinths.
+    points = [obj.matrix_world @ vertex.co for vertex in obj.data.vertices]
     lo = Vector(tuple(min(p[i] for p in points) for i in range(3)))
     hi = Vector(tuple(max(p[i] for p in points) for i in range(3)))
     center = (lo+hi)/2
@@ -652,6 +865,8 @@ def main() -> None:
             reset(); BUILDERS[label]()
             obj = ground_and_join(label)
             dimensions = [round(float(v), 6) for v in obj.dimensions]
+            if label in DISPLAY_SPORTS and not .25 <= max(dimensions) <= .40:
+                raise ValueError(f'Display extent must be 0.25-0.40 m: {dimensions}')
             bpy.ops.export_scene.gltf(filepath=str(temp), export_format='GLB',
                                       use_selection=True, export_yup=True, export_apply=True,
                                       export_materials='EXPORT', export_extras=True,
@@ -663,6 +878,8 @@ def main() -> None:
             temp.replace(target)
             entries[label] = {'file': target.name, **stats,
                               'dimensions_m': [dimensions[0], dimensions[2], dimensions[1]]}
+            if label in DISPLAY_SPORTS:
+                entries[label]['scale'] = 'display'
             print(f'SPORTSNAP_OK {label}: {stats}', flush=True)
         except Exception as exc:
             temp.unlink(missing_ok=True)

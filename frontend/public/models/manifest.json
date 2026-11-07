@@ -7,14 +7,15 @@
   "models": {
     "baseball": {
       "file": "baseball.glb",
-      "bytes": 121988,
-      "triangles": 3972,
-      "sha256": "7374f5e92c102cd3d7728b76f111c0f16eff9a4ed3b3c53afd7cfcf31df9a598",
+      "bytes": 407876,
+      "triangles": 9169,
+      "sha256": "eae2df764ff137dc4d2bff212aa044e8321e5218fbf8594b043d6b1dac81456c",
       "dimensions_m": [
-        0.845,
-        0.0732,
-        0.1526
-      ]
+        0.355654,
+        0.083,
+        0.355654
+      ],
+      "scale": "display"
     },
     "basketball": {
       "file": "basketball.glb",
@@ -40,36 +41,39 @@
     },
     "field hockey": {
       "file": "field_hockey.glb",
-      "bytes": 59580,
-      "triangles": 1076,
-      "sha256": "74af155f6dc44fbb7832a25afc0022a88260180a6f3c5eaeb4f6d1a9b8179e90",
+      "bytes": 94160,
+      "triangles": 2396,
+      "sha256": "00da6c1e12d9eb25aeff579869a8dd6b86621924a9d89237a76eeb9584805ea4",
       "dimensions_m": [
-        0.3845,
-        1.01,
-        0.073
-      ]
+        0.35,
+        0.099,
+        0.28
+      ],
+      "scale": "display"
     },
     "figure skating pairs": {
       "file": "figure_skating_pairs.glb",
-      "bytes": 197384,
-      "triangles": 4416,
-      "sha256": "38d4e55ec9ea53f46b90f9fdf6e8d4fde2c8bc03d83d5eb62bfa58dc764e58b2",
+      "bytes": 285144,
+      "triangles": 10204,
+      "sha256": "9525609e59c4c836940a6b1c980c2a3be529aca7eb6d13d36d4aeaaec349e06a",
       "dimensions_m": [
-        0.34,
-        0.322003,
-        0.292
-      ]
+        0.35,
+        0.170598,
+        0.3
+      ],
+      "scale": "display"
     },
     "figure skating women": {
       "file": "figure_skating_women.glb",
-      "bytes": 100516,
-      "triangles": 2208,
-      "sha256": "5b63c2f4ba889ae5689fee5f3a2f526bd2a25e4a47020dd27e9fc5f6692ec6c4",
+      "bytes": 174508,
+      "triangles": 5804,
+      "sha256": "6de1745f6555b64c287b285a2fd1c107930dca9aae33c362715cd04494f01f02",
       "dimensions_m": [
-        0.34,
-        0.322003,
-        0.122
-      ]
+        0.33,
+        0.170598,
+        0.33
+      ],
+      "scale": "display"
     },
     "football": {
       "file": "football.glb",
@@ -117,14 +121,15 @@
     },
     "hockey": {
       "file": "hockey.glb",
-      "bytes": 19440,
-      "triangles": 376,
-      "sha256": "88486abb04a3f3c85e875c655957eb602fae5c6dbf343ca10acb624b7293359e",
+      "bytes": 80244,
+      "triangles": 2900,
+      "sha256": "06656aee8f21ebb7a287b2ba2dc097538580e690f415eade27dd09952cb496bc",
       "dimensions_m": [
-        0.697873,
-        1.582666,
-        0.0762
-      ]
+        0.35,
+        0.099,
+        0.28
+      ],
+      "scale": "display"
     },
     "nascar racing": {
       "file": "nascar_racing.glb",
@@ -139,25 +144,27 @@
     },
     "olympic wrestling": {
       "file": "olympic_wrestling.glb",
-      "bytes": 31588,
-      "triangles": 788,
-      "sha256": "63116925de9892a69e8b65d74036d937e8bc3a1fb89f1ee1762eb6635ddfc8a1",
+      "bytes": 748064,
+      "triangles": 13748,
+      "sha256": "5dfe39b6eebe172d1a36565fbfcfcf64cad503811d926cb0784b154f300083a1",
       "dimensions_m": [
-        12.0,
-        0.065,
-        12.0
-      ]
+        0.35,
+        0.197,
+        0.35
+      ],
+      "scale": "display"
     },
     "polo": {
       "file": "polo.glb",
-      "bytes": 63472,
-      "triangles": 1124,
-      "sha256": "3bba0bf49c92c515eafd34030dea35c76aab255922cd490fe353701209a32747",
+      "bytes": 177084,
+      "triangles": 3236,
+      "sha256": "d9d3b093608ca4cffbd7813a69ac0d79b7e864e1ac112f5d2f9ea884da2b8491",
       "dimensions_m": [
-        0.407,
-        1.34303,
-        0.084
-      ]
+        0.35,
+        0.241684,
+        0.28
+      ],
+      "scale": "display"
     },
     "rings": {
       "file": "rings.glb",
@@ -194,25 +201,27 @@
     },
     "rugby": {
       "file": "rugby.glb",
-      "bytes": 207868,
-      "triangles": 6816,
-      "sha256": "6c1a8aa4f1102c1260b1d82c57c22f30687b572628ac88d61c06d175199ebc5a",
+      "bytes": 185616,
+      "triangles": 5904,
+      "sha256": "b00423f33f2a758ad0ae9d62e18e47edb346a8cf86daafc2232c09ddaa8f2abe",
       "dimensions_m": [
-        0.291999,
-        0.192532,
-        0.1928
-      ]
+        0.35,
+        0.25,
+        0.28
+      ],
+      "scale": "display"
     },
     "swimming": {
       "file": "swimming.glb",
-      "bytes": 269328,
-      "triangles": 5684,
-      "sha256": "2e360772a373c9b08457187e0cdeed9d08208ccb8401a2be429b7348af91e920",
+      "bytes": 303612,
+      "triangles": 6884,
+      "sha256": "366a52a18cfeb651394af07d40453df4b0f39d499a1af8a5ccbbfc47222744be",
       "dimensions_m": [
-        0.23771,
-        0.121996,
-        0.348
-      ]
+        0.36,
+        0.088,
+        0.28
+      ],
+      "scale": "display"
     },
     "uneven bars": {
       "file": "uneven_bars.glb",
