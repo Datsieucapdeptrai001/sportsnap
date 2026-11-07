@@ -1,8 +1,10 @@
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -12,11 +14,14 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import TypeAdapter
 from starlette.exceptions import HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from app.api.scan import router as inference_router
+from app.api.bulk import router as bulk_router
 from app.core.config import Settings
 from app.core.errors import APIError
 from app.schemas import ErrorDetail, ErrorResponse, HealthResponse
+from app.services.bulk_job import BulkJobStore
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.model = None
         application.state.labels = []
         application.state.model_reason = None
+        application.state.model_lock = Lock()
         try:
             if not config.MODEL_PATH.is_file() or not config.LABELS_PATH.is_file():
                 application.state.model_reason = "model_missing"
@@ -56,9 +62,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             # Failed imports, unreadable files and invalid models must not prevent startup.
             application.state.model_reason = "model_load_failed"
             logger.exception("Model loading failed; health endpoint remains available.")
+        application.state.bulk_jobs = BulkJobStore(
+            config, application.state.model, application.state.labels, application.state.model_lock,
+        )
+
+        async def cleanup_bulk_jobs() -> None:
+            while True:
+                await asyncio.sleep(config.BULK_CLEANUP_INTERVAL_SECONDS)
+                await run_in_threadpool(application.state.bulk_jobs.cleanup)
+
+        cleanup_task = asyncio.create_task(cleanup_bulk_jobs())
         try:
             yield
         finally:
+            cleanup_task.cancel()
+            try:
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
+            await run_in_threadpool(application.state.bulk_jobs.close)
             application.state.model = None
             application.state.labels = []
 
@@ -67,7 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=config.CORS_ORIGINS,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -115,6 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Register API routes first so static serving cannot shadow them.
     application.include_router(inference_router, prefix="/api")
+    application.include_router(bulk_router, prefix="/api")
     if (config.FRONTEND_DIST / "index.html").is_file():
         application.mount("/", StaticFiles(directory=config.FRONTEND_DIST, html=True), name="frontend")
 

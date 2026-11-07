@@ -5,6 +5,7 @@ import { Card } from './components/ui/card'
 import { SportCanvasBackground } from './components/sport-canvas-background'
 import { cn } from './lib/utils'
 import { ScanPage } from './pages/scan'
+import { BulkPage } from './pages/bulk'
 
 const tabs = [
   { id: 'scan', label: 'Quét', icon: ScanLine },
@@ -57,7 +58,10 @@ function App() {
         <div hidden={activeTab !== 'scan'}>
           <ScanPage active={activeTab === 'scan'} />
         </div>
-        {activeTab !== 'scan' && (
+        <div hidden={activeTab !== 'bulk'}>
+          <BulkPage active={activeTab === 'bulk'} />
+        </div>
+        {activeTab === 'insights' && (
           <div className="text-white">
             <p className="mb-3 text-xs font-semibold tracking-widest text-emerald-300 uppercase">SportSnap</p>
             <h1 className="text-3xl font-semibold tracking-tight">{currentTab.label}</h1>
@@ -65,7 +69,7 @@ function App() {
               <currentTab.icon className="mx-auto mb-5 text-primary" size={36} aria-hidden="true" />
               <h2 className="text-xl font-semibold">Tính năng đang được phát triển</h2>
               <p className="mt-3 text-sm text-muted-foreground">
-                {activeTab === 'bulk' ? 'Phân loại nhiều ảnh cùng lúc sẽ sớm có mặt.' : 'Kết quả thí nghiệm và phân tích mô hình sẽ có tại đây.'}
+                Kết quả thí nghiệm và phân tích mô hình sẽ có tại đây.
               </p>
               <button type="button" className="mt-6 min-h-11 rounded-xl px-4 text-sm font-medium text-primary transition-all duration-200 hover:bg-primary/10 motion-safe:hover:scale-[1.01] motion-safe:active:scale-[0.98]" onClick={() => setActiveTab('scan')}>
                 Trở về Quét

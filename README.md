@@ -1,7 +1,7 @@
 # SportSnap
 
 Ứng dụng nhận diện môn thể thao qua ảnh, sử dụng FastAPI và React + TypeScript.
-Slice 3 cung cấp camera quét đa khung hình, chọn một ảnh từ thư viện và kết quả nhận diện.
+Slice 4 bổ sung phân loại hàng loạt và tải ZIP bên cạnh camera quét đa khung hình.
 
 ## Run it
 
@@ -102,7 +102,7 @@ Có thể quay lại camera, chọn ảnh khác hoặc thử lại khi có lỗi
 hiện kết quả, chuyển sang thư viện, rời trang hoặc đưa ứng dụng xuống nền;
 bấm mở lại camera để tiếp tục. Lỗi quyền truy cập, thiếu camera, kết nối không
 an toàn, ảnh không hợp lệ, mô hình chưa sẵn sàng và lỗi mạng đều có thông báo tiếng Việt.
-Giao diện sáng/tối theo hệ thống. Hai trang Hàng loạt và Phân tích hiện là trang chờ.
+Giao diện sáng/tối theo hệ thống. Trang Phân tích hiện là trang chờ.
 
 Trên Android Chrome và iOS Safari, mở ứng dụng qua HTTPS để dùng camera;
 HTTP chỉ hỗ trợ camera khi chạy ở localhost. Địa chỉ HTTP LAN sẽ hiển thị hướng
@@ -113,6 +113,71 @@ quay lại camera và chuyển sang chọn ảnh. Nút xem vùng AI chú ý hi�
 `frontend/public/models3d/` và nhãn tương ứng trong `src/lib/sports3d.ts`
 (`football`, `basketball`, `golf`). Thêm tệp trước khi chạy Vite/build lại.
 Không tải tài nguyên 3D từ bên ngoài.
+
+### Phân loại hàng loạt (Slice 4)
+
+Mở tab **Phân loại hàng loạt**, kéo thả/chọn nhiều ảnh hoặc một ZIP rồi bấm **Bắt đầu**.
+Trang hiển thị tiến độ tải lên, cập nhật job mỗi giây và thống kê nhãn, số ảnh không chắc chắn,
+số tệp lỗi. Bảng xem trước tối đa 50 dòng, không có thumbnail theo SPEC; bộ lọc nhãn và
+**Chỉ không chắc chắn** áp dụng cho bảng này. **Tải ZIP** xuất toàn bộ kết quả khi hoàn tất.
+Chuyển tab dừng polling, quay lại tiếp tục theo dõi cùng job. Lỗi mạng có nút **Thử lại**.
+**Hủy** dừng job và xóa ảnh tạm; batch model đang chạy sẽ được bỏ kết quả khi kết thúc.
+Sau khi xong có thể bấm **Xóa tệp tạm** để dọn ngay.
+
+`POST /api/bulk` nhận multipart `files` (hoặc `files[]`), trả HTTP 202 `{job_id}`.
+Gửi nhiều ảnh hoặc đúng một `.zip`; đường dẫn trong ZIP được lấy basename, không giải nén
+theo đường dẫn gốc. Tệp không hỗ trợ/hỏng/quá lớn được giữ trong `loi/`, không làm hỏng job.
+`GET /api/bulk/{job_id}` trả `queued|running|done|error|cancelled`, `processed`, `total`,
+`counts`, `uncertain`, `errors`, tối đa 50 `items` (kèm `top3`, `is_uncertain`, `error`).
+Trạng thái lỗi là `error` theo SPEC §5. `GET /api/bulk/{job_id}/download` chỉ cho tải khi
+`done`; trước đó trả 409 `job_not_ready`. `DELETE /api/bulk/{job_id}` hủy và dọn tệp.
+
+ZIP kết quả có thư mục theo nhãn đã slugify, `chua_chac_chan/` cho ảnh có confidence < 0.60,
+`loi/` cho tệp lỗi, cùng `report.csv` UTF-8 BOM với các cột theo SPEC §7:
+`filename,predicted,confidence,top2,top2_confidence,folder,error`.
+Lỗi từng tệp là `unsupported_format`, `corrupt` hoặc `too_large`.
+Tên tệp được làm sạch và chống trùng bằng `_2`, `_3`; ô CSV bắt đầu bằng `= + - @`
+(kể cả sau khoảng trắng) được thêm dấu `'` để tránh công thức ngoài ý muốn.
+
+Cấu hình trong `.env.example` (khởi động lại backend sau khi đổi):
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---:|---|
+| `MAX_BULK_FILES` | 2000 | Tối đa số tệp/job, kể cả tệp lỗi trong ZIP |
+| `MAX_UPLOAD_MB` | 12 | Dung lượng mỗi ảnh; quá giới hạn đi vào `loi/` |
+| `BULK_BATCH_SIZE` | 32 | Số ảnh/batch, tối đa 32 |
+| `BULK_MAX_ACTIVE_JOBS` | 2 | Tổng số job đang chờ/chạy, kể cả đang upload |
+| `BULK_TTL_SECONDS` | 1800 | Giữ job 30 phút sau done/error/cancelled |
+| `BULK_CLEANUP_INTERVAL_SECONDS` | 60 | Chu kỳ dọn job hết hạn |
+| `BULK_TEMP_DIR` | `backend/tmp/bulk` | Thư mục tạm, tính từ `BASE_DIR`, được Git bỏ qua |
+
+Một worker xử lý lần lượt các job; khóa model dùng chung với `/predict` và `/scan`.
+Không giữ cả bộ ảnh trong RAM; ảnh upload và ZIP kết quả nằm trên đĩa.
+Vượt số tệp trả 413 `too_many_files` và hủy toàn bộ lượt gửi. Job đang chạy/chờ không hết hạn;
+job hết TTL trả 410 `job_expired`, mã không tồn tại trả 404 `job_not_found`.
+Job lưu trong bộ nhớ của một process, mất khi backend khởi động lại; shutdown bình thường
+dọn ảnh tạm. Dùng một process Uvicorn, không thêm `--workers`.
+
+Tự thử một thư mục ảnh bằng PowerShell từ thư mục gốc (backend đang chạy ở cổng 8000):
+
+```powershell
+$imageFolder = 'D:\photos'  # Change to your photo folder.
+$inputZip = Join-Path $env:TEMP ("sportsnap-" + [guid]::NewGuid() + ".zip")
+Compress-Archive -LiteralPath (Get-ChildItem -LiteralPath $imageFolder -File).FullName -DestinationPath $inputZip
+try {
+    $job = curl.exe --fail-with-body -sS http://localhost:8000/api/bulk -F "files=@$inputZip" | ConvertFrom-Json
+    if (-not $job.job_id) { throw 'Không tạo được lượt phân loại.' }
+    do {
+        Start-Sleep -Seconds 1
+        $state = Invoke-RestMethod "http://localhost:8000/api/bulk/$($job.job_id)"
+        Write-Host "$($state.status): $($state.processed)/$($state.total)"
+    } while ($state.status -in @('queued', 'running'))
+    if ($state.status -ne 'done') { throw 'Phân loại chưa hoàn tất. Kiểm tra trạng thái job.' }
+    curl.exe --fail-with-body -o "sportsnap_result_$($job.job_id).zip" "http://localhost:8000/api/bulk/$($job.job_id)/download"
+} finally {
+    Remove-Item -LiteralPath $inputZip -ErrorAction SilentlyContinue
+}
+```
 
 ### Chạy bản build trên một cổng
 
@@ -144,6 +209,9 @@ Các kiểm tra đa khung hình xác nhận trung bình xác suất (khác bỏ 
 độ đồng thuận, ngưỡng không chắc chắn, giới hạn 2–6 khung hình và các lỗi API.
 `npm test` kiểm tra chụp/cancel, khoảng cách khung hình, từng bước giảm dung lượng,
 thông báo lỗi camera, gọi API và bộ kiểm tra nền canvas hiện có.
+Các kiểm tra bulk xác nhận batch 32/32/6, 300 tệp hỗn hợp, ZIP/CSV, tệp lỗi,
+giới hạn số tệp, hủy job, TTL, tên tệp an toàn, CSV injection và dọn tệp.
+Frontend kiểm tra polling 1 giây, dừng/hủy polling, bộ lọc, tiến độ upload và lỗi API bulk.
 Golden test là điều kiện bắt buộc: cần hai tệp mô hình gốc và bộ ảnh trong
 `backend/tests/golden/`; thiếu dữ liệu sẽ báo lỗi thay vì bỏ qua.
 Bộ golden ban đầu gồm tám ảnh mẫu tổng hợp với kết quả thực từ mô hình,

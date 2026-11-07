@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, TypeVar
 from uuid import uuid4
 
 from fastapi import APIRouter, File, Request, UploadFile
@@ -13,6 +14,15 @@ from app.services.inference import SUPPORTED_CONTENT_TYPES, predict_frames, pred
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+PredictionType = TypeVar("PredictionType", bound=Prediction)
+
+
+def locked_prediction(request: Request, operation: Callable[[], PredictionType]) -> PredictionType:
+    # Share the model lock with the bulk worker; acquire it off the event loop.
+    with request.app.state.model_lock:
+        return operation()
 
 
 def save_debug_frames(frames: list[bytes], content_types: list[str | None], directory: Path) -> None:
@@ -68,7 +78,8 @@ async def predict(request: Request, file: Annotated[UploadFile, File()]) -> Pred
         config = request.app.state.settings
         data = await read_image(file, config.MAX_UPLOAD_MB)
         return await run_in_threadpool(
-            predict_image, data, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD
+            locked_prediction, request,
+            lambda: predict_image(data, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD),
         )
     finally:
         await file.close()
@@ -99,7 +110,8 @@ async def scan(
                 save_debug_frames, frames, [file.content_type for file in files], config.DEBUG_FRAMES_DIR
             )
         return await run_in_threadpool(
-            predict_frames, frames, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD
+            locked_prediction, request,
+            lambda: predict_frames(frames, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD),
         )
     finally:
         for file in files:

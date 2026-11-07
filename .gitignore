@@ -8,3 +8,4 @@ backend/models/labels.json
 *.pyc
 frontend/dist/
 backend/debug_frames/
+backend/tmp/bulk/

@@ -36,6 +36,31 @@ class ClassesResponse(BaseModel):
     classes: list[str]
 
 
+class BulkCreated(BaseModel):
+    job_id: str
+
+
+class BulkItem(BaseModel):
+    filename: str
+    label: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    is_uncertain: bool = False
+    top3: list[ClassConfidence] = Field(default_factory=list)
+    folder: str = "loi"
+    error: str | None = None
+
+
+class BulkStatus(BaseModel):
+    status: Literal["queued", "running", "done", "error", "cancelled"]
+    processed: int = Field(ge=0)
+    total: int = Field(ge=0)
+    uncertain: int = Field(ge=0)
+    errors: int = Field(ge=0)
+    counts: dict[str, int] = Field(default_factory=dict)
+    items: list[BulkItem] = Field(default_factory=list)
+    error: str | None = None
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str
