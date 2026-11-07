@@ -2,7 +2,8 @@ fastapi==0.162.0
 uvicorn[standard]==0.54.0
 pydantic==2.14.2
 pydantic-settings==2.16.2
-tensorflow==2.20.0
+tensorflow-cpu==2.20.0; sys_platform == "linux"
+tensorflow==2.20.0; sys_platform != "linux"
 numpy==2.5.4
 Pillow==13.0.0
 python-multipart==0.0.33

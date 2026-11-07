@@ -18,7 +18,7 @@ Phone browser (React)  --HTTPS-->  FastAPI  -->  Keras model (loaded once at sta
       |                                |
       +-- <model-viewer> AR (client)   +-- bulk jobs in background thread, in-memory job store
 ```
-FastAPI serves the built frontend (`frontend/dist`) at `/` and the API under `/api`. One process, one port. The app starts even when the git-ignored model files are missing; see §12.
+FastAPI serves the built frontend (`frontend/dist`) at `/` and the API under `/api`. One process, one port. The fixed model and labels are tracked in Git unchanged. The app still starts when either file is missing; see §12.
 
 ```
 sportsnap/
@@ -30,10 +30,10 @@ sportsnap/
 │   │   ├── api/               # scan.py, bulk.py, insights.py
 │   │   ├── services/          # inference.py, gradcam.py, bulk_job.py
 │   │   └── core/config.py
-│   ├── models/                # best_model.keras, labels.json  (git-ignored)
+│   ├── models/                # best_model.keras, labels.json (committed unchanged)
 │   ├── data/experiments.json  # results for Insights page (provided by the team)
 │   ├── tests/                 # golden tests + API tests
-│   └── requirements.txt       # pin tensorflow==2.20.0
+│   └── requirements.txt       # pin TensorFlow 2.20.0 (tensorflow-cpu on Linux)
 └── frontend/                  # Vite + React + TS + Tailwind + shadcn/ui
     ├── public/models/         # committed <sport>.glb and manifest.json
     └── src/ (pages/ components/ lib/api.ts lib/sports3d.ts)
@@ -156,6 +156,12 @@ the HTTPS steps in README; do not infer that result from desktop or node tests.
 
 **Slice 7 — Polish & delivery.** Dockerfile, README, empty/skeleton states, a11y pass, dark mode, favicon/title.
 *Accept:* `docker build` + `docker run -p 8000:8000` serves the whole app.
+Session scope approved for delivery only: multi-stage Node/Python 3.12 Docker build,
+TensorFlow CPU 2.20.0, non-root Uvicorn on port 8000, `/api/health` healthcheck,
+one Compose service with `.env` and Bulk tmpfs, GitHub Actions backend/frontend checks,
+and Docker/contribution/deployment documentation. Commit the unchanged model and labels
+(each <50,000,000 bytes). Do not change app logic or implement Slice 6. Do not create
+a Git remote or push. Remaining UI polish is outside this delivery session.
 
 ## 9. Design brief
 - **Mood:** clean, modern, sporty but restrained — think a polished product, not a student demo. Mobile-first.
@@ -172,6 +178,9 @@ the HTTPS steps in README; do not infer that result from desktop or node tests.
 `MODEL_PATH`, `LABELS_PATH`, `PREPROCESS` (mobilenet_v2), `CONFIDENCE_THRESHOLD`, `MAX_UPLOAD_MB`, `MAX_BULK_FILES`.
 Bulk browsing/display: `BULK_RESULTS_PAGE_SIZE=24`, `BULK_RESULTS_MAX_LIMIT=100`, `BULK_THUMB_MAX_SIDE=256`,
 `BULK_IMAGE_MAX_SIDE=2048`, `BULK_PREVIEW_JPEG_QUALITY=85`. Display resizing never changes model preprocessing or originals in ZIP.
+`BULK_TEMP_DIR` sets the temporary job directory. Compose fixes container paths under
+`/app` and mounts Bulk storage as tmpfs; `BULK_TMPFS_SIZE=2g` controls its capacity
+(Compose setting only, not application config). Other application settings come from `.env`.
 
 ## 11. Pitfalls to respect
 - Camera needs HTTPS (or localhost). iOS Safari needs `playsinline` on `<video>`.
@@ -217,10 +226,12 @@ Bulk browsing/display: `BULK_RESULTS_PAGE_SIZE=24`, `BULK_RESULTS_MAX_LIMIT=100`
 12. 3D assets: use the committed generated GLBs in frontend/public/models/ and manifest.json; do not download assets.
     sports3d.ts maps exact manifest/training labels; warn in the dev console if a key is absent from /api/classes.
     Runtime USDZ generation for Quick Look does not modify stored assets or the classifier.
-13. Clean checkout: model files are git-ignored. The app must start without them: /api/health returns 200
+13. Clean checkout: track `backend/models/best_model.keras` and `backend/models/labels.json`
+    unchanged in Git; each must be below 50 MB (50,000,000 bytes). No conversion or retraining.
+    The app must still start without them: /api/health returns 200
     {model_loaded:false, reason:"model_missing"}; prediction endpoints return 503 model_not_loaded.
     Slice 0 accept: model_loaded true when files exist, false+reason when absent, never a crash.
-    README says where to put the files.
+    README documents committed file paths and the missing-file fallback.
 14. Scan payload > 1.5 MB: client lowers JPEG quality 0.85 -> 0.75 -> 0.65 -> 0.55, then max side 512,
     then drops to 3 frames (minimum 2).
 15. Error codes: 400 bad_request, 404 job_not_found, 409 job_not_ready, 410 job_expired,

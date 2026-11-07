@@ -1,0 +1,18 @@
+services:
+  sportsnap:
+    build: .
+    image: sportsnap:local
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    # Container paths are independent of host-specific paths in .env.
+    environment:
+      BASE_DIR: /app
+      MODEL_PATH: backend/models/best_model.keras
+      LABELS_PATH: backend/models/labels.json
+      FRONTEND_DIST: frontend/dist
+      BULK_TEMP_DIR: /app/backend/tmp/bulk
+    tmpfs:
+      - /app/backend/tmp/bulk:uid=10001,gid=10001,mode=0700,size=${BULK_TMPFS_SIZE:-2g}
+    restart: unless-stopped

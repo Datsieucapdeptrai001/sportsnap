@@ -2,6 +2,7 @@
 
 Ứng dụng nhận diện môn thể thao qua ảnh, sử dụng FastAPI và React + TypeScript.
 Slice 5 bổ sung xem 3D và Web AR từ kết quả Quét và lightbox phân loại hàng loạt.
+Slice 7 bổ sung Docker và CI để bàn giao; Slice 6 chưa được triển khai.
 
 ## Run it
 
@@ -23,9 +24,10 @@ Nếu PowerShell không cho phép kích hoạt môi trường, dùng trực ti�
 `.\.venv\Scripts\python.exe -m pip install -r requirements.txt` và
 `.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000`.
 
-Đặt hai tệp do nhóm cung cấp tại `backend/models/best_model.keras` và
-`backend/models/labels.json`. Hai tệp này không được đưa vào Git; không sửa đổi,
-chuyển đổi hoặc huấn luyện lại. Backend vẫn khởi động khi chưa có một trong hai tệp.
+Hai tệp do nhóm cung cấp tại `backend/models/best_model.keras` và
+`backend/models/labels.json` được theo dõi bằng Git, có sẵn khi clone repo.
+Mỗi tệp phải nhỏ hơn 50 MB (50.000.000 byte); không sửa đổi, chuyển đổi hoặc huấn luyện lại.
+Backend vẫn khởi động khi chưa có một trong hai tệp.
 
 Kiểm tra tại [trạng thái API](http://localhost:8000/api/health).
 Khi có mô hình hợp lệ, API trả `model_loaded: true` và số lớp đọc từ tệp nhãn.
@@ -73,7 +75,9 @@ và khởi động lại backend để lưu nguyên byte các frame `/api/scan` 
 `.env` được đọc từ thư mục gốc dù chạy lệnh trong `backend/`. `BASE_DIR` mặc định
 là thư mục gốc; các đường dẫn tương đối trong `.env` được tính từ `BASE_DIR`.
 Giữ `PREPROCESS=mobilenet_v2` theo notebook huấn luyện. Các giới hạn mặc định nằm trong `.env.example`.
-TensorFlow được cố định ở phiên bản `2.20.0`; nếu cài đặt thất bại, dừng và báo lỗi.
+TensorFlow được cố định ở phiên bản `2.20.0` (`tensorflow-cpu` trên Linux/Docker,
+`tensorflow` trên hệ điều hành khác); nếu cài đặt thất bại, dừng và báo lỗi.
+Gói CPU được mô tả trong [hướng dẫn TensorFlow](https://www.tensorflow.org/install/pip).
 
 ### Frontend khi phát triển
 
@@ -81,7 +85,7 @@ Mở terminal thứ hai tại thư mục gốc, giữ backend đang chạy:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -304,7 +308,76 @@ Bộ golden ban đầu gồm tám ảnh mẫu tổng hợp với kết quả th�
 được cho phép dùng làm mốc hồi quy khi chưa có ảnh xuất từ notebook.
 Bộ này chưa xác nhận độ chính xác trên ảnh thể thao hoặc tính tương đương với
 notebook. Xem `backend/tests/golden/README.md` để tạo bộ ứng viên từ dữ liệu kiểm thử.
-Trên checkout chưa có mô hình, vẫn chạy backend như trên; có thể kiểm tra riêng
+Nếu mô hình bị thiếu khỏi checkout, vẫn chạy backend như trên; có thể kiểm tra riêng
 phần không cần mô hình bằng `python -m pytest -q --ignore=tests/golden`.
+
+## Chạy bằng Docker
+
+Yêu cầu Docker Engine/Docker Desktop đang chạy với Linux containers và Docker Compose.
+Chạy từ thư mục gốc (chỉ sao chép `.env` nếu chưa có để giữ cấu hình hiện tại):
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up --build
+```
+
+Mở [SportSnap](http://localhost:8000) và [trạng thái API](http://localhost:8000/api/health).
+Dockerfile build frontend bằng Node.js 24 rồi copy `dist` cùng backend/model vào
+image Python 3.12 slim. FastAPI phục vụ cả giao diện và API trên cổng 8000,
+chạy bằng user `sportsnap` (UID/GID 10001), một process Uvicorn.
+HEALTHCHECK gọi `/api/health` và chỉ healthy khi API chạy và model đã nạp.
+
+Compose đọc `.env`; các đường dẫn model, labels, frontend và Bulk được cố định
+theo cây `/app` trong container, không dùng đường dẫn tuyệt đối của máy host.
+Bulk dùng tmpfs riêng, mặc định tối đa `BULK_TMPFS_SIZE=2g`; dung lượng sử dụng
+tiêu thụ bộ nhớ host. Tăng giới hạn trong `.env` nếu host đủ bộ nhớ và job lớn
+cần nhiều chỗ cho ảnh gốc, cache và ZIP. Khởi động lại container làm mất toàn bộ
+job trong bộ nhớ và tệp Bulk; tải kết quả trước khi dừng. Không bật lưu frame debug
+trong bản deploy. Compose tự khởi động lại với `restart: unless-stopped`.
+Camera và AR trên điện thoại vẫn cần HTTPS ở host deploy.
+
+```powershell
+docker compose ps
+docker compose logs --tail 100 sportsnap
+curl.exe --fail-with-body http://localhost:8000/api/health
+curl.exe --fail-with-body http://localhost:8000/api/predict -F "file=@backend/tests/golden/red_gradient.png"
+docker compose down
+```
+
+Ảnh golden nằm ở checkout để kiểm thử, không được copy vào image runtime.
+Golden `red_gradient.png` phải khớp nhãn/confidence trong `expected.json` (sai số tối đa 0,01).
+Muốn chạy không qua Compose:
+
+```powershell
+docker build -t sportsnap:local .
+docker run --rm -p 8000:8000 --env-file .env --tmpfs /app/backend/tmp/bulk:uid=10001,gid=10001,mode=0700,size=2g sportsnap:local
+```
+
+Khi dùng `docker run`, giữ đường dẫn tương đối theo `.env.example`; nếu cần đặt
+`BASE_DIR` thì dùng `/app`, không dùng đường dẫn máy host.
+
+## Đóng góp
+
+1. Tạo nhánh từ nhánh chính, ví dụ `git switch -c codex/slice-7-delivery`.
+2. Đọc `AGENTS.md` và `SPEC.md`, chỉ làm một slice; giữ nguyên model, labels và tiền xử lý.
+3. Chạy `pytest -q` trong backend, rồi `npm ci`, `npm test`, `npx tsc --noEmit`
+   và `npm run build` trong frontend. Commit theo mẫu `slice N: <summary>`.
+4. Đẩy nhánh lên repo GitHub của nhóm và mở Pull Request. CI phải xanh trước khi merge;
+   workflow chạy trên cả `push` và `pull_request`, cache pip/npm, gồm golden gate.
+
+`.env`, môi trường ảo, dependencies, build, cache và ảnh tạm được bỏ qua bằng Git/Docker.
+Chỉ hai artifact classifier đã nêu được đưa vào Git; không đưa dataset hoặc export khác lên repo.
+
+## Deploy tóm tắt
+
+1. Tạo repo GitHub, thêm remote và push mã nguồn; bật GitHub Actions nếu repo yêu cầu.
+   Các thao tác này do chủ repo thực hiện, không nằm trong phần chuẩn bị cục bộ.
+2. Trên host hỗ trợ Docker/Linux, checkout commit đã qua CI và build từ `Dockerfile`
+   với build context ở thư mục gốc. Image đã chứa frontend, model và labels.
+3. Cấu hình biến môi trường theo `.env.example`, giữ đường dẫn trong container và cổng 8000;
+   với Compose dùng `docker compose up --build -d`. Dùng một instance/process vì job
+   Bulk lưu trong bộ nhớ; cấp đủ RAM cho TensorFlow và tmpfs.
+4. Cho host/reverse proxy chuyển HTTPS tới cổng 8000, kiểm tra `/`, `/api/health`
+   (`model_loaded: true`) và gửi thử một ảnh tới `/api/predict` trước khi demo.
 
 Xem [SPEC.md](SPEC.md) và [AGENTS.md](AGENTS.md) để biết phạm vi từng slice.

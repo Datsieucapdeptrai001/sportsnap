@@ -1,0 +1,33 @@
+.git
+.github
+**/.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.cache
+**/cache
+**/*.pyc
+**/*.log
+**/.env
+**/.env.*
+**/debug_frames
+**/tmp
+**/temp
+**/tmp_images
+**/temp_images
+# Tests (including golden images) run in CI, not in the runtime image.
+backend/tests
+backend/scripts
+tools
+docs
+# Include only the two fixed model artifacts, never datasets or other exports.
+backend/models/*
+!backend/models/best_model.keras
+!backend/models/labels.json
+**/datasets
+**/dataset
+**/*.zip
+**/*.ipynb

@@ -6,6 +6,8 @@ University course project (Computer Vision, IUH). **Read SPEC.md before every ta
 ## Ground rules
 - Work on **ONE slice at a time** (SPEC.md §8). Do not start the next slice.
 - **Never** modify, retrain, convert, or "improve" the model file or `labels.json`.
+- Track `backend/models/best_model.keras` and `backend/models/labels.json` in Git unchanged.
+  Each must stay below 50 MB (50,000,000 bytes); check sizes before committing. Other model exports stay ignored.
 - **Never** change preprocessing on your own. It must match the training notebook (SPEC.md §4).
 - **Never invent numbers.** Any metric shown in the UI must come from `backend/data/experiments.json`.
 - One small commit per slice, message `slice N: <summary>`. Run tests before committing.
@@ -26,13 +28,14 @@ University course project (Computer Vision, IUH). **Read SPEC.md before every ta
 Backend (from `backend/`):
 ```
 python -m venv .venv && .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt  # TensorFlow CPU 2.20.0 on Linux
 uvicorn app.main:app --reload --port 8000
 pytest -q
 ```
 Frontend (from `frontend/`):
 ```
-npm install
+npm ci
+npm test
 npm run dev        # proxies /api to http://localhost:8000
 npm run build      # output frontend/dist, served by FastAPI at "/"
 npx tsc --noEmit
@@ -40,6 +43,6 @@ npx tsc --noEmit
 
 ## Definition of done (every slice)
 1. Acceptance criteria of the slice in SPEC.md §8 all pass.
-2. `pytest -q` and `npx tsc --noEmit` and `npm run build` pass.
+2. `pytest -q`, `npm test`, `npx tsc --noEmit` and `npm run build` pass.
 3. README "Run it" section still works from a clean checkout.
 4. Final report lists: files changed, how you verified, anything you were unsure about.
