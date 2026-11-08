@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ModelViewerElement } from '@google/model-viewer'
 import { Box, LoaderCircle, RotateCcw, TriangleAlert, X } from 'lucide-react'
-import { createViewerLoader, getArAvailability, modelLoadProgress, modelSource, type ArAsset } from '../lib/ar'
+import { createViewerLoader, getArAvailability, modelLoadProgress, modelSource, shouldAutoOpenAr, type ArAsset, type ArAutoOpenRequest } from '../lib/ar'
+import { sportNameVi } from '../lib/sport-names'
 import { sports3d } from '../lib/sports3d'
 import { Button } from './ui/button'
 import { Progress } from './ui/progress'
@@ -19,9 +20,10 @@ type LoadState =
   | { phase: 'ready'; progress: 100 }
   | { phase: 'error'; message: string }
 
-function ArDialog({ label, asset, returnFocusRef, onClose }: {
-  label: string; asset: ArAsset; returnFocusRef: RefObject<HTMLButtonElement | null>; onClose: () => void
+function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
+  label: string; confidence?: number; asset: ArAsset; returnFocusRef: RefObject<HTMLButtonElement | null>; onClose: () => void
 }) {
+  const sportName = sportNameVi(label)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const viewerRef = useRef<ModelViewerElement>(null)
   const [attempt, setAttempt] = useState(0)
@@ -146,25 +148,32 @@ function ArDialog({ label, asset, returnFocusRef, onClose }: {
       onKeyDown={(event) => event.stopPropagation()}
       onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <div className="flex items-center justify-between gap-3">
-        <h2 id={titleId} className="text-lg font-semibold">Xem 3D và AR · {label}</h2>
+        <div className="min-w-0">
+          <p className="mb-2 text-sm text-muted-foreground">Xem 3D và AR</p>
+          <h2 id={titleId} className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{sportName}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{label}</p>
+          {confidence !== undefined && <p className="mt-3 font-semibold text-primary tabular-nums">Độ tin cậy: {(confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</p>}
+        </div>
         <Button autoFocus variant="outline" className="size-11 shrink-0 p-0" aria-label="Đóng trình xem AR" onClick={onClose}><X size={20} aria-hidden="true" /></Button>
       </div>
       <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">Kéo để xoay mô hình 3D, véo để phóng to hoặc thu nhỏ. Khi mở AR, hướng camera về mặt bàn hoặc sàn.</p>
       <div className="relative mt-4 min-h-48 overflow-hidden rounded-xl bg-muted/40" aria-busy={state.phase === 'library' || state.phase === 'model'}>
         {libraryReady && state.phase !== 'error' && <model-viewer key={attempt} ref={viewerRef}
-          src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${label}`} ar
+          src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${sportName}`} ar
           ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="auto"
           ios-src={asset.usdz} camera-controls auto-rotate={!window.matchMedia('(prefers-reduced-motion: reduce)').matches}
           shadow-intensity="1" environment-image="neutral" loading="lazy"
           className="block h-[min(52svh,26rem)] min-h-48 w-full" style={{ touchAction: 'pan-y' }}>
           <span slot="ar-button" hidden />
           <span slot="progress-bar" hidden />
+          <div className="pointer-events-none absolute top-3 left-3 max-w-[85%] rounded-lg bg-black/75 px-3 py-2 text-lg font-semibold text-white">{sportName}</div>
         </model-viewer>}
         {state.phase === 'library' && <div className="flex min-h-48 items-center justify-center gap-2 text-sm"><LoaderCircle className="motion-safe:animate-spin" size={20} aria-hidden="true" />Đang tải trình xem 3D…</div>}
         {state.phase === 'error' && <div role="alert" className="flex min-h-48 flex-col items-center justify-center gap-4 p-5 text-center"><TriangleAlert className="text-destructive" size={28} aria-hidden="true" /><p className="text-sm">{state.message}</p><Button variant="outline" onClick={retryLoad}><RotateCcw size={18} aria-hidden="true" />Thử lại</Button></div>}
       </div>
       {(state.phase === 'library' || state.phase === 'model') && <div className="mt-4 space-y-2" role="status"><p className="text-sm">{state.phase === 'library' ? 'Đang chuẩn bị trình xem…' : `Đang tải mô hình: ${state.progress}%`}</p><Progress value={state.progress} label="Tiến độ tải mô hình 3D" /></div>}
-      <Button className="mt-4 w-full" disabled={!ready || !arSupported || launching} aria-describedby={supportId} onClick={activateAr}><Box size={18} aria-hidden="true" />{launching ? 'Đang mở AR…' : 'Xem trong AR'}</Button>
+      <Button className="mt-4 min-h-14 w-full text-base font-semibold" disabled={!ready || !arSupported || launching} aria-describedby={supportId} onClick={activateAr}><Box size={22} aria-hidden="true" />{launching ? 'Đang mở AR…' : 'Xem trong AR'}</Button>
+      <p className="mt-2 text-center text-sm text-muted-foreground">Chạm để đặt vật lên bàn</p>
       <p id={supportId} role="status" className="mt-3 text-sm leading-relaxed text-muted-foreground">
         {state.phase === 'error' ? 'Tải lại mô hình để tiếp tục xem 3D và kiểm tra AR.'
           : !secure ? 'AR cần kết nối HTTPS. Bạn vẫn có thể xem và xoay mô hình 3D tại đây.'
@@ -177,19 +186,39 @@ function ArDialog({ label, asset, returnFocusRef, onClose }: {
   )
 }
 
-export function SportArButton({ label, isUncertain }: { label: string; isUncertain: boolean }) {
+export function SportArButton({ label, isUncertain, confidence, autoOpen, otherDialogOpen = false }: {
+  label: string; isUncertain: boolean; confidence?: number; autoOpen?: ArAutoOpenRequest; otherDialogOpen?: boolean
+}) {
   const [open, setOpen] = useState(false)
+  const lastOpenedResultId = useRef<number | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const noteId = useId()
   const availability = getArAvailability(label, isUncertain, sports3d)
+  useEffect(() => {
+    if (!autoOpen || !shouldAutoOpenAr(autoOpen, lastOpenedResultId.current, open || otherDialogOpen, label, isUncertain, sports3d)) return
+    // Wait until scanner cleanup has released its stream before showing the dialog.
+    const frame = window.requestAnimationFrame(() => {
+      // Also guard native dialogs outside this result card before taking focus.
+      if (document.querySelector('dialog[open]')) return
+      lastOpenedResultId.current = autoOpen.resultId
+      setOpen(true)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [autoOpen, open, otherDialogOpen, label, isUncertain])
+
+  function openManually() {
+    if (otherDialogOpen) return
+    if (autoOpen) lastOpenedResultId.current = autoOpen.resultId
+    setOpen(true)
+  }
   return <>
     <div>
       <Button ref={triggerRef} variant="outline" disabled={!availability.enabled} aria-haspopup="dialog" aria-expanded={open}
-        aria-describedby={availability.message ? noteId : undefined} onClick={() => setOpen(true)}>
+        aria-describedby={availability.message ? noteId : undefined} onClick={openManually}>
         <Box size={17} aria-hidden="true" />Xem AR
       </Button>
       {availability.message && <p id={noteId} className="mt-2 text-xs leading-relaxed text-muted-foreground">{availability.message}</p>}
     </div>
-    {open && availability.enabled && <ArDialog key={`${label}:${availability.asset.glb}`} label={label} asset={availability.asset} returnFocusRef={triggerRef} onClose={() => setOpen(false)} />}
+    {open && availability.enabled && <ArDialog key={`${label}:${availability.asset.glb}`} label={label} confidence={confidence} asset={availability.asset} returnFocusRef={triggerRef} onClose={() => setOpen(false)} />}
   </>
 }

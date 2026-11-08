@@ -9,11 +9,12 @@ import { Card } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
 import { getClasses, predictImage, type Prediction, type ScanResult } from '../lib/api'
 import { warnAboutUnmappedClasses } from '../lib/sports3d'
+import { readAutoOpenArPreference, saveAutoOpenArPreference } from '../lib/ar'
 
 type ScanState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; result: Prediction | ScanResult; image: Blob | null }
+  | { status: 'success'; result: Prediction | ScanResult; image: Blob | null; source: 'camera' | 'image'; resultId: number }
   | { status: 'error'; message: string }
 
 function ImagePreview({ file }: { file: File }) {
@@ -42,6 +43,8 @@ function ImagePreview({ file }: { file: File }) {
 export function ScanPage({ active = true }: { active?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const requestRef = useRef<AbortController | null>(null)
+  const resultSequence = useRef(0)
+  const [autoOpenAr, setAutoOpenAr] = useState(readAutoOpenArPreference)
   const [file, setFile] = useState<File | null>(null)
   const [mode, setMode] = useState<'camera' | 'gallery'>('camera')
   const [state, setState] = useState<ScanState>({ status: 'idle' })
@@ -64,7 +67,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
     setState({ status: 'loading' })
     try {
       const result = await predictImage(selected, controller.signal)
-      if (!controller.signal.aborted) setState({ status: 'success', result, image: selected })
+      if (!controller.signal.aborted) setState({ status: 'success', result, image: selected, source: 'image', resultId: ++resultSequence.current })
     } catch (error) {
       if (controller.signal.aborted) return
       const message = error instanceof Error ? error.message : 'Chưa thể nhận diện ảnh. Vui lòng thử lại.'
@@ -129,7 +132,8 @@ export function ScanPage({ active = true }: { active?: boolean }) {
           state.status === 'success' ? (
             <Button className="w-full" onClick={() => changeMode('camera')}><Camera size={18} aria-hidden="true" />Quay lại camera trực tiếp</Button>
           ) : (
-            active && <CameraScanner onResult={(result, image) => setState({ status: 'success', result, image })} />
+            // Unmounting the scanner releases every camera track before the AR dialog opens.
+            active && <CameraScanner onResult={(result, image) => setState({ status: 'success', result, image, source: 'camera', resultId: ++resultSequence.current })} />
           )
         ) : file ? (
           <>
@@ -155,6 +159,14 @@ export function ScanPage({ active = true }: { active?: boolean }) {
         {mode === 'gallery' && <Button className="mt-4 w-full" onClick={() => inputRef.current?.click()}>
           <ImageUp size={18} aria-hidden="true" />{file ? 'Chọn ảnh khác' : 'Chọn ảnh từ thư viện'}
         </Button>}
+        {mode === 'camera' && <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+          <input type="checkbox" role="switch" checked={autoOpenAr} onChange={(event) => {
+            setAutoOpenAr(event.target.checked)
+            saveAutoOpenArPreference(event.target.checked)
+          }} className="size-5 shrink-0 accent-emerald-500" />
+          Tự mở AR sau khi quét
+        </label>}
+        {mode === 'camera' && state.status === 'success' && <p className="mt-2 text-sm text-muted-foreground">Camera đã tạm dừng sau lượt quét để có thể dùng AR. Bấm Quay lại camera trực tiếp khi muốn quét tiếp.</p>}
         {mode === 'camera' && <Button variant="outline" className="mt-4 w-full" onClick={() => { changeMode('gallery'); inputRef.current?.click() }}>
           <ImageUp size={18} aria-hidden="true" />Chọn ảnh từ thư viện
         </Button>}
@@ -199,7 +211,8 @@ export function ScanPage({ active = true }: { active?: boolean }) {
             {file && <Button className="mt-5" variant="outline" onClick={() => void recognize(file)}>Thử lại</Button>}
           </Card>
         )}
-        {state.status === 'success' && <PredictionCard result={state.result} image={state.image} />}
+        {state.status === 'success' && <PredictionCard key={state.resultId} result={state.result} image={state.image}
+          autoOpenAr={{ resultId: state.resultId, source: state.source, enabled: autoOpenAr && active }} />}
       </div>
       <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.

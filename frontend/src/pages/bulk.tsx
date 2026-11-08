@@ -59,7 +59,7 @@ function BulkLightbox({ jobId, item, items, onChange, onClose }: {
           <p className="flex flex-wrap items-center gap-3 font-semibold">{item.label}<span className="tabular-nums">{((item.confidence ?? 0) * 100).toFixed(1)}%</span>{item.is_uncertain && <UncertainBadge />}</p>
           <h3 className="text-sm font-medium">Ba dự đoán hàng đầu</h3>
           <ul className="space-y-2 text-sm">{item.top3.map((prediction) => <li key={prediction.label} className="flex justify-between gap-4"><span>{prediction.label}</span><span className="tabular-nums">{(prediction.confidence * 100).toFixed(1)}%</span></li>)}</ul>
-          <SportArButton key={item.index} label={item.label ?? ''} isUncertain={item.is_uncertain} />
+          <SportArButton key={item.index} label={item.label ?? ''} confidence={item.confidence ?? undefined} isUncertain={item.is_uncertain} />
         </>}
       </div>
     </dialog>

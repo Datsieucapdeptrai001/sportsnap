@@ -1,5 +1,42 @@
 export interface ArAsset { glb: string; usdz?: string }
 
+export interface ArAutoOpenRequest {
+  resultId: number
+  source: 'camera' | 'image'
+  enabled: boolean
+}
+
+export function shouldAutoOpenAr(
+  request: ArAutoOpenRequest | undefined,
+  lastOpenedResultId: number | null,
+  dialogOpen: boolean,
+  label: string,
+  isUncertain: boolean,
+  assets: Readonly<Partial<Record<string, ArAsset>>>,
+): boolean {
+  return request !== undefined && request.source === 'camera' && request.enabled
+    && request.resultId !== lastOpenedResultId && !dialogOpen
+    && getArAvailability(label, isUncertain, assets).enabled
+}
+
+const AUTO_OPEN_AR_KEY = 'sportsnap.auto-open-ar'
+
+export function readAutoOpenArPreference(storage?: Pick<Storage, 'getItem'>): boolean {
+  try {
+    return (storage ?? globalThis.localStorage)?.getItem(AUTO_OPEN_AR_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+export function saveAutoOpenArPreference(enabled: boolean, storage?: Pick<Storage, 'setItem'>): void {
+  try {
+    (storage ?? globalThis.localStorage)?.setItem(AUTO_OPEN_AR_KEY, String(enabled))
+  } catch {
+    // Keep the in-memory choice when storage is unavailable or blocked.
+  }
+}
+
 export type ArAvailability =
   | { enabled: true; asset: ArAsset; message: '' }
   | { enabled: false; message: string }

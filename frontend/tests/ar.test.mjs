@@ -1,10 +1,62 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
-import { createViewerLoader, getArAvailability, modelLoadProgress, modelSource } from '../src/lib/ar.ts'
+import { createViewerLoader, getArAvailability, modelLoadProgress, modelSource, shouldAutoOpenAr, readAutoOpenArPreference, saveAutoOpenArPreference } from '../src/lib/ar.ts'
+import { sportNamesVi, sportNameVi } from '../src/lib/sport-names.ts'
 
 const manifest = JSON.parse(readFileSync(new URL('../public/models/manifest.json', import.meta.url), 'utf8'))
 const assets = Object.fromEntries(Object.entries(manifest.models).map(([label, model]) => [label, { glb: `/models/${model.file}` }]))
+
+test('Vietnamese display names cover exactly all 20 unchanged training/manifest labels', () => {
+  const labels = JSON.parse(readFileSync(new URL('../../backend/models/labels.json', import.meta.url), 'utf8'))
+  assert.equal(labels.length, 20)
+  assert.deepEqual(Object.keys(sportNamesVi).sort(), [...labels].sort())
+  assert.deepEqual(Object.keys(sportNamesVi).sort(), Object.keys(manifest.models).sort())
+  for (const label of labels) {
+    assert.ok(sportNameVi(label).length > 0)
+    assert.notEqual(sportNameVi(label), label)
+  }
+  assert.equal(sportNameVi('baseball'), 'Bóng chày')
+  assert.equal(sportNameVi('basketball'), 'Bóng rổ')
+  assert.equal(sportNameVi('unknown sport'), 'unknown sport')
+  assert.equal(sportNameVi('constructor'), 'constructor')
+})
+
+const cameraRequest = { resultId: 1, source: 'camera', enabled: true }
+
+test('only certain camera results with a manifest model auto-open', () => {
+  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'baseball', false, assets), true)
+  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'baseball', true, assets), false)
+  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'unknown sport', false, assets), false)
+  assert.equal(shouldAutoOpenAr({ ...cameraRequest, source: 'image' }, null, false, 'baseball', false, assets), false)
+  assert.equal(shouldAutoOpenAr(undefined, null, false, 'baseball', false, assets), false)
+})
+
+test('closing a dialog consumes that result; a new scan of the same sport can auto-open', () => {
+  assert.equal(shouldAutoOpenAr(cameraRequest, 1, false, 'baseball', false, assets), false)
+  assert.equal(shouldAutoOpenAr({ ...cameraRequest, resultId: 2 }, 1, false, 'baseball', false, assets), true)
+  assert.equal(shouldAutoOpenAr({ ...cameraRequest, enabled: false }, null, false, 'baseball', false, assets), false)
+  assert.equal(shouldAutoOpenAr({ ...cameraRequest, enabled: false }, 1, false, 'baseball', false, assets), false)
+  assert.equal(shouldAutoOpenAr(cameraRequest, 1, false, 'baseball', false, assets), false)
+})
+
+test('an existing AR or Grad-CAM dialog blocks automatic opening without consuming the result', () => {
+  assert.equal(shouldAutoOpenAr(cameraRequest, null, true, 'baseball', false, assets), false)
+  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'baseball', false, assets), true)
+})
+
+test('auto-open preference defaults on, persists both choices and tolerates blocked storage', () => {
+  const entries = new Map()
+  const storage = { getItem: (key) => entries.get(key) ?? null, setItem: (key, value) => entries.set(key, value) }
+  assert.equal(readAutoOpenArPreference(storage), true)
+  saveAutoOpenArPreference(false, storage)
+  assert.equal(readAutoOpenArPreference(storage), false)
+  saveAutoOpenArPreference(true, storage)
+  assert.equal(readAutoOpenArPreference(storage), true)
+  const blocked = { getItem() { throw new Error('blocked') }, setItem() { throw new Error('blocked') } }
+  assert.equal(readAutoOpenArPreference(blocked), true)
+  assert.doesNotThrow(() => saveAutoOpenArPreference(false, blocked))
+})
 
 for (const [label, model] of Object.entries(manifest.models)) {
   test(`${label}: a certain result enables AR at the exact manifest GLB path`, () => {

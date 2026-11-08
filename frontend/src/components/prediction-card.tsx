@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CircleCheck, TriangleAlert, Trophy } from 'lucide-react'
 import { Card } from './ui/card'
 import { Progress } from './ui/progress'
@@ -5,11 +6,13 @@ import type { Prediction, ScanResult } from '../lib/api'
 import { SportArButton } from './sport-ar-button'
 import { ExplainButton } from './explain-button'
 import { cn } from '../lib/utils'
+import type { ArAutoOpenRequest } from '../lib/ar'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
-export function PredictionCard({ result, image = null }: { result: Prediction | ScanResult; image?: Blob | null }) {
+export function PredictionCard({ result, image = null, autoOpenAr }: { result: Prediction | ScanResult; image?: Blob | null; autoOpenAr?: ArAutoOpenRequest }) {
   const uncertain = result.is_uncertain
+  const [explainOpen, setExplainOpen] = useState(false)
 
   return (
     <Card aria-label="Kết quả nhận diện" className={cn('surface-enter', uncertain && 'border-warning/40 bg-warning-surface/85 hover:border-warning/50')}>
@@ -55,8 +58,8 @@ export function PredictionCard({ result, image = null }: { result: Prediction | 
         </ol>
       </div>
       <div className="mt-6 flex flex-wrap items-start gap-3">
-        <SportArButton label={result.label} isUncertain={uncertain} />
-        <ExplainButton image={image} camera={'agreement' in result} />
+        <SportArButton label={result.label} confidence={result.confidence} isUncertain={uncertain} autoOpen={autoOpenAr} otherDialogOpen={explainOpen} />
+        <ExplainButton image={image} camera={'agreement' in result} onOpenChange={setExplainOpen} />
       </div>
     </Card>
   )

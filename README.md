@@ -106,14 +106,14 @@ Có thể quay lại camera, chọn ảnh khác hoặc thử lại khi có lỗi
 hiện kết quả, chuyển sang thư viện, rời trang hoặc đưa ứng dụng xuống nền;
 bấm mở lại camera để tiếp tục. Lỗi quyền truy cập, thiếu camera, kết nối không
 an toàn, ảnh không hợp lệ, mô hình chưa sẵn sàng và lỗi mạng đều có thông báo tiếng Việt.
-Giao diện sáng/tối theo hệ thống. Trang Phân tích hiện là trang chờ.
+Giao diện sáng/tối theo hệ thống. Trang Phân tích hiển thị số liệu thí nghiệm đã cung cấp.
 
 Trên Android Chrome và iOS Safari, mở ứng dụng qua HTTPS để dùng camera;
 HTTP chỉ hỗ trợ camera khi chạy ở localhost. Địa chỉ HTTP LAN sẽ hiển thị hướng
 dẫn dùng HTTPS hoặc chọn ảnh từ thư viện. Kiểm tra trên điện thoại: cấp/từ chối
 quyền camera, quét bằng camera sau, xem tiến độ 4 khung hình, độ đồng thuận,
-quay lại camera và chuyển sang chọn ảnh. Nút xem vùng AI chú ý vẫn là nút chờ của
-Slice 6. AR dùng các GLB đã commit tại `frontend/public/models/`, không tải asset ngoài.
+quay lại camera và chuyển sang chọn ảnh. Nút **Xem vùng AI chú ý** mở Grad-CAM theo yêu cầu.
+AR dùng các GLB đã commit tại `frontend/public/models/`, không tải asset ngoài.
 
 ### Xem 3D và AR trên điện thoại (Slice 5)
 
@@ -121,8 +121,25 @@ Nút **Xem AR** hoạt động khi nhãn nằm trong manifest và kết quả ch
 (`is_uncertain=false`), áp dụng cho ảnh đơn, kết quả camera và lightbox Bulk.
 Kết quả chưa chắc chắn hoặc thiếu model sẽ vô hiệu hóa nút và giải thích bằng tiếng Việt.
 Thư viện `@google/model-viewer` chỉ tải khi mở dialog, không tải cùng trang Quét/Bulk.
-Dialog có tiến độ tải thật, lỗi có nút **Thử lại**, xoay/zoom 3D và nút **Xem trong AR**.
+Riêng kết quả camera từ `/api/scan` chắc chắn và có model trong manifest sẽ tự mở
+dialog một lần cho mỗi lượt quét. Công tắc **Tự mở AR sau khi quét** trong khu camera
+mặc định bật, nhớ lựa chọn bằng localStorage; nếu trình duyệt chặn lưu trữ, lựa chọn
+vẫn có hiệu lực trong trang hiện tại. Ảnh thư viện/ảnh đơn và Bulk luôn mở bằng nút bấm.
+Đóng dialog không tự mở lại cùng kết quả; lượt quét mới vẫn có thể tự mở. Không tự mở
+chồng lên Grad-CAM. Kết quả chưa chắc chắn giữ nguyên chú thích và không tự mở AR.
+Camera preview dừng, giải phóng toàn bộ stream khi nhận kết quả, trước khi mở AR;
+sau khi đóng dialog, bấm **Quay lại camera trực tiếp** để cấp lại stream và quét tiếp.
+
+Dialog hiển thị tên môn tiếng Việt lớn, nhãn API gốc nhỏ bên dưới, độ tin cậy từ kết quả,
+tiến độ tải thật, lỗi có nút **Thử lại**, mô hình 3D tự xoay (tắt khi giảm chuyển động)
+và nút **Xem trong AR** với gợi ý **Chạm để đặt vật lên bàn**.
+Ứng dụng chỉ tự mở dialog, không tự gọi `activateAR()`; phải chạm nút để vào AR.
 Đóng bằng ESC hoặc nút X để trả focus về nút mở. Thiết bị không hỗ trợ AR vẫn xem 3D được.
+Tên môn cũng nằm trong overlay của model-viewer, dùng được trong WebXR có DOM overlay.
+Scene Viewer trên Android và Quick Look trên iOS là trình xem gốc, không mang theo
+HTML/overlay của trang: tên môn được bảo đảm ở dialog trước khi vào AR, không bảo đảm
+trong hai trình xem này. iOS dùng USDZ tạo lúc chạy từ GLB, có thể phải chờ lần đầu;
+không thêm/sửa asset. Xem [giới hạn DOM và các chế độ AR của model-viewer](https://modelviewer.dev/examples/augmentedreality/).
 
 Chạy backend và Vite theo phần Run it phía trên. Máy tính cần `cloudflared` đã cài;
 mở terminal thứ ba và giữ lệnh này chạy:
@@ -152,7 +169,11 @@ Các bước kiểm thử thủ công:
 1. Dùng Chrome trên Samsung S24 Ultra/Android hoặc Safari trên iPhone/iPad,
    mở URL HTTPS; cho phép camera khi quét hoặc khi trình xem AR yêu cầu.
 2. Chọn một ảnh thể thao rõ từ thư viện, đợi kết quả chắc chắn rồi bấm **Xem AR**.
-   Lặp lại với **Quét đa khung hình**; thử thêm **Xem AR** trong lightbox Bulk.
+   Với **Quét đa khung hình**, kiểm tra dialog tự mở khi chắc chắn/có model, tên Việt,
+   nhãn gốc và confidence; tắt công tắc rồi tải lại trang để xác nhận đã nhớ lựa chọn.
+   Đóng dialog, đợi để kiểm tra không tự bật lại; quay lại camera, quét lượt mới.
+   Thử kết quả chưa chắc chắn và Grad-CAM, bảo đảm không tự mở chồng dialog.
+   Thử thêm **Xem AR** trong lightbox Bulk (vẫn chỉ mở thủ công).
 3. Đợi tải xong, kéo để xoay mô hình rồi bấm **Xem trong AR**. Android ưu tiên
    WebXR, sau đó Scene Viewer; iOS dùng Quick Look. Không khai báo `ios-src` nên
    model-viewer tự tạo USDZ từ GLB khi mở Quick Look, có thể cần chờ thêm lần đầu.
@@ -358,6 +379,9 @@ Các kiểm tra đa khung hình xác nhận trung bình xác suất (khác bỏ 
 thông báo lỗi camera, gọi API và bộ kiểm tra nền canvas hiện có.
 Các test AR kiểm tra bật/tắt nút theo đủ 20 nhãn manifest và `is_uncertain`, đường
 dẫn GLB thật, nhãn không có model, nạp thư viện lazy/dùng chung/thử lại và tiến độ tải.
+Test node còn kiểm tra quyết định tự mở theo nguồn camera/ảnh đơn, chắc chắn/không
+chắc chắn, model có/không, công tắc, dialog đang mở và ID kết quả đã đóng; ánh xạ
+tên Việt khớp đủ 20 nhãn, lưu/đọc lựa chọn và xử lý lỗi localStorage.
 Các kiểm tra bulk xác nhận batch 32/32/6, 300 tệp hỗn hợp, ZIP/CSV, tệp lỗi,
 giới hạn số tệp, hủy job, TTL, tên tệp an toàn, CSV injection và dọn tệp.
 Frontend kiểm tra polling 1 giây, dừng/hủy polling, bộ lọc, tiến độ upload và lỗi API bulk,

@@ -73,11 +73,15 @@ function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
   </dialog>, document.body)
 }
 
-export function ExplainButton({ image, camera = false }: { image: Blob | null; camera?: boolean }) {
+export function ExplainButton({ image, camera = false, onOpenChange }: { image: Blob | null; camera?: boolean; onOpenChange?: (open: boolean) => void }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  function changeOpen(next: boolean) {
+    setOpen(next)
+    onOpenChange?.(next)
+  }
   return <>
-    <Button ref={triggerRef} variant="outline" disabled={!image} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}><Focus size={17} aria-hidden="true" />Xem vùng AI chú ý</Button>
-    {open && image && <ExplainDialog image={image} camera={camera} onClose={() => setOpen(false)} returnFocusRef={triggerRef} />}
+    <Button ref={triggerRef} variant="outline" disabled={!image} aria-haspopup="dialog" aria-expanded={open} onClick={() => changeOpen(true)}><Focus size={17} aria-hidden="true" />Xem vùng AI chú ý</Button>
+    {open && image && <ExplainDialog image={image} camera={camera} onClose={() => changeOpen(false)} returnFocusRef={triggerRef} />}
   </>
 }
