@@ -39,6 +39,7 @@ const errorMessages: Record<string, string> = {
   invalid_image: 'Không đọc được ảnh này. Ảnh có thể bị hỏng; vui lòng chọn ảnh khác.',
   model_not_loaded: 'Mô hình chưa sẵn sàng. Vui lòng thử lại sau.',
   internal_error: 'Chưa thể nhận diện ảnh. Vui lòng thử lại sau.',
+  gradcam_unsupported: 'Mô hình này chưa hỗ trợ bản đồ vùng chú ý.',
   too_many_files: 'Số tệp vượt giới hạn mỗi lượt. Vui lòng chọn ít tệp hơn.',
   job_not_ready: 'Lượt phân loại chưa sẵn sàng hoặc hệ thống đang đủ lượt chờ/chạy. Vui lòng đợi.',
   job_not_found: 'Không tìm thấy lượt phân loại. Vui lòng gửi lại ảnh.',
@@ -49,6 +50,41 @@ export async function predictImage(file: File, signal?: AbortSignal): Promise<Pr
   const body = new FormData()
   body.append('file', file)
   return postImages<Prediction>('/api/predict', body, signal)
+}
+
+export interface Explanation extends Prediction { overlay_png_base64: string }
+
+export async function explainImage(image: Blob, signal?: AbortSignal): Promise<Explanation> {
+  const body = new FormData()
+  body.append('file', image, image instanceof File ? image.name : 'frame.jpg')
+  return postImages<Explanation>('/api/explain', body, signal)
+}
+
+export interface ExperimentModel {
+  name: string; strategy: string; accuracy: number | null; val_accuracy: number | null
+  macro_f1: number | null; params_m: number | null; size_mb: number | null; latency_ms: number | null
+}
+export interface SplitExperiment {
+  split: string; count: number; accuracy: number; macro_f1: number; labels: string[]
+  confusion_matrix: number[][]; top_confusions: { true: string; pred: string; count: number }[]
+}
+export interface Insights {
+  models: ExperimentModel[]; selected_model: string; splits: SplitExperiment[]
+  confusion_matrix_image: string | null
+  gradcam_gallery: { image: string; true: string; pred: string; note: string }[]
+  ablation?: { name: string; accuracy: number | null; delta: number | null }[] | null
+  sources: Record<string, string>; notes: string[]
+}
+
+export async function getInsights(signal?: AbortSignal): Promise<Insights> {
+  try {
+    const response = await fetch('/api/insights', { signal })
+    if (!response.ok) throw new Error('Không thể tải dữ liệu thí nghiệm. Vui lòng thử lại.')
+    return await response.json() as Insights
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new Error('Không thể tải dữ liệu thí nghiệm. Kiểm tra kết nối và thử lại.', { cause: error })
+  }
 }
 
 export async function scanFrames(files: Blob[], signal?: AbortSignal): Promise<ScanResult> {

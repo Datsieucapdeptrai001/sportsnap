@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     BULK_IMAGE_MAX_SIDE: int = Field(default=2048, gt=0, le=4096)
     BULK_PREVIEW_JPEG_QUALITY: int = Field(default=85, ge=1, le=95)
     FRONTEND_DIST: Path = Path("frontend/dist")
+    EXPERIMENTS_PATH: Path = Path("backend/data/experiments.json")
+    INSIGHTS_DIR: Path = Path("backend/data/insights")
     DEBUG_SAVE_FRAMES: bool = False
     DEBUG_FRAMES_DIR: Path = Path("backend/debug_frames")
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -42,7 +44,7 @@ class Settings(BaseSettings):
         if not self.BASE_DIR.is_absolute():
             self.BASE_DIR = PROJECT_ROOT / self.BASE_DIR
         self.BASE_DIR = self.BASE_DIR.resolve()
-        for name in ("MODEL_PATH", "LABELS_PATH", "FRONTEND_DIST", "DEBUG_FRAMES_DIR", "BULK_TEMP_DIR"):
+        for name in ("MODEL_PATH", "LABELS_PATH", "FRONTEND_DIST", "DEBUG_FRAMES_DIR", "BULK_TEMP_DIR", "EXPERIMENTS_PATH", "INSIGHTS_DIR"):
             path: Path = getattr(self, name)
             setattr(self, name, (self.BASE_DIR / path).resolve())
         return self

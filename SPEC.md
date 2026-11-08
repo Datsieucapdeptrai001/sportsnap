@@ -58,7 +58,7 @@ sportsnap/
 | `GET /classes` | – | `{classes: string[]}` |
 | `POST /predict` | multipart `file` | `Prediction` |
 | `POST /scan` | multipart `files[]` (2–6 frames) | `ScanResult` |
-| `POST /gradcam` | multipart `file` | `{label, confidence, overlay_png_base64}` |
+| `POST /explain` | multipart `file` | `Prediction + {overlay_png_base64}`; `/gradcam` remains a compatibility alias |
 | `POST /bulk` | multipart `files[]` or one `.zip` | `{job_id}` |
 | `GET /bulk/{job_id}` | – | `{status: queued\|running\|done\|error\|cancelled, processed, total, uncertain, counts, errors, files_removed, error?}`; use `/results` to browse results |
 | `GET /bulk/{job_id}/results` | `label`, `uncertain`, `sort`, `offset`, `limit` query parameters | `{items: [{index,filename,label,confidence,is_uncertain,top3,folder,error}], total, offset, limit, summary: {total,processed,counts,uncertain,errors}}` |
@@ -95,7 +95,7 @@ Navigation: bottom tab bar on mobile, left sidebar on desktop.
    The lightbox shows the bounded original display image, filename, confidence and top-3 predictions; Escape/backdrop/close
    button closes it, left/right arrows navigate only within the current page. Abort stale requests on filter/page/job changes
    and unmount. No client-side thumbnail object URLs or fixed-size result preview.
-3. **Phân tích**: reads `/api/insights`: model comparison table, confusion-matrix image, Grad-CAM gallery, and optional ablation data. See §12 for the schema and image endpoint.
+3. **Phân tích**: reads `/api/insights`: model comparison table and accuracy bars, a labeled confusion-matrix heatmap with split selection and top confusions, source/measurement notes, and the known camera limitation. No notebook Grad-CAM gallery images were supplied; explain uploaded images on demand from Scan. See §12 for the schema and image endpoint.
 
 ### AR (client side only)
 Use `@google/model-viewer`, dynamically imported only after opening the AR dialog:
@@ -151,8 +151,8 @@ behavior work. Required automated checks pass. Physical-device acceptance remain
 manual: verify native placement on Samsung S24 Ultra/Chrome and iOS Safari using
 the HTTPS steps in README; do not infer that result from desktop or node tests.
 
-**Slice 6 — Grad-CAM & Insights.** `/api/gradcam`, Insights page.
-*Accept:* heatmap overlay returned for MobileNetV2 using the nested base model and `out_relu` (fallback last Conv2D), as specified in §12; Insights renders from `experiments.json` with no hard-coded numbers.
+**Slice 6 — Grad-CAM & Insights. Completed implementation.** `/api/explain` (`/api/gradcam` alias), Insights page.
+*Accept:* heatmap overlay returned for MobileNetV2 using the nested base model and `out_relu` (fallback last Conv2D), as specified in §12; Insights renders from `experiments.json` with no hard-coded numbers. Shared model lock and threadpool; normalized native heatmap, bounded jet PNG overlay; Scan gallery/camera dialog with opacity, loading, retry and uncertainty. CSV-derived split metrics and reproducible build script. Required automated checks pass; desktop browser/mobile viewport checks are performed, physical-phone acceptance remains manual. Bulk explanation is deferred: its frontend only retains bounded display JPEGs, not the exact original inference bytes.
 
 **Slice 7 — Polish & delivery.** Dockerfile, README, empty/skeleton states, a11y pass, dark mode, favicon/title.
 *Accept:* `docker build` + `docker run -p 8000:8000` serves the whole app.
@@ -211,6 +211,16 @@ Bulk browsing/display: `BULK_RESULTS_PAGE_SIZE=24`, `BULK_RESULTS_MAX_LIMIT=100`
    "confusion_matrix_image":"cm.png","gradcam_gallery":[{"image","true","pred","note"}],
    "ablation":[{"name","accuracy","delta"}]}  (ablation optional). Images live in backend/data/insights/
    and are served by GET /api/insights/files/{name} (reject path traversal).
+   Slice 6: unavailable metrics and the confusion image may be null (UI: "Chưa đo");
+   an unavailable gallery is an empty list, ablation is omitted when unmeasured.
+   Add `val_accuracy` to each model, `selected_model`, `sources`, `notes`, and
+   `splits:[{split,count,accuracy,macro_f1,labels,confusion_matrix,top_confusions:[{true,pred,count}]}]`.
+   Comparison accuracy/validation come from summary.csv. The notebook's all-image
+   CSV belongs only to best_model, uniquely identified by highest Val Accuracy;
+   derive its accuracy, macro-F1, confusion matrix and top directed confusions per split.
+   Macro-F1 averages all training labels (absent classes have F1=0). Do not infer
+   params, model size or latency from architecture assumptions; these CSVs do not contain them.
+   `scripts/build_experiments.py` deterministically regenerates JSON and the test-matrix PNG.
 7. Golden test: backend/tests/golden/ with expected.json [{file,label,confidence}]. Golden images are 224x224
    (resize is a no-op). Require 100% label match and |confidence - expected| <= 0.01.
 8. Preprocess (replaces the resize wording in §4): PREPROCESS=mobilenet_v2 (best model in the notebook is MobileNetV2).

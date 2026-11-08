@@ -169,6 +169,69 @@ Chưa thể xác nhận đặt vật thực tế bằng test node hay trình duy
 thực hiện các bước trên trên điện thoại. Dừng tunnel bằng Ctrl+C sau khi thử.
 Chi tiết iOS/Android theo [tài liệu AR chính thức của model-viewer](https://modelviewer.dev/examples/augmentedreality/).
 
+### Grad-CAM và Phân tích (Slice 6)
+
+Trong trang **Quét**, chọn ảnh rồi bấm **Xem vùng AI chú ý**. Dialog hiển thị ảnh gốc
+và Grad-CAM, nhãn/độ tin cậy riêng của ảnh, trạng thái không chắc chắn và thanh trượt
+độ hiển thị lớp phủ. Chờ tính xong hoặc thử lại khi lỗi; X, Escape hoặc nền dialog
+để đóng và trả focus về nút mở. Không tự tính Grad-CAM trên mọi frame.
+Với camera, frontend giữ đúng frame đã upload có nhãn trùng kết quả trung bình và
+confidence cao nhất; nếu không frame nào trùng, lấy frame có confidence cao nhất.
+Nhãn/confidence của frame có thể khác kết quả `/scan` trung bình nhiều frame, và dialog
+giải thích rõ sự khác biệt này. Frame chỉ giữ trong bộ nhớ cho đến khi đổi ảnh/lượt quét.
+
+`POST /api/explain` nhận multipart `file`, trả toàn bộ trường `Prediction` cùng
+`overlay_png_base64` (PNG, không có tiền tố data URL). `/api/gradcam` là alias tương thích.
+Nhãn luôn là top-1 của chính ảnh đó, kể cả khi `is_uncertain=true`.
+Backend tái sử dụng `preprocess_image` và khóa model chung, chạy trong threadpool;
+không thay đổi weights, labels hay tiền xử lý. Graph hai giai đoạn theo notebook:
+input của MobileNetV2 lồng nhau → `out_relu`, rồi classifier head với `training=False`.
+Fallback dùng Conv2D cuối và giữ các lớp BN/activation sau nó; không có lớp phù hợp
+trả 501 `gradcam_unsupported`. Heatmap nội bộ có độ phân giải gốc của lớp đích
+(7×7 với model hiện tại), chuẩn hóa [0,1]; bản đồ bằng 0 được xử lý an toàn.
+Lớp phủ jet trộn 40% màu và 60% ảnh gốc, áp EXIF và giữ tỉ lệ; cạnh dài tối đa
+448 px chỉ cho hiển thị, đảm bảo PNG base64 dưới 1.000.000 ký tự. Slider làm mờ
+lớp phủ có sẵn trên ảnh gốc, không gửi request mới. Ảnh không được lưu bởi endpoint.
+Lỗi loại ảnh, ảnh hỏng, quá dung lượng và model chưa nạp giống `/api/predict`.
+
+Trang **Phân tích** đọc `/api/insights`: so sánh CNN_Scratch, MobileNetV2 và ResNet50,
+thanh accuracy, ma trận nhầm lẫn có nhãn và các cặp nhầm nhiều nhất theo split.
+Bảng/ma trận cuộn ngang trên mobile, có loading/lỗi/thử lại và thẻ hạn chế camera
+chụp lại màn hình (SPEC §13). Giá trị `null` hiển thị **Chưa đo**; không giả số liệu.
+
+Nguồn được copy nguyên trạng vào `backend/data/`: `summary.csv` (142 byte) và
+`ket_qua_du_doan_tat_ca_anh.csv` (272.660 byte). Notebook chọn model theo validation;
+MobileNetV2 có validation cao nhất duy nhất, nên CSV từng ảnh được gán cho model này.
+Accuracy so sánh ba model lấy từ summary; macro-F1 và ma trận chỉ tính được cho
+MobileNetV2 từ nhãn thực/prediction, theo đúng thứ tự `labels.json`.
+Macro-F1 lấy trung bình trên toàn bộ nhãn; lớp không có mẫu có F1 bằng 0.
+Tập train không phải ước lượng khả năng tổng quát hóa.
+Không có phép đo tham số, dung lượng hay latency trong hai CSV nên giữ `null`;
+macro-F1 của CNN_Scratch/ResNet50 cũng `null`. Không có ảnh gallery Grad-CAM nguồn
+nên `gradcam_gallery=[]`, không có ablation đo được nên không thêm bảng này.
+
+Tái tạo JSON và PNG ma trận test từ checkout, không cần notebook hay thư mục Downloads:
+
+```powershell
+.\backend\.venv\Scripts\python.exe backend/scripts/build_experiments.py
+```
+
+Script hỗ trợ `--summary`, `--predictions`, `--labels`, `--output`, dừng khi attribution
+model không duy nhất, nhãn không khớp, đường dẫn ảnh trùng hoặc cờ đúng/sai mâu thuẫn.
+`EXPERIMENTS_PATH`/`INSIGHTS_DIR` trong `.env` cấu hình đường dẫn API; đường dẫn tương đối
+tính theo `BASE_DIR`. `/api/insights/files/cm.png` phục vụ PNG ma trận test; endpoint
+chỉ nhận ảnh trực tiếp trong thư mục insights, chặn traversal. Dockerfile copy toàn
+bộ backend và `.dockerignore` không loại `backend/data`, nên image chứa JSON/CSV/PNG.
+
+Grad-CAM trong Bulk lightbox được để lại: frontend Bulk chỉ có JPEG hiển thị giới hạn
+kích thước, không có byte ảnh gốc đã dùng suy luận; gửi lại JPEG có thể làm đổi nhãn.
+Không thay đổi endpoint hay quy trình Bulk trong slice này.
+
+Kiểm thử thủ công trên điện thoại qua HTTPS: mở ảnh gốc và ảnh EXIF xoay, thử dialog,
+slider và đóng/mở lại; quét camera rồi xem giải thích frame; thử mất mạng và **Thử lại**;
+trong Phân tích chuyển train/validation/test, cuộn ngang bảng/ma trận.
+Đã kiểm tra viewport mobile trong trình duyệt desktop; vẫn cần điện thoại thật.
+
 ### Phân loại hàng loạt (Slice 4)
 
 Mở tab **Phân loại hàng loạt**, kéo thả/chọn nhiều ảnh hoặc một ZIP rồi bấm **Bắt đầu**.

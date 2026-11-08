@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Activity, ChartNoAxesCombined, Layers, ScanLine } from 'lucide-react'
 import { Toaster } from 'sonner'
-import { Card } from './components/ui/card'
 import { SportCanvasBackground } from './components/sport-canvas-background'
 import { cn } from './lib/utils'
 import { ScanPage } from './pages/scan'
 import { BulkPage } from './pages/bulk'
+import { InsightsPage } from './pages/insights'
 
 const tabs = [
   { id: 'scan', label: 'Quét', icon: ScanLine },
@@ -15,7 +15,6 @@ const tabs = [
 
 function App() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('scan')
-  const currentTab = tabs.find((tab) => tab.id === activeTab)!
 
   return (
     <div className="relative isolate min-h-svh md:pl-64">
@@ -61,22 +60,7 @@ function App() {
         <div hidden={activeTab !== 'bulk'}>
           <BulkPage active={activeTab === 'bulk'} />
         </div>
-        {activeTab === 'insights' && (
-          <div className="text-white">
-            <p className="mb-3 text-xs font-semibold tracking-widest text-emerald-300 uppercase">SportSnap</p>
-            <h1 className="text-3xl font-semibold tracking-tight">{currentTab.label}</h1>
-            <Card className="mt-8 py-14 text-center">
-              <currentTab.icon className="mx-auto mb-5 text-primary" size={36} aria-hidden="true" />
-              <h2 className="text-xl font-semibold">Tính năng đang được phát triển</h2>
-              <p className="mt-3 text-sm text-muted-foreground">
-                Kết quả thí nghiệm và phân tích mô hình sẽ có tại đây.
-              </p>
-              <button type="button" className="mt-6 min-h-11 rounded-xl px-4 text-sm font-medium text-primary transition-all duration-200 hover:bg-primary/10 motion-safe:hover:scale-[1.01] motion-safe:active:scale-[0.98]" onClick={() => setActiveTab('scan')}>
-                Trở về Quét
-              </button>
-            </Card>
-          </div>
-        )}
+        {activeTab === 'insights' && <InsightsPage />}
       </main>
       <Toaster richColors theme="system" closeButton toastOptions={{ className: 'font-sans' }} />
     </div>

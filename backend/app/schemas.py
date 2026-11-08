@@ -32,6 +32,61 @@ class ScanResult(Prediction):
     agreement: float = Field(ge=0, le=1)
 
 
+class Explanation(Prediction):
+    overlay_png_base64: str
+
+
+class ExperimentModel(BaseModel):
+    name: str
+    strategy: str
+    accuracy: float | None = Field(ge=0, le=1)
+    macro_f1: float | None = Field(ge=0, le=1)
+    params_m: float | None = Field(ge=0)
+    size_mb: float | None = Field(ge=0)
+    latency_ms: float | None = Field(ge=0)
+    val_accuracy: float | None = Field(default=None, ge=0, le=1)
+
+
+class ConfusionPair(BaseModel):
+    true: str
+    pred: str
+    count: int = Field(gt=0)
+
+
+class SplitExperiment(BaseModel):
+    split: str
+    count: int = Field(gt=0)
+    accuracy: float = Field(ge=0, le=1)
+    macro_f1: float = Field(ge=0, le=1)
+    labels: list[str]
+    confusion_matrix: list[list[int]]
+    top_confusions: list[ConfusionPair]
+
+
+class GradcamExample(BaseModel):
+    image: str
+    true: str
+    pred: str
+    note: str
+
+
+class AblationExperiment(BaseModel):
+    name: str
+    accuracy: float | None
+    delta: float | None
+
+
+class InsightsResponse(BaseModel):
+    models: list[ExperimentModel]
+    confusion_matrix_image: str | None
+    gradcam_gallery: list[GradcamExample]
+    ablation: list[AblationExperiment] | None = None
+    selected_model: str
+    splits: list[SplitExperiment]
+    sources: dict[str, str]
+    notes: list[str]
+
+
 class ClassesResponse(BaseModel):
     classes: list[str]
 

@@ -5,13 +5,14 @@ import { scanFrames, type ScanResult } from '../lib/api'
 import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSupport, getCropOverlay } from '../lib/camera'
 import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
+import { selectBestFrame } from '../lib/explain'
 
 type CameraState =
   | { status: 'starting' | 'ready' | 'sending' }
   | { status: 'capturing'; count: number }
   | { status: 'error'; message: string }
 
-export function CameraScanner({ onResult }: { onResult: (result: ScanResult) => void }) {
+export function CameraScanner({ onResult }: { onResult: (result: ScanResult, image: Blob | null) => void }) {
   const guideId = useId()
   const previewRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -104,7 +105,7 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult) => 
       controller.signal.throwIfAborted()
       setState({ status: 'sending' })
       const result = await scanFrames(frames, controller.signal)
-      if (!controller.signal.aborted) onResult(result)
+      if (!controller.signal.aborted) onResult(result, selectBestFrame(frames, result))
     } catch (error) {
       if (controller.signal.aborted) return
       const message = error instanceof Error ? error.message : 'Chưa thể quét khung hình. Vui lòng thử lại.'

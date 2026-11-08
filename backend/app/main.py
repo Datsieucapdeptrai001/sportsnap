@@ -18,6 +18,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.scan import router as inference_router
 from app.api.bulk import router as bulk_router
+from app.api.insights import router as insights_router
 from app.core.config import Settings
 from app.core.errors import APIError
 from app.schemas import ErrorDetail, ErrorResponse, HealthResponse
@@ -138,6 +139,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Register API routes first so static serving cannot shadow them.
     application.include_router(inference_router, prefix="/api")
     application.include_router(bulk_router, prefix="/api")
+    application.include_router(insights_router, prefix="/api")
     if (config.FRONTEND_DIST / "index.html").is_file():
         application.mount("/", StaticFiles(directory=config.FRONTEND_DIST, html=True), name="frontend")
 

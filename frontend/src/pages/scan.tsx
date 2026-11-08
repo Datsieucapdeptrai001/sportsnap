@@ -13,7 +13,7 @@ import { warnAboutUnmappedClasses } from '../lib/sports3d'
 type ScanState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'success'; result: Prediction | ScanResult }
+  | { status: 'success'; result: Prediction | ScanResult; image: Blob | null }
   | { status: 'error'; message: string }
 
 function ImagePreview({ file }: { file: File }) {
@@ -64,7 +64,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
     setState({ status: 'loading' })
     try {
       const result = await predictImage(selected, controller.signal)
-      if (!controller.signal.aborted) setState({ status: 'success', result })
+      if (!controller.signal.aborted) setState({ status: 'success', result, image: selected })
     } catch (error) {
       if (controller.signal.aborted) return
       const message = error instanceof Error ? error.message : 'Chưa thể nhận diện ảnh. Vui lòng thử lại.'
@@ -129,7 +129,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
           state.status === 'success' ? (
             <Button className="w-full" onClick={() => changeMode('camera')}><Camera size={18} aria-hidden="true" />Quay lại camera trực tiếp</Button>
           ) : (
-            active && <CameraScanner onResult={(result) => setState({ status: 'success', result })} />
+            active && <CameraScanner onResult={(result, image) => setState({ status: 'success', result, image })} />
           )
         ) : file ? (
           <>
@@ -199,7 +199,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
             {file && <Button className="mt-5" variant="outline" onClick={() => void recognize(file)}>Thử lại</Button>}
           </Card>
         )}
-        {state.status === 'success' && <PredictionCard result={state.result} />}
+        {state.status === 'success' && <PredictionCard result={state.result} image={state.image} />}
       </div>
       <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.

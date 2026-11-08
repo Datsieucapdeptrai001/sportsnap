@@ -1,14 +1,14 @@
-import { CircleCheck, Focus, TriangleAlert, Trophy } from 'lucide-react'
-import { Button } from './ui/button'
+import { CircleCheck, TriangleAlert, Trophy } from 'lucide-react'
 import { Card } from './ui/card'
 import { Progress } from './ui/progress'
 import type { Prediction, ScanResult } from '../lib/api'
 import { SportArButton } from './sport-ar-button'
+import { ExplainButton } from './explain-button'
 import { cn } from '../lib/utils'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
-export function PredictionCard({ result }: { result: Prediction | ScanResult }) {
+export function PredictionCard({ result, image = null }: { result: Prediction | ScanResult; image?: Blob | null }) {
   const uncertain = result.is_uncertain
 
   return (
@@ -56,9 +56,8 @@ export function PredictionCard({ result }: { result: Prediction | ScanResult }) 
       </div>
       <div className="mt-6 flex flex-wrap items-start gap-3">
         <SportArButton label={result.label} isUncertain={uncertain} />
-        <Button variant="outline" disabled aria-describedby="gradcam-note"><Focus size={17} aria-hidden="true" />Xem vùng AI chú ý</Button>
+        <ExplainButton image={image} camera={'agreement' in result} />
       </div>
-      <p id="gradcam-note" className="mt-3 text-xs leading-relaxed text-muted-foreground">Tính năng xem vùng AI chú ý sẽ có trong bản cập nhật sau.</p>
     </Card>
   )
 }
