@@ -6,12 +6,12 @@ import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSuppo
 import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
 import { selectBestFrame } from '../lib/explain'
-import { getCameraOverlayAsset } from '../lib/ar'
+import { createCameraArHandoff, getCameraOverlayAsset, releaseCameraForAr, type CameraArLaunchState } from '../lib/ar'
 import { sports3d } from '../lib/sports3d'
 import { CameraArOverlay } from './camera-ar-overlay'
 
 type CameraState =
-  | { status: 'starting' | 'ready' | 'sending' }
+  | { status: 'starting' | 'ready' | 'sending' | 'ar-paused' }
   | { status: 'capturing'; count: number }
   | { status: 'error'; message: string }
 
@@ -26,6 +26,9 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
   const videoRef = useRef<HTMLVideoElement>(null)
   const requestRef = useRef<AbortController | null>(null)
   const busyRef = useRef(false)
+  const stopForArRef = useRef<(() => void) | null>(null)
+  const arHandoffRef = useRef<ReturnType<typeof createCameraArHandoff> | null>(null)
+  const [arLaunch, setArLaunch] = useState<CameraArLaunchState>({ phase: 'idle', message: '' })
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<CameraState>({ status: 'starting' })
   const [scanError, setScanError] = useState<string | null>(null)
@@ -56,10 +59,15 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
     let disposed = false
     let failed = false
     let stream: MediaStream | undefined
-    const stop = () => stream?.getTracks().forEach((track) => track.stop())
+    const stop = () => {
+      stream?.getVideoTracks().forEach((track) => track.removeEventListener('ended', interrupted))
+      releaseCameraForAr(video, stream)
+      stream = undefined
+    }
     const fail = (message: string) => {
-      if (disposed) return
+      if (disposed || failed) return
       failed = true
+      window.clearTimeout(startTimeout)
       requestRef.current?.abort()
       stop()
       setState({ status: 'error', message })
@@ -67,6 +75,13 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
     }
     const interrupted = () => fail('Camera đã ngắt kết nối. Vui lòng mở lại camera hoặc chọn ảnh từ thư viện.')
     const videoError = () => fail('Không thể hiển thị hình ảnh từ camera. Vui lòng mở lại camera hoặc chọn ảnh từ thư viện.')
+    const startTimeout = window.setTimeout(() => fail('Mở camera quá lâu. Camera có thể vẫn đang được trình xem AR sử dụng. Hãy đóng AR rồi bấm Quay lại camera.'), 15_000)
+    stopForArRef.current = () => {
+      failed = true
+      window.clearTimeout(startTimeout)
+      requestRef.current?.abort()
+      stop()
+    }
     async function start() {
       try {
         checkCameraSupport()
@@ -81,6 +96,10 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
         stream.getVideoTracks().forEach((track) => track.addEventListener('ended', interrupted))
         video.srcObject = stream
         await video.play()
+        if (!disposed && !failed) {
+          window.clearTimeout(startTimeout)
+          setState({ status: 'ready' })
+        }
       } catch (error) {
         fail(cameraErrorMessage(error))
       }
@@ -89,6 +108,8 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
     void start()
     return () => {
       disposed = true
+      window.clearTimeout(startTimeout)
+      stopForArRef.current = null
       requestRef.current?.abort()
       video?.removeEventListener('error', videoError)
       stream?.getVideoTracks().forEach((track) => track.removeEventListener('ended', interrupted))
@@ -96,6 +117,36 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
       if (video) video.srcObject = null
     }
   }, [attempt])
+
+  useEffect(() => {
+    const handoff = createCameraArHandoff({
+      stopCamera: () => {
+        stopForArRef.current?.()
+        setState({ status: 'ar-paused' })
+      },
+      resumeCamera: () => {
+        setState({ status: 'starting' })
+        setAttempt((current) => current + 1)
+      },
+      isVisible: () => !document.hidden,
+      isFocused: () => document.hasFocus(),
+      onChange: setArLaunch,
+    })
+    arHandoffRef.current = handoff
+    const visibility = () => handoff.visibilityChanged(document.hidden)
+    const focus = () => handoff.focused()
+    const blur = () => handoff.blurred()
+    document.addEventListener('visibilitychange', visibility)
+    window.addEventListener('focus', focus)
+    window.addEventListener('blur', blur)
+    return () => {
+      handoff.dispose()
+      arHandoffRef.current = null
+      document.removeEventListener('visibilitychange', visibility)
+      window.removeEventListener('focus', focus)
+      window.removeEventListener('blur', blur)
+    }
+  }, [])
 
   async function scan() {
     if (busyRef.current || state.status !== 'ready' || !videoRef.current) return
@@ -128,10 +179,12 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
   }
 
   const scanning = state.status === 'capturing' || state.status === 'sending'
-  const arAsset = getCameraOverlayAsset(result, autoOverlay && state.status === 'ready', sports3d)
+  // Keep the loaded viewer mounted while releasing/reopening the camera for AR.
+  const arAsset = getCameraOverlayAsset(result, autoOverlay && !scanning, sports3d)
   const statusText = state.status === 'capturing' ? `Đang quét: ${state.count}/4…`
     : state.status === 'sending' ? 'Đang nhận diện khung hình…'
-      : state.status === 'starting' ? 'Đang mở camera…' : 'Camera đã sẵn sàng'
+      : state.status === 'starting' ? 'Đang mở camera…'
+        : state.status === 'ar-paused' ? 'Camera đã nhường cho trình xem AR.' : 'Camera đã sẵn sàng'
 
   return (
     <div>
@@ -142,7 +195,7 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
           className="h-full w-full object-contain object-center"
           onCanPlay={() => setState((current) => current.status === 'starting' ? { status: 'ready' } : current)}
         />
-        {state.status === 'starting' && <Skeleton className="absolute inset-0 h-full w-full" />}
+        {state.status === 'starting' && !arAsset && <Skeleton className="absolute inset-0 h-full w-full" />}
         {overlay && !arAsset && state.status !== 'starting' && state.status !== 'error' && (
           <div
             aria-hidden="true"
@@ -154,14 +207,18 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
           />
         )}
         {arAsset && result && <CameraArOverlay key={`${result.label}:${result.confidence}`} label={result.label}
-          confidence={result.confidence} asset={arAsset} onRescan={() => void scan()} />}
-        {state.status === 'error' && (
+          confidence={result.confidence} asset={arAsset} cameraReady={state.status === 'ready'}
+          launch={arLaunch} onActivateAr={(activate) => arHandoffRef.current?.launch(activate)}
+          onArStatus={(status) => arHandoffRef.current?.status(status)} onRescan={() => void scan()} />}
+        {state.status === 'error' && !arAsset && (
           <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card/95 px-6 text-center">
             <TriangleAlert className="shrink-0 text-destructive" aria-hidden="true" />
             <p className="text-sm leading-relaxed">{state.message}</p>
           </div>
         )}
       </div>
+      {state.status === 'error' && arAsset && <p role="alert" className="mt-3 text-sm text-destructive">{state.message}</p>}
+      {arLaunch.message && <p role="alert" className="mt-3 text-sm text-destructive">{arLaunch.message}</p>}
       {state.status !== 'error' && <>
         <p id={guideId} className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
           Đưa vật thể vào giữa khung vuông, chiếm phần lớn khung hình. Tránh quay lại màn hình.
@@ -175,12 +232,16 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
           )}
         </div>
       </>}
-      {state.status === 'error' ? (
+      {state.status === 'ar-paused' || arLaunch.phase !== 'idle' ? (
+        <Button className="mt-4 w-full" variant="outline" onClick={() => arHandoffRef.current?.returnToCamera()}>
+          <Camera size={18} aria-hidden="true" />Quay lại camera
+        </Button>
+      ) : state.status === 'error' ? (
         <Button className="mt-4 w-full" variant="outline" onClick={() => {
           setScanError(null)
           setState({ status: 'starting' })
           setAttempt((current) => current + 1)
-        }}><Camera size={18} aria-hidden="true" />Thử mở lại camera</Button>
+        }}><Camera size={18} aria-hidden="true" />{result ? 'Quay lại camera' : 'Thử mở lại camera'}</Button>
       ) : (
         <Button className="mt-4 w-full" disabled={state.status !== 'ready'} onClick={() => { setScanError(null); void scan() }}>
           <ScanLine size={18} aria-hidden="true" />{scanning ? statusText : 'Quét đa khung hình'}

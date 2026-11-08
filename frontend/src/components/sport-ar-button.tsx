@@ -80,6 +80,7 @@ function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
     const onError = () => setState({ phase: 'error', message: 'Không tải hoặc hiển thị được mô hình 3D. Kiểm tra kết nối mạng rồi thử lại.' })
     const onArStatus = (event: Event) => {
       const status = (event as CustomEvent<{ status?: string }>).detail?.status
+      if (import.meta.env.DEV) console.debug('[SportSnap AR] dialog ar-status:', status)
       if (status === 'failed') {
         setLaunching(false)
         setArMessage('Chưa mở được AR. Bạn vẫn có thể xoay mô hình 3D hoặc thử mở AR lại.')

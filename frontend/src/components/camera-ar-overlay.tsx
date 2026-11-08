@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { ModelViewerElement } from '@google/model-viewer'
 import { Box, RotateCcw } from 'lucide-react'
-import { modelSource, type ArAsset } from '../lib/ar'
+import { modelSource, type ArAsset, type CameraArLaunchState } from '../lib/ar'
 import { loadViewer } from '../lib/model-viewer'
 import { sportNameVi } from '../lib/sport-names'
 import { Button } from './ui/button'
@@ -9,24 +9,23 @@ import { Button } from './ui/button'
 type LoadPhase = 'library' | 'model' | 'ready' | 'error'
 let retrySequence = 0
 
-export function CameraArOverlay({ label, confidence, asset, onRescan }: {
+export function CameraArOverlay({ label, confidence, asset, cameraReady, launch, onActivateAr, onArStatus, onRescan }: {
   label: string; confidence: number; asset: ArAsset; onRescan: () => void
+  cameraReady: boolean
+  launch: CameraArLaunchState
+  onActivateAr: (activate: () => Promise<void>) => void
+  onArStatus: (status: string | undefined) => void
 }) {
   const viewerRef = useRef<ModelViewerElement>(null)
-  const mountedRef = useRef(false)
+  const statusCallbackRef = useRef(onArStatus)
   const [attempt, setAttempt] = useState(0)
   const [phase, setPhase] = useState<LoadPhase>('library')
   const [supported, setSupported] = useState(false)
-  const [launching, setLaunching] = useState(false)
-  const [message, setMessage] = useState('')
   const noteId = useId()
   const name = sportNameVi(label)
   const viewerActive = phase === 'model' || phase === 'ready'
 
-  useEffect(() => {
-    mountedRef.current = true
-    return () => { mountedRef.current = false }
-  }, [])
+  useEffect(() => { statusCallbackRef.current = onArStatus }, [onArStatus])
 
   useEffect(() => {
     let cancelled = false
@@ -51,10 +50,9 @@ export function CameraArOverlay({ label, confidence, asset, onRescan }: {
     const onLoad = () => { window.clearTimeout(timeout); setPhase('ready'); updateSupport() }
     const onError = () => { window.clearTimeout(timeout); setPhase('error') }
     const onArStatus = (event: Event) => {
-      if ((event as CustomEvent<{ status?: string }>).detail?.status === 'failed') {
-        setLaunching(false)
-        setMessage('Chưa mở được AR. Hãy thử nút Xem AR bên dưới hoặc dùng trình duyệt hỗ trợ.')
-      }
+      const status = (event as CustomEvent<{ status?: string }>).detail?.status
+      if (import.meta.env.DEV) console.debug('[SportSnap AR] camera overlay ar-status:', status)
+      statusCallbackRef.current(status)
     }
     const timeout = window.setTimeout(onError, 60_000)
     const capabilityTimer = window.setInterval(updateSupport, 500)
@@ -82,13 +80,9 @@ export function CameraArOverlay({ label, confidence, asset, onRescan }: {
 
   function activateAr() {
     const viewer = viewerRef.current
-    if (!viewer || phase !== 'ready' || !supported || launching) return
-    setLaunching(true)
-    setMessage('')
-    // Preserve the tap gesture: no dialog or awaited work before native activation.
-    void viewer.activateAR().catch(() => {
-      if (mountedRef.current) setMessage('Không thể mở AR. Kiểm tra quyền camera hoặc thử nút Xem AR bên dưới.')
-    }).finally(() => { if (mountedRef.current) setLaunching(false) })
+    if (!viewer || !viewer.loaded || phase !== 'ready' || !supported || launch.phase !== 'idle') return
+    // The parent releases every camera track synchronously before invoking this callback.
+    onActivateAr(() => viewer.activateAR())
   }
 
   return <div className="pointer-events-none absolute inset-2 flex flex-col items-center gap-1 sm:inset-3 sm:gap-2" aria-label="Mô hình 3D trên camera">
@@ -109,17 +103,17 @@ export function CameraArOverlay({ label, confidence, asset, onRescan }: {
       {(phase === 'library' || phase === 'model') && <p role="status" className="absolute inset-0 flex items-center justify-center text-center text-sm text-white drop-shadow-lg">Đang tải mô hình 3D…</p>}
       {phase === 'error' && <div role="alert" className="pointer-events-auto absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-black/75 px-2 text-center text-xs text-white">
         <p>Chưa tải được mô hình 3D.</p>
-        <Button onClick={() => { setPhase('library'); setSupported(false); setMessage(''); setAttempt(++retrySequence) }}>Thử lại</Button>
+        <Button onClick={() => { setPhase('library'); setSupported(false); setAttempt(++retrySequence) }}>Thử lại</Button>
       </div>}
     </div>
     <div className="pointer-events-auto flex shrink-0 gap-2">
-      <Button className="px-3" onClick={onRescan}><RotateCcw size={16} aria-hidden="true" />Quét lại</Button>
-      <Button className="bg-black/80 px-3 text-white" disabled={phase !== 'ready' || !supported || launching} aria-describedby={noteId} onClick={activateAr}>
-        <Box size={16} aria-hidden="true" />{launching ? 'Đang mở…' : 'AR thật'}
+      <Button className="px-3" disabled={!cameraReady || launch.phase !== 'idle'} onClick={onRescan}><RotateCcw size={16} aria-hidden="true" />Quét lại</Button>
+      <Button className="bg-black/80 px-3 text-white" disabled={phase !== 'ready' || !supported || launch.phase !== 'idle'} aria-describedby={noteId} onClick={activateAr}>
+        <Box size={16} aria-hidden="true" />{phase === 'library' || phase === 'model' ? 'Đang tải mô hình...' : launch.phase === 'launching' ? 'Đang mở…' : launch.phase !== 'idle' ? 'Đang ở AR…' : launch.message ? 'Thử lại AR' : 'AR thật'}
       </Button>
     </div>
     <p id={noteId} role="status" className="max-w-full shrink-0 rounded bg-black/80 px-2 text-center text-[10px] leading-tight text-white">
-      {message || (!window.isSecureContext ? 'AR thật cần HTTPS.' : phase === 'ready' && !supported ? 'Thiết bị chưa hỗ trợ AR thật; vẫn xem được overlay.' : 'Overlay camera · AR thật để đặt lên mặt bàn')}
+      {launch.message ? 'Chưa mở được AR. Xem hướng dẫn bên dưới rồi thử lại.' : !window.isSecureContext ? 'AR thật cần HTTPS.' : phase === 'ready' && !supported ? 'Thiết bị chưa hỗ trợ AR thật; vẫn xem được overlay.' : 'Overlay camera · AR thật để đặt lên mặt bàn'}
     </p>
   </div>
 }
