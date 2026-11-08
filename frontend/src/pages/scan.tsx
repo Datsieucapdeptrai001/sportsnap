@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Camera, ImagePlus, ImageUp, ScanLine, ShieldCheck, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { PredictionCard } from '../components/prediction-card'
-import { CameraScanner } from '../components/camera-scanner'
+import { CameraScanner, type CameraScannerHandle } from '../components/camera-scanner'
 import { SportTags } from '../components/sport-tags'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -42,6 +42,7 @@ function ImagePreview({ file }: { file: File }) {
 
 export function ScanPage({ active = true }: { active?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<CameraScannerHandle>(null)
   const requestRef = useRef<AbortController | null>(null)
   const resultSequence = useRef(0)
   const [autoOpenAr, setAutoOpenAr] = useState(readAutoOpenArPreference)
@@ -129,7 +130,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
           tabIndex={-1}
         />
         {mode === 'camera' ? (
-          active && <CameraScanner autoOverlay={autoOpenAr}
+          active && <CameraScanner ref={cameraRef} autoOverlay={autoOpenAr}
             result={state.status === 'success' && state.source === 'camera' && 'agreement' in state.result ? state.result : null}
             onReset={() => setState({ status: 'idle' })}
             onResult={(result, image) => setState({ status: 'success', result, image, source: 'camera', resultId: ++resultSequence.current })} />
@@ -208,7 +209,8 @@ export function ScanPage({ active = true }: { active?: boolean }) {
             {file && <Button className="mt-5" variant="outline" onClick={() => void recognize(file)}>Thử lại</Button>}
           </Card>
         )}
-        {state.status === 'success' && <PredictionCard key={state.resultId} result={state.result} image={state.image} />}
+        {state.status === 'success' && <PredictionCard key={state.resultId} result={state.result} image={state.image}
+          onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined} />}
       </div>
       <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.

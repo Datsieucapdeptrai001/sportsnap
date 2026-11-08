@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { Camera, ScanLine, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { scanFrames, type ScanResult } from '../lib/api'
@@ -6,20 +6,24 @@ import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSuppo
 import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
 import { selectBestFrame } from '../lib/explain'
-import { createCameraArHandoff, getCameraOverlayAsset, releaseCameraForAr, type CameraArLaunchState } from '../lib/ar'
+import { createCameraArHandoff, getArAvailability, getCameraOverlayAsset, releaseCameraForAr, type CameraArPhase } from '../lib/ar'
 import { sports3d } from '../lib/sports3d'
 import { CameraArOverlay } from './camera-ar-overlay'
+import { SportArDialog } from './sport-ar-button'
+
+export interface CameraScannerHandle { openAr: () => void }
 
 type CameraState =
   | { status: 'starting' | 'ready' | 'sending' | 'ar-paused' }
   | { status: 'capturing'; count: number }
   | { status: 'error'; message: string }
 
-export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
+export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
   onResult: (result: ScanResult, image: Blob | null) => void
   result: ScanResult | null
   autoOverlay: boolean
   onReset: () => void
+  ref?: Ref<CameraScannerHandle>
 }) {
   const guideId = useId()
   const previewRef = useRef<HTMLDivElement>(null)
@@ -28,11 +32,16 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
   const busyRef = useRef(false)
   const stopForArRef = useRef<(() => void) | null>(null)
   const arHandoffRef = useRef<ReturnType<typeof createCameraArHandoff> | null>(null)
-  const [arLaunch, setArLaunch] = useState<CameraArLaunchState>({ phase: 'idle', message: '' })
+  const returnFocusRef = useRef<HTMLButtonElement>(null)
+  const [arPhase, setArPhase] = useState<CameraArPhase>('camera')
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<CameraState>({ status: 'starting' })
   const [scanError, setScanError] = useState<string | null>(null)
   const [overlay, setOverlay] = useState<ReturnType<typeof getCropOverlay>>(null)
+
+  useImperativeHandle(ref, () => ({ openAr: () => {
+    if (result && getArAvailability(result.label, result.is_uncertain, sports3d).enabled) arHandoffRef.current?.begin()
+  } }), [result])
 
   useEffect(() => {
     const video = videoRef.current
@@ -129,8 +138,8 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
         setAttempt((current) => current + 1)
       },
       isVisible: () => !document.hidden,
-      isFocused: () => document.hasFocus(),
-      onChange: setArLaunch,
+      onChange: setArPhase,
+      log: import.meta.env.DEV ? (step) => console.info('[SportSnap AR]', step) : undefined,
     })
     arHandoffRef.current = handoff
     const visibility = () => handoff.visibilityChanged(document.hidden)
@@ -148,8 +157,14 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
     }
   }, [])
 
+  useEffect(() => {
+    // Passive effects run after React has removed the previous viewer and cleaned it up.
+    if (arPhase === 'releasing') arHandoffRef.current?.overlayRemoved()
+    else if (arPhase === 'restoring') arHandoffRef.current?.dialogRemoved()
+  }, [arPhase])
+
   async function scan() {
-    if (busyRef.current || state.status !== 'ready' || !videoRef.current) return
+    if (busyRef.current || state.status !== 'ready' || arPhase !== 'camera' || !videoRef.current) return
     busyRef.current = true
     onReset()
     setScanError(null)
@@ -179,8 +194,8 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
   }
 
   const scanning = state.status === 'capturing' || state.status === 'sending'
-  // Keep the loaded viewer mounted while releasing/reopening the camera for AR.
-  const arAsset = getCameraOverlayAsset(result, autoOverlay && !scanning, sports3d)
+  const arAsset = getCameraOverlayAsset(result, autoOverlay && arPhase === 'camera' && state.status === 'ready' && !scanning, sports3d)
+  const dialogAvailability = result ? getArAvailability(result.label, result.is_uncertain, sports3d) : null
   const statusText = state.status === 'capturing' ? `Đang quét: ${state.count}/4…`
     : state.status === 'sending' ? 'Đang nhận diện khung hình…'
       : state.status === 'starting' ? 'Đang mở camera…'
@@ -208,8 +223,7 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
         )}
         {arAsset && result && <CameraArOverlay key={`${result.label}:${result.confidence}`} label={result.label}
           confidence={result.confidence} asset={arAsset} cameraReady={state.status === 'ready'}
-          launch={arLaunch} onActivateAr={(activate) => arHandoffRef.current?.launch(activate)}
-          onArStatus={(status) => arHandoffRef.current?.status(status)} onRescan={() => void scan()} />}
+          onOpenAr={() => arHandoffRef.current?.begin()} onRescan={() => void scan()} />}
         {state.status === 'error' && !arAsset && (
           <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card/95 px-6 text-center">
             <TriangleAlert className="shrink-0 text-destructive" aria-hidden="true" />
@@ -218,7 +232,7 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
         )}
       </div>
       {state.status === 'error' && arAsset && <p role="alert" className="mt-3 text-sm text-destructive">{state.message}</p>}
-      {arLaunch.message && <p role="alert" className="mt-3 text-sm text-destructive">{arLaunch.message}</p>}
+      {arPhase === 'releasing' && <p role="status" className="mt-3 text-sm text-muted-foreground">Đang nhả camera và mở trình xem AR…</p>}
       {state.status !== 'error' && <>
         <p id={guideId} className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
           Đưa vật thể vào giữa khung vuông, chiếm phần lớn khung hình. Tránh quay lại màn hình.
@@ -232,23 +246,27 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
           )}
         </div>
       </>}
-      {state.status === 'ar-paused' || arLaunch.phase !== 'idle' ? (
-        <Button className="mt-4 w-full" variant="outline" onClick={() => arHandoffRef.current?.returnToCamera()}>
+      {state.status === 'ar-paused' || arPhase !== 'camera' ? (
+        <Button ref={returnFocusRef} className="mt-4 w-full" variant="outline" onClick={() => arHandoffRef.current?.close()}>
           <Camera size={18} aria-hidden="true" />Quay lại camera
         </Button>
       ) : state.status === 'error' ? (
-        <Button className="mt-4 w-full" variant="outline" onClick={() => {
+        <Button ref={returnFocusRef} className="mt-4 w-full" variant="outline" onClick={() => {
           setScanError(null)
           setState({ status: 'starting' })
           setAttempt((current) => current + 1)
         }}><Camera size={18} aria-hidden="true" />{result ? 'Quay lại camera' : 'Thử mở lại camera'}</Button>
       ) : (
-        <Button className="mt-4 w-full" disabled={state.status !== 'ready'} onClick={() => { setScanError(null); void scan() }}>
+        <Button ref={returnFocusRef} className="mt-4 w-full" disabled={state.status !== 'ready'} onClick={() => { setScanError(null); void scan() }}>
           <ScanLine size={18} aria-hidden="true" />{scanning ? statusText : 'Quét đa khung hình'}
         </Button>
       )}
       {scanError && <p role="alert" className="mt-3 text-sm text-destructive">{scanError}</p>}
       <p className="mt-3 text-center text-xs text-muted-foreground">Giữ máy ổn định · Chụp 4 khung hình cách nhau khoảng 300 ms</p>
+      {arPhase === 'dialog' && result && dialogAvailability?.enabled && <SportArDialog
+        label={result.label} confidence={result.confidence} asset={dialogAvailability.asset}
+        returnFocusRef={returnFocusRef} onClose={() => arHandoffRef.current?.close()}
+        onArReturn={() => arHandoffRef.current?.close()} />}
     </div>
   )
 }

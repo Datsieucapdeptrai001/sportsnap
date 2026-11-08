@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ModelViewerElement } from '@google/model-viewer'
 import { Box, LoaderCircle, RotateCcw, TriangleAlert, X } from 'lucide-react'
-import { getArAvailability, modelLoadProgress, modelSource, type ArAsset } from '../lib/ar'
+import { AR_VIEWER_ATTRIBUTES, getArAvailability, modelLoadProgress, modelSource, type ArAsset } from '../lib/ar'
 import { loadViewer } from '../lib/model-viewer'
 import { sportNameVi } from '../lib/sport-names'
 import { sports3d } from '../lib/sports3d'
@@ -16,12 +16,15 @@ type LoadState =
   | { phase: 'ready'; progress: 100 }
   | { phase: 'error'; message: string }
 
-function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
+export function SportArDialog({ label, confidence, asset, returnFocusRef, onClose, onArReturn }: {
   label: string; confidence?: number; asset: ArAsset; returnFocusRef: RefObject<HTMLButtonElement | null>; onClose: () => void
+  onArReturn?: () => void
 }) {
   const sportName = sportNameVi(label)
   const dialogRef = useRef<HTMLDialogElement>(null)
   const viewerRef = useRef<ModelViewerElement>(null)
+  const arReturnRef = useRef(onArReturn)
+  const sessionStartedRef = useRef(false)
   const [attempt, setAttempt] = useState(0)
   const [libraryReady, setLibraryReady] = useState(false)
   const [state, setState] = useState<LoadState>({ phase: 'library', progress: 0 })
@@ -35,12 +38,15 @@ function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
   const ready = state.phase === 'ready'
   const viewerActive = libraryReady && state.phase !== 'error'
 
+  useEffect(() => { arReturnRef.current = onArReturn }, [onArReturn])
+
   useEffect(() => {
     const dialog = dialogRef.current
     // Safari may not focus a button on touch, so keep the explicit opener too.
     const previousFocus = returnFocusRef.current ?? document.activeElement
     const previousOverflow = document.body.style.overflow
     dialog?.showModal()
+    if (import.meta.env.DEV) console.info('[SportSnap AR] shared dialog mounted')
     document.body.style.overflow = 'hidden'
     return () => {
       dialog?.close()
@@ -85,12 +91,17 @@ function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
         setLaunching(false)
         setArMessage('Chưa mở được AR. Bạn vẫn có thể xoay mô hình 3D hoặc thử mở AR lại.')
       } else if (status === 'session-started') {
+        sessionStartedRef.current = true
         setArMessage('Di chuyển điện thoại chậm để tìm mặt phẳng đặt mô hình.')
       } else if (status === 'object-placed') {
         setArMessage('Đã đặt mô hình. Bạn có thể véo để phóng to hoặc thu nhỏ.')
       } else if (status === 'not-presenting') {
         setLaunching(false)
         setArMessage('')
+        if (sessionStartedRef.current) {
+          sessionStartedRef.current = false
+          arReturnRef.current?.()
+        }
       }
       updateSupport()
     }
@@ -156,10 +167,8 @@ function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
       <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">Kéo để xoay mô hình 3D, véo để phóng to hoặc thu nhỏ. Khi mở AR, hướng camera về mặt bàn hoặc sàn.</p>
       <div className="relative mt-4 min-h-48 overflow-hidden rounded-xl bg-muted/40" aria-busy={state.phase === 'library' || state.phase === 'model'}>
         {libraryReady && state.phase !== 'error' && <model-viewer key={attempt} ref={viewerRef}
-          src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${sportName}`} ar
-          ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="auto"
-          ios-src={asset.usdz} camera-controls auto-rotate={!window.matchMedia('(prefers-reduced-motion: reduce)').matches}
-          shadow-intensity="1" environment-image="neutral" loading="lazy"
+          src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${sportName}`} {...AR_VIEWER_ATTRIBUTES}
+          ios-src={asset.usdz} auto-rotate={!window.matchMedia('(prefers-reduced-motion: reduce)').matches}
           className="block h-[min(52svh,26rem)] min-h-48 w-full" style={{ touchAction: 'pan-y' }}>
           <span slot="ar-button" hidden />
           <span slot="progress-bar" hidden />
@@ -183,8 +192,9 @@ function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
   )
 }
 
-export function SportArButton({ label, isUncertain, confidence, otherDialogOpen = false }: {
+export function SportArButton({ label, isUncertain, confidence, otherDialogOpen = false, onOpen }: {
   label: string; isUncertain: boolean; confidence?: number; otherDialogOpen?: boolean
+  onOpen?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -192,6 +202,7 @@ export function SportArButton({ label, isUncertain, confidence, otherDialogOpen 
   const availability = getArAvailability(label, isUncertain, sports3d)
   function openManually() {
     if (otherDialogOpen) return
+    if (onOpen) { onOpen(); return }
     setOpen(true)
   }
   return <>
@@ -202,6 +213,6 @@ export function SportArButton({ label, isUncertain, confidence, otherDialogOpen 
       </Button>
       {availability.message && <p id={noteId} className="mt-2 text-xs leading-relaxed text-muted-foreground">{availability.message}</p>}
     </div>
-    {open && availability.enabled && <ArDialog key={`${label}:${availability.asset.glb}`} label={label} confidence={confidence} asset={availability.asset} returnFocusRef={triggerRef} onClose={() => setOpen(false)} />}
+    {open && availability.enabled && <SportArDialog key={`${label}:${availability.asset.glb}`} label={label} confidence={confidence} asset={availability.asset} returnFocusRef={triggerRef} onClose={() => setOpen(false)} />}
   </>
 }

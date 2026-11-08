@@ -1,193 +1,171 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { AR_LAUNCH_FAILURE, createCameraArHandoff, releaseCameraForAr } from '../src/lib/ar.ts'
+import { AR_VIEWER_ATTRIBUTES, CAMERA_AR_RELEASE_MS, createCameraArHandoff, releaseCameraForAr } from '../src/lib/ar.ts'
 
 function setup(t) {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const events = []
-  const states = []
   let visible = true
-  let focused = true
+  let phase = 'camera'
   let resumes = 0
-  let stops = 0
-  const tracks = [0, 1].map(index => ({ stop() { events.push(`stop-${index}`) } }))
-  const stream = { getTracks: () => tracks }
+  const stream = { getTracks: () => [0, 1].map(index => ({ stop() { events.push(`stop-${index}`) } })) }
   const video = { srcObject: stream, pause() { events.push('pause') } }
   const handoff = createCameraArHandoff({
-    stopCamera() { stops++; releaseCameraForAr(video, stream) },
-    resumeCamera() { resumes++; events.push('resume') },
+    stopCamera() { releaseCameraForAr(video, stream); events.push('stop camera') },
+    resumeCamera() { resumes++; events.push('resume camera') },
     isVisible: () => visible,
-    isFocused: () => focused,
-    onChange: state => states.push(state),
+    onChange(next) { phase = next; if (next === 'dialog') events.push('open dialog') },
+    log(step) { events.push(step) },
   })
   t.after(() => handoff.dispose())
-  return { handoff, video, events, states, get resumes() { return resumes }, get stops() { return stops },
-    set visible(value) { visible = value }, set focused(value) { focused = value } }
+  return { handoff, video, events, get phase() { return phase }, get resumes() { return resumes },
+    set visible(value) { visible = value } }
 }
 
-test('a stale camera request releases its tracks without pausing a replacement stream', () => {
+function open(t, env) {
+  env.handoff.begin()
+  env.handoff.overlayRemoved()
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS)
+  assert.equal(env.phase, 'dialog')
+}
+
+test('both AR entry paths use the gallery dialog configuration unchanged', () => {
+  assert.deepEqual(AR_VIEWER_ATTRIBUTES, {
+    ar: true, 'ar-modes': 'webxr scene-viewer quick-look', 'ar-placement': 'floor',
+    'ar-scale': 'auto', 'camera-controls': true, 'shadow-intensity': '1',
+    'environment-image': 'neutral', loading: 'lazy',
+  })
+})
+
+test('stop all tracks -> acknowledged overlay unmount -> release delay -> open dialog', t => {
+  const env = setup(t)
+  env.handoff.begin()
+  assert.equal(env.video.srcObject, null)
+  assert.deepEqual(env.events.slice(0, 4), ['pause', 'stop-0', 'stop-1', 'stop camera'])
+  assert.equal(env.phase, 'releasing')
+  t.mock.timers.tick(2_000)
+  assert.equal(env.phase, 'releasing', 'timer must not start before React acknowledges removal')
+  env.handoff.overlayRemoved()
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS - 1)
+  assert.equal(env.phase, 'releasing')
+  t.mock.timers.tick(1)
+  assert.equal(env.phase, 'dialog')
+  assert.ok(env.events.indexOf('stop camera') < env.events.indexOf('unmount overlay model-viewer'))
+  assert.ok(env.events.indexOf('unmount overlay model-viewer') < env.events.indexOf('open dialog'))
+  assert.equal(env.resumes, 0)
+})
+
+test('closing removes dialog and waits for cleanup before restoring camera and overlay', t => {
+  const env = setup(t)
+  open(t, env)
+  env.handoff.close()
+  assert.equal(env.phase, 'restoring')
+  t.mock.timers.tick(2_000)
+  assert.equal(env.resumes, 0)
+  env.handoff.dialogRemoved()
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS - 1)
+  assert.equal(env.resumes, 0)
+  t.mock.timers.tick(1)
+  assert.equal(env.phase, 'camera')
+  assert.equal(env.resumes, 1)
+})
+
+test('double taps, duplicate React acknowledgements and focus do not open multiple dialogs or streams', t => {
+  const env = setup(t)
+  env.handoff.begin()
+  env.handoff.begin()
+  env.handoff.overlayRemoved()
+  env.handoff.overlayRemoved()
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS)
+  assert.equal(env.events.filter(event => event === 'open dialog').length, 1)
+  env.handoff.focused()
+  assert.equal(env.phase, 'dialog', 'normal dialog focus must not close it')
+  env.handoff.close()
+  env.handoff.close()
+  env.handoff.dialogRemoved()
+  env.handoff.dialogRemoved()
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS)
+  env.handoff.focused()
+  assert.equal(env.resumes, 1)
+})
+
+for (const signal of ['visibility', 'focus']) {
+  test(`${signal} return closes native AR dialog before camera restarts`, t => {
+    const env = setup(t)
+    open(t, env)
+    if (signal === 'visibility') {
+      env.visible = false
+      env.handoff.visibilityChanged(true)
+      env.visible = true
+      env.handoff.visibilityChanged(false)
+    } else {
+      env.handoff.blurred()
+      env.handoff.focused()
+    }
+    assert.equal(env.phase, 'restoring')
+    assert.equal(env.resumes, 0)
+    env.handoff.dialogRemoved()
+    t.mock.timers.tick(CAMERA_AR_RELEASE_MS)
+    env.handoff.focused()
+    env.handoff.visibilityChanged(false)
+    assert.equal(env.resumes, 1)
+  })
+}
+
+test('no dialog opens in a hidden tab and no camera restarts until visible', t => {
+  const env = setup(t)
+  env.handoff.begin()
+  env.handoff.overlayRemoved()
+  env.visible = false
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS)
+  assert.equal(env.phase, 'releasing')
+  env.visible = true
+  env.handoff.visibilityChanged(false)
+  assert.equal(env.phase, 'dialog')
+  env.visible = false
+  env.handoff.close()
+  env.handoff.dialogRemoved()
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS)
+  env.handoff.focused()
+  assert.equal(env.resumes, 0)
+  env.visible = true
+  env.handoff.visibilityChanged(false)
+  assert.equal(env.resumes, 1)
+})
+
+test('manual cancel during release prevents a late dialog from opening', t => {
+  const env = setup(t)
+  env.handoff.begin()
+  env.handoff.overlayRemoved()
+  env.handoff.close()
+  env.handoff.dialogRemoved()
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS * 2)
+  assert.equal(env.phase, 'camera')
+  assert.equal(env.events.includes('open dialog'), false)
+  assert.equal(env.resumes, 1)
+  open(t, env)
+})
+
+test('unmount cancels transitions without opening a dialog or restarting camera', t => {
+  const env = setup(t)
+  env.handoff.begin()
+  env.handoff.overlayRemoved()
+  env.handoff.dispose()
+  const count = env.events.length
+  t.mock.timers.tick(CAMERA_AR_RELEASE_MS)
+  env.handoff.focused()
+  env.handoff.close()
+  env.handoff.dialogRemoved()
+  assert.equal(env.events.length, count)
+  assert.equal(env.resumes, 0)
+})
+
+test('a stale camera request releases its tracks without detaching a replacement stream', () => {
   const current = { getTracks: () => [] }
   let stopped = false
   const stale = { getTracks: () => [{ stop() { stopped = true } }] }
-  const video = { srcObject: current, pause() { assert.fail('replacement camera must keep playing') } }
+  const video = { srcObject: current, pause() { assert.fail('replacement must keep playing') } }
   releaseCameraForAr(video, stale)
   assert.equal(stopped, true)
   assert.equal(video.srcObject, current)
-})
-
-test('AR tap pauses video, stops every track and detaches it before synchronous activation', async t => {
-  const env = setup(t)
-  let inTap = true
-  env.handoff.launch(() => {
-    assert.equal(inTap, true, 'activation must not move to a later task or microtask')
-    assert.deepEqual(env.events, ['pause', 'stop-0', 'stop-1'])
-    assert.equal(env.video.srcObject, null)
-    env.events.push('activate')
-    return Promise.resolve()
-  })
-  inTap = false
-  env.handoff.launch(() => { assert.fail('double tap must not launch again') })
-  await Promise.resolve()
-  assert.equal(env.stops, 1)
-  assert.equal(env.resumes, 0, 'resolved activateAR does not prove native AR opened or returned')
-  assert.equal(env.states.at(-1).phase, 'launching')
-})
-
-for (const settlement of ['resolved', 'pending']) {
-  test(`8 second watchdog restores camera for a ${settlement} activation without feedback`, async t => {
-    const env = setup(t)
-    env.handoff.launch(() => settlement === 'resolved' ? Promise.resolve() : new Promise(() => {}))
-    await Promise.resolve()
-    t.mock.timers.tick(7_999)
-    assert.equal(env.resumes, 0)
-    t.mock.timers.tick(1)
-    assert.equal(env.resumes, 1)
-    assert.deepEqual(env.states.at(-1), { phase: 'idle', message: AR_LAUNCH_FAILURE })
-    assert.match(AR_LAUNCH_FAILURE, /Google Play Services for AR/)
-    assert.match(AR_LAUNCH_FAILURE, /Mạng chậm/)
-    env.handoff.focused()
-    t.mock.timers.tick(8_000)
-    assert.equal(env.resumes, 1)
-  })
-}
-
-test('visibility return and focus reopen camera once, never while native AR has the page hidden', t => {
-  const env = setup(t)
-  env.handoff.launch(() => Promise.resolve())
-  env.visible = false
-  env.handoff.visibilityChanged(true)
-  t.mock.timers.tick(20_000)
-  env.handoff.focused()
-  assert.equal(env.resumes, 0)
-  assert.equal(env.states.at(-1).phase, 'away')
-  env.visible = true
-  env.handoff.visibilityChanged(false)
-  env.handoff.focused()
-  env.handoff.visibilityChanged(false)
-  assert.equal(env.resumes, 1)
-  assert.equal(env.states.at(-1).phase, 'idle')
-})
-
-test('focus return also recovers when native AR only caused a blur', t => {
-  const env = setup(t)
-  env.handoff.launch(() => Promise.resolve())
-  env.focused = false
-  env.handoff.blurred()
-  env.focused = true
-  env.handoff.focused()
-  assert.equal(env.resumes, 1)
-  t.mock.timers.tick(8_000)
-  assert.equal(env.resumes, 1)
-})
-
-test('watchdog does not reopen camera behind an external viewer that only blurred the page', t => {
-  const env = setup(t)
-  env.handoff.launch(() => Promise.resolve())
-  env.focused = false
-  env.handoff.blurred()
-  t.mock.timers.tick(8_000)
-  assert.equal(env.resumes, 0)
-  env.focused = true
-  env.handoff.focused()
-  assert.equal(env.resumes, 1)
-})
-
-for (const failure of ['throw', 'reject', 'status']) {
-  test(`${failure} failure restores camera and permits a fresh tap without exposing raw errors`, async t => {
-    const env = setup(t)
-    env.handoff.launch(() => {
-      if (failure === 'throw') throw new Error('private native failure')
-      return failure === 'reject' ? Promise.reject(new Error('private native failure')) : Promise.resolve()
-    })
-    if (failure === 'status') env.handoff.status('failed')
-    await Promise.resolve()
-    assert.equal(env.resumes, 1)
-    assert.deepEqual(env.states.at(-1), { phase: 'idle', message: AR_LAUNCH_FAILURE })
-    env.handoff.launch(() => Promise.resolve())
-    assert.equal(env.stops, 2)
-    assert.deepEqual(env.states.at(-1), { phase: 'launching', message: '' })
-  })
-}
-
-test('native failure while hidden defers camera reopening until page return', async t => {
-  const env = setup(t)
-  let reject
-  env.handoff.launch(() => new Promise((_, failure) => { reject = failure }))
-  env.visible = false
-  env.handoff.visibilityChanged(true)
-  reject(new Error('private failure'))
-  await Promise.resolve()
-  assert.equal(env.resumes, 0)
-  env.visible = true
-  env.handoff.visibilityChanged(false)
-  env.handoff.focused()
-  assert.equal(env.resumes, 1)
-  assert.equal(env.states.at(-1).message, AR_LAUNCH_FAILURE)
-})
-
-test('session events keep camera stopped until AR ends and ignore initial not-presenting', t => {
-  const env = setup(t)
-  env.handoff.status('not-presenting')
-  assert.equal(env.resumes, 0)
-  env.handoff.launch(() => Promise.resolve())
-  env.handoff.status('not-presenting')
-  assert.equal(env.resumes, 0)
-  env.handoff.status('session-started')
-  env.handoff.status('object-placed')
-  t.mock.timers.tick(8_000)
-  assert.equal(env.resumes, 0)
-  env.handoff.status('not-presenting')
-  env.handoff.focused()
-  assert.equal(env.resumes, 1)
-})
-
-test('manual return cancels watchdog and late rejection cannot interrupt a newer launch', async t => {
-  const env = setup(t)
-  let reject
-  env.handoff.launch(() => new Promise((_, failure) => { reject = failure }))
-  env.handoff.returnToCamera()
-  assert.equal(env.resumes, 1)
-  env.handoff.launch(() => Promise.resolve())
-  reject(new Error('late failure'))
-  await Promise.resolve()
-  assert.equal(env.resumes, 1)
-  assert.equal(env.states.at(-1).phase, 'launching')
-})
-
-test('unmount cancels timers and ignores late promises, status and page events', async t => {
-  const env = setup(t)
-  let reject
-  env.handoff.launch(() => new Promise((_, failure) => { reject = failure }))
-  env.handoff.dispose()
-  const count = env.states.length
-  t.mock.timers.tick(8_000)
-  reject(new Error('late failure'))
-  await Promise.resolve()
-  env.handoff.status('failed')
-  env.handoff.visibilityChanged(true)
-  env.handoff.visibilityChanged(false)
-  env.handoff.focused()
-  env.handoff.returnToCamera()
-  assert.equal(env.states.length, count)
-  assert.equal(env.resumes, 0)
 })

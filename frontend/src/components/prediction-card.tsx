@@ -9,7 +9,7 @@ import { cn } from '../lib/utils'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
-export function PredictionCard({ result, image = null }: { result: Prediction | ScanResult; image?: Blob | null }) {
+export function PredictionCard({ result, image = null, onOpenAr }: { result: Prediction | ScanResult; image?: Blob | null; onOpenAr?: () => void }) {
   const uncertain = result.is_uncertain
   const [explainOpen, setExplainOpen] = useState(false)
 
@@ -57,7 +57,7 @@ export function PredictionCard({ result, image = null }: { result: Prediction | 
         </ol>
       </div>
       <div className="mt-6 flex flex-wrap items-start gap-3">
-        <SportArButton label={result.label} confidence={result.confidence} isUncertain={uncertain} otherDialogOpen={explainOpen} />
+        <SportArButton label={result.label} confidence={result.confidence} isUncertain={uncertain} otherDialogOpen={explainOpen} onOpen={onOpenAr} />
         <ExplainButton image={image} camera={'agreement' in result} onOpenChange={setExplainOpen} />
       </div>
     </Card>

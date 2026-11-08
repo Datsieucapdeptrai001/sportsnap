@@ -1,11 +1,18 @@
 export interface ArAsset { glb: string; usdz?: string }
 
-export interface CameraArLaunchState {
-  phase: 'idle' | 'launching' | 'away' | 'presenting'
-  message: string
-}
+export const AR_VIEWER_ATTRIBUTES = {
+  ar: true,
+  'ar-modes': 'webxr scene-viewer quick-look',
+  'ar-placement': 'floor',
+  'ar-scale': 'auto',
+  'camera-controls': true,
+  'shadow-intensity': '1',
+  'environment-image': 'neutral',
+  loading: 'lazy',
+} as const
 
-export const AR_LAUNCH_FAILURE = 'Chưa mở được AR. Android có thể cần cài hoặc cập nhật Google Play Services for AR và ứng dụng Google. Mạng chậm có thể làm trình xem chưa tải được mô hình; iOS có thể đang tạo USDZ. Hãy kiểm tra mạng, quyền camera rồi bấm Thử lại AR.'
+export type CameraArPhase = 'camera' | 'releasing' | 'dialog' | 'restoring'
+export const CAMERA_AR_RELEASE_MS = 400
 
 export function releaseCameraForAr(
   video: Pick<HTMLVideoElement, 'pause' | 'srcObject'> | null,
@@ -19,89 +26,75 @@ export function releaseCameraForAr(
   if (ownsVideo) video.srcObject = null
 }
 
-// Native viewers do not reliably publish ar-status or reject activateAR().
-// Watch page handoff as well, and never await before invoking the gesture callback.
+// React acknowledges each viewer's removal after its DOM and effect cleanup.
+// Only open a dialog after that acknowledgement and the camera release delay.
 export function createCameraArHandoff(options: {
   stopCamera: () => void
   resumeCamera: () => void
   isVisible: () => boolean
-  isFocused: () => boolean
-  onChange: (state: CameraArLaunchState) => void
+  onChange: (phase: CameraArPhase) => void
+  log?: (step: string) => void
 }) {
-  let phase: CameraArLaunchState['phase'] = 'idle'
+  let phase: CameraArPhase = 'camera'
   let timeout: ReturnType<typeof setTimeout> | undefined
-  let generation = 0
   let disposed = false
-  let lostFocus = false
-  let resumePending = false
-  const clearWatchdog = () => { clearTimeout(timeout); timeout = undefined }
-  const resumeIfVisible = () => {
-    if (resumePending && options.isVisible() && !disposed) {
-      resumePending = false
+  let leftPage = false
+  let settled = false
+  const clear = () => { clearTimeout(timeout); timeout = undefined }
+  const change = (next: CameraArPhase) => { phase = next; options.onChange(next) }
+  const settle = () => {
+    if (disposed || !settled || !options.isVisible()) return
+    if (phase === 'releasing') {
+      settled = false
+      leftPage = false
+      options.log?.('open shared AR dialog')
+      change('dialog')
+    } else if (phase === 'restoring') {
+      settled = false
+      options.log?.('resume camera')
+      change('camera')
       options.resumeCamera()
     }
   }
-  const finish = (message = '', force = false) => {
-    if (disposed || (phase === 'idle' && !force)) return
-    generation++
-    clearWatchdog()
-    phase = 'idle'
-    lostFocus = false
-    resumePending = true
-    options.onChange({ phase, message })
-    resumeIfVisible()
+  const close = () => {
+    if (disposed || phase === 'camera' || phase === 'restoring') return
+    clear()
+    settled = false
+    leftPage = false
+    change('restoring')
   }
   const returned = () => {
     if (disposed || !options.isVisible()) return
-    if (phase === 'away' || (phase === 'launching' && lostFocus)) finish()
-    else resumeIfVisible()
+    if (phase === 'dialog' && leftPage) close()
+    else settle()
   }
   return {
-    launch(activate: () => Promise<void>): void {
-      if (disposed || phase !== 'idle') return
-      const token = ++generation
-      phase = 'launching'
-      lostFocus = false
-      resumePending = false
-      options.onChange({ phase, message: '' })
-      try {
-        options.stopCamera()
-        timeout = setTimeout(() => {
-          if (disposed || token !== generation || phase !== 'launching') return
-          if (!options.isVisible() || !options.isFocused()) {
-            phase = 'away'
-            options.onChange({ phase, message: '' })
-          } else finish(AR_LAUNCH_FAILURE)
-        }, 8_000)
-        // Keep the actual activateAR call in the same stack as the tap.
-        void activate().catch(() => {
-          if (!disposed && token === generation) finish(AR_LAUNCH_FAILURE)
-        })
-      } catch {
-        if (token === generation) finish(AR_LAUNCH_FAILURE)
-      }
+    begin(): void {
+      if (disposed || phase !== 'camera') return
+      options.stopCamera()
+      options.log?.('stop camera: tracks stopped, video paused, srcObject cleared')
+      settled = false
+      change('releasing')
+    },
+    overlayRemoved(): void {
+      if (disposed || phase !== 'releasing' || timeout !== undefined || settled) return
+      options.log?.('unmount overlay model-viewer')
+      timeout = setTimeout(() => { timeout = undefined; settled = true; settle() }, CAMERA_AR_RELEASE_MS)
+    },
+    dialogRemoved(): void {
+      if (disposed || phase !== 'restoring' || timeout !== undefined || settled) return
+      options.log?.('unmount shared AR dialog')
+      timeout = setTimeout(() => { timeout = undefined; settled = true; settle() }, CAMERA_AR_RELEASE_MS)
     },
     visibilityChanged(hidden: boolean): void {
       if (disposed) return
-      if (hidden && phase === 'launching') {
-        phase = 'away'
-        clearWatchdog()
-        options.onChange({ phase, message: '' })
-      } else if (!hidden) returned()
+      if (hidden && phase === 'dialog') leftPage = true
+      else if (!hidden) returned()
     },
-    blurred(): void { if (!disposed && phase === 'launching') lostFocus = true },
+    blurred(): void { if (!disposed && phase === 'dialog') leftPage = true },
     focused: returned,
-    status(status: string | undefined): void {
-      if (disposed || phase === 'idle') return
-      if (status === 'failed') finish(AR_LAUNCH_FAILURE)
-      else if (status === 'session-started' || status === 'object-placed') {
-        clearWatchdog()
-        phase = 'presenting'
-        options.onChange({ phase, message: '' })
-      } else if (status === 'not-presenting' && phase === 'presenting') finish()
-    },
-    returnToCamera(): void { finish('', true) },
-    dispose(): void { disposed = true; generation++; clearWatchdog() },
+    close,
+    dispose(): void { disposed = true; clear() },
   }
 }
 

@@ -135,18 +135,43 @@ khung, không bị overlay che. Chưa chắc chắn/thiếu model không có ove
 chú thích kết quả hiện có. Ảnh đơn và Bulk vẫn mở AR thủ công bằng **Xem AR**.
 
 Đây là **overlay trên camera**, không theo dõi mặt phẳng và không neo vật vào bàn.
-Muốn AR neo bàn/sàn, đợi model tải xong rồi chạm **AR thật** một lần: Android dùng
-Scene Viewer, iOS dùng Quick Look. Nút chỉ bật khi thiết bị hỗ trợ và trang dùng HTTPS.
-Nút **Xem AR** với dialog hiện có vẫn là phương án dự phòng cho mọi kết quả phù hợp.
+Muốn AR neo bàn/sàn, chạm **AR thật**: trang dừng mọi track, pause video, gỡ
+`srcObject`, tháo model-viewer overlay rồi chờ 400 ms cho hệ thống nhả camera.
+Sau đó mở đúng `SportArDialog` dùng ở ảnh thư viện; người dùng chạm thêm
+**Xem trong AR** bên trong dialog. Không tự gọi `activateAR()` sau khoảng chờ,
+không gọi AR trên viewer trong suốt của overlay. Viewer overlay chỉ hiển thị 3D,
+không khai báo `ar` hay `ar-modes`. Nút **Xem AR** dưới kết quả camera cũng đi qua
+luồng nhả camera/tháo overlay này; ảnh thư viện và Bulk giữ luồng dialog thủ công.
+
+Hai đường camera/ảnh thư viện dùng cùng component và `AR_VIEWER_ATTRIBUTES`,
+không có khác biệt cấu hình viewer AR: `ar`, `ar-modes="webxr scene-viewer quick-look"`,
+`ar-placement="floor"`, `ar-scale="auto"`, `camera-controls`, `shadow-intensity="1"`,
+`environment-image="neutral"`, `loading="lazy"`. Cùng GLB theo manifest, cùng `ios-src`
+(không có thì tạo USDZ lúc chạy), cùng auto-rotate tôn trọng giảm chuyển động và
+cùng class/style của dialog. Android ưu tiên WebXR rồi Scene Viewer; iOS dùng Quick Look.
+Camera và AR trên điện thoại cần HTTPS; thiết bị không hỗ trợ vẫn xem 3D trong dialog.
 Overlay có thông báo tải/lỗi và **Thử lại**; không tải được model vẫn quét tiếp được.
 
 Hiện/ẩn overlay và nhận kết quả không dừng hay cấp lại camera stream. Frame gửi
 `/api/scan` vẫn được chụp từ chính phần tử video, không chụp DOM hay mô hình đè lên.
 Quét lại/tắt overlay tháo trình xem 3D; unmount dọn listener, timer và scene qua
-vòng đời model-viewer. Chuyển chế độ/tab ứng dụng hoặc rời trang giải phóng camera.
-Đưa trình duyệt ra nền không chủ động dừng stream, nhưng hệ điều hành có thể tạm
-dừng/thu hồi camera, đặc biệt iOS hoặc khi vào trình xem AR gốc; khi bị ngắt, dùng
-**Thử mở lại camera**. Không bảo đảm duy trì camera web trong phiên AR gốc.
+vòng đời model-viewer. Khi mở dialog AR, overlay bị unmount hoàn toàn trước khi
+viewer dialog được mount. Đóng dialog bằng X/Escape hoặc quay lại trang sau AR
+(visibilitychange/focus hay kết thúc WebXR) sẽ đóng/tháo dialog, chờ 400 ms dọn
+viewer rồi tự mở lại camera. Kết quả đang giữ sẽ hiện lại overlay nếu công tắc bật.
+Không mở camera ở tab đang ẩn; khi trở lại sẽ tiếp tục khôi phục. Có nút
+**Quay lại camera** để hủy bước chuyển; nếu camera bị giữ hoặc quyền bị thu hồi,
+hiện lỗi và nút mở lại, không quét khi camera đang dừng.
+Chuyển chế độ/tab ứng dụng hoặc rời trang giải phóng camera và hủy timer còn chờ.
+Dev console ghi từng bước stop camera, unmount overlay, open shared dialog,
+unmount dialog, resume camera và `ar-status`; log không chạy trong production.
+
+Bằng chứng trên S24: AR từ ảnh thư viện hoạt động, nhưng mở AR trực tiếp từ overlay
+có thể làm ứng dụng Google crash dù Play Services for AR đã cập nhật. Khả năng cao
+nhất là khác biệt vòng đời camera/viewer hoặc đường AR (overlay cũ ưu tiên Scene Viewer,
+dialog ưu tiên WebXR). Chưa có log crash native để tách riêng nguyên nhân camera,
+GPU hay Scene Viewer; không khẳng định nền trong suốt gây crash. Luồng mới dùng
+chung dialog và không giữ hai viewer mounted đồng thời. Vẫn phải kiểm tra lại trên S24/iOS thật.
 
 Dialog hiển thị tên môn tiếng Việt lớn, nhãn API gốc nhỏ bên dưới, độ tin cậy từ kết quả,
 tiến độ tải thật, lỗi có nút **Thử lại**, mô hình 3D tự xoay (tắt khi giảm chuyển động)
@@ -194,10 +219,13 @@ Các bước kiểm thử thủ công:
    kiểm tra overlay mất, video vẫn chạy và quét được lượt mới. Thử kết quả chưa
    chắc chắn: không có overlay, chú thích vẫn có. Thử Grad-CAM, bảo đảm không tự mở AR.
    Thử thêm **Xem AR** trong lightbox Bulk (vẫn chỉ mở thủ công).
-3. Từ overlay, đợi tải xong rồi chạm **AR thật** một lần để mở Scene Viewer/Quick Look.
-   Kiểm tra quay lại trang và khả năng quét tiếp; thử ẩn/hiện tab (xoay dừng/tiếp tục),
-   giảm chuyển động và quyền camera bị thu hồi. Kiểm tra phương án dự phòng:
-   **Xem AR**, đợi tải xong, kéo để xoay mô hình rồi bấm **Xem trong AR**. Dialog Android ưu tiên
+3. Từ overlay, chạm **AR thật**, kiểm tra video dừng và overlay mất trước khi dialog
+   xuất hiện sau khoảng 400 ms. Đợi model trong dialog tải xong rồi chạm **Xem trong AR**.
+   So sánh thuộc tính viewer dialog với đường ảnh thư viện: phải giống toàn bộ cấu hình.
+   Kiểm tra X/Escape và quay về từ AR đều khôi phục camera/overlay, quét tiếp được.
+   Thử **Quay lại camera** trong lúc chờ, chuyển tab, giảm chuyển động, mất quyền camera
+   và mở/đóng AR nhiều lần; không để hai model-viewer mounted đồng thời.
+   Thử thêm **Xem AR** dưới kết quả camera và ở ảnh thư viện. Dialog Android ưu tiên
    WebXR, sau đó Scene Viewer; iOS dùng Quick Look. Không khai báo `ios-src` nên
    model-viewer tự tạo USDZ từ GLB khi mở Quick Look, có thể cần chờ thêm lần đầu.
 4. Hướng camera chậm về mặt bàn/sàn có đủ sáng, đặt vật, xoay và véo phóng/thu.
@@ -405,6 +433,10 @@ dẫn GLB thật, nhãn không có model, nạp thư viện lazy/dùng chung/th�
 Test node kiểm tra logic overlay chắc chắn/không chắc chắn, model có/không,
 công tắc và quét lại xóa kết quả (bật lại không hồi sinh kết quả cũ); ánh xạ
 tên Việt khớp đủ 20 nhãn, lưu/đọc lựa chọn và xử lý lỗi localStorage.
+Test chuyển AR kiểm tra stop track/pause/gỡ srcObject → xác nhận unmount overlay →
+chờ 400 ms → mở dialog; đóng/tháo dialog rồi mới khôi phục camera. Kiểm tra trùng
+sự kiện focus/visibility, hủy bước chuyển, tab ẩn, unmount, stream cũ trả về muộn
+và bộ thuộc tính AR dùng chung với ảnh thư viện.
 Các kiểm tra bulk xác nhận batch 32/32/6, 300 tệp hỗn hợp, ZIP/CSV, tệp lỗi,
 giới hạn số tệp, hủy job, TTL, tên tệp an toàn, CSV injection và dọn tệp.
 Frontend kiểm tra polling 1 giây, dừng/hủy polling, bộ lọc, tiến độ upload và lỗi API bulk,
