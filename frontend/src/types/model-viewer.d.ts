@@ -14,6 +14,7 @@ declare module 'react' {
         'ios-src'?: string
         'camera-controls'?: boolean
         'auto-rotate'?: boolean
+        'rotation-per-second'?: string
         'shadow-intensity'?: string
         'environment-image'?: string
         loading?: 'lazy' | 'eager'

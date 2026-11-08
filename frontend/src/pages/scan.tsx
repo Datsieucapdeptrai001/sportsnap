@@ -129,12 +129,10 @@ export function ScanPage({ active = true }: { active?: boolean }) {
           tabIndex={-1}
         />
         {mode === 'camera' ? (
-          state.status === 'success' ? (
-            <Button className="w-full" onClick={() => changeMode('camera')}><Camera size={18} aria-hidden="true" />Quay lại camera trực tiếp</Button>
-          ) : (
-            // Unmounting the scanner releases every camera track before the AR dialog opens.
-            active && <CameraScanner onResult={(result, image) => setState({ status: 'success', result, image, source: 'camera', resultId: ++resultSequence.current })} />
-          )
+          active && <CameraScanner autoOverlay={autoOpenAr}
+            result={state.status === 'success' && state.source === 'camera' && 'agreement' in state.result ? state.result : null}
+            onReset={() => setState({ status: 'idle' })}
+            onResult={(result, image) => setState({ status: 'success', result, image, source: 'camera', resultId: ++resultSequence.current })} />
         ) : file ? (
           <>
             <ImagePreview key={`${file.name}-${file.lastModified}`} file={file} />
@@ -164,9 +162,8 @@ export function ScanPage({ active = true }: { active?: boolean }) {
             setAutoOpenAr(event.target.checked)
             saveAutoOpenArPreference(event.target.checked)
           }} className="size-5 shrink-0 accent-emerald-500" />
-          Tự mở AR sau khi quét
+          Tự hiện AR sau khi quét
         </label>}
-        {mode === 'camera' && state.status === 'success' && <p className="mt-2 text-sm text-muted-foreground">Camera đã tạm dừng sau lượt quét để có thể dùng AR. Bấm Quay lại camera trực tiếp khi muốn quét tiếp.</p>}
         {mode === 'camera' && <Button variant="outline" className="mt-4 w-full" onClick={() => { changeMode('gallery'); inputRef.current?.click() }}>
           <ImageUp size={18} aria-hidden="true" />Chọn ảnh từ thư viện
         </Button>}
@@ -211,8 +208,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
             {file && <Button className="mt-5" variant="outline" onClick={() => void recognize(file)}>Thử lại</Button>}
           </Card>
         )}
-        {state.status === 'success' && <PredictionCard key={state.resultId} result={state.result} image={state.image}
-          autoOpenAr={{ resultId: state.resultId, source: state.source, enabled: autoOpenAr && active }} />}
+        {state.status === 'success' && <PredictionCard key={state.resultId} result={state.result} image={state.image} />}
       </div>
       <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.

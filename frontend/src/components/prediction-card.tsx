@@ -6,11 +6,10 @@ import type { Prediction, ScanResult } from '../lib/api'
 import { SportArButton } from './sport-ar-button'
 import { ExplainButton } from './explain-button'
 import { cn } from '../lib/utils'
-import type { ArAutoOpenRequest } from '../lib/ar'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
-export function PredictionCard({ result, image = null, autoOpenAr }: { result: Prediction | ScanResult; image?: Blob | null; autoOpenAr?: ArAutoOpenRequest }) {
+export function PredictionCard({ result, image = null }: { result: Prediction | ScanResult; image?: Blob | null }) {
   const uncertain = result.is_uncertain
   const [explainOpen, setExplainOpen] = useState(false)
 
@@ -58,7 +57,7 @@ export function PredictionCard({ result, image = null, autoOpenAr }: { result: P
         </ol>
       </div>
       <div className="mt-6 flex flex-wrap items-start gap-3">
-        <SportArButton label={result.label} confidence={result.confidence} isUncertain={uncertain} autoOpen={autoOpenAr} otherDialogOpen={explainOpen} />
+        <SportArButton label={result.label} confidence={result.confidence} isUncertain={uncertain} otherDialogOpen={explainOpen} />
         <ExplainButton image={image} camera={'agreement' in result} onOpenChange={setExplainOpen} />
       </div>
     </Card>

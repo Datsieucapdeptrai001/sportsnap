@@ -98,7 +98,7 @@ Navigation: bottom tab bar on mobile, left sidebar on desktop.
 3. **Phân tích**: reads `/api/insights`: model comparison table and accuracy bars, a labeled confusion-matrix heatmap with split selection and top confusions, source/measurement notes, and the known camera limitation. No notebook Grad-CAM gallery images were supplied; explain uploaded images on demand from Scan. See §12 for the schema and image endpoint.
 
 ### AR (client side only)
-Use `@google/model-viewer`, dynamically imported only after opening the AR dialog:
+Use `@google/model-viewer`, dynamically imported when a camera overlay or manual AR dialog is needed:
 `<model-viewer src="/models/<file>.glb" alt="..." ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor" ar-scale="auto" camera-controls auto-rotate shadow-intensity="1" environment-image="neutral" loading="lazy">`.
 Respect reduced-motion preferences by disabling auto-rotation when requested.
 Mapping lives in `lib/sports3d.ts`, reads the committed `public/models/manifest.json`,
@@ -114,6 +114,19 @@ All assets use meters and Y-up. Nine dioramas use tabletop display scale; the
 other eleven retain their existing dimensions. `ar-scale="auto"` permits resizing.
 Sources and scale conventions are recorded in `docs/ASSETS.md`. Warn in the dev
 console if a mapping key is absent from `/api/classes`.
+
+Slice 5 camera overlay extension: certain `/scan` results with a mapped model keep
+the live camera mounted and show a transparent 3D viewer inside the video frame,
+with Vietnamese name, original label and result confidence. No automatic dialog or
+navigation. The default-on, persisted "Tự hiện AR sau khi quét" switch controls this
+overlay; uncertain results retain their existing guidance without an overlay.
+"Quét lại" clears the result/overlay and scans again using the same stream.
+"AR thật" activates Scene Viewer/Quick Look in one user gesture after model loading;
+the existing manual "Xem AR" dialog stays available as fallback. The overlay does
+not anchor to a real surface. Capture continues to read the video element alone.
+Disable overlay rotation for hidden tabs/reduced motion; clean up viewer resources
+on removal and camera tracks on scanner unmount. Native AR/browser suspension may
+interrupt the camera at the OS level; provide camera retry when interrupted.
 
 ## 7. Bulk ZIP layout
 ```
@@ -145,9 +158,13 @@ Job store is in-memory (dict + lock); delete job files 30 minutes after a job re
 
 **Slice 5 — AR. Completed implementation.** Lazy `<model-viewer>` dialog for the
 20 manifest labels, shared by Scan (single image and camera) and Bulk lightbox.
+Camera extension: transparent inline overlay on certain mapped scans, persistent
+video, reset/switch controls and one-tap native AR, preserving the manual dialog.
 *Accept:* certain mapped results enable AR; uncertain/missing models have disabled
 buttons with explanations; progress, retry, rotatable 3D fallback and keyboard/focus
-behavior work. Required automated checks pass. Physical-device acceptance remains
+behavior work. Camera overlay visibility/reset logic has node tests; overlay does
+not enter captured frames or stop camera tracks. Required automated checks pass.
+Physical-device acceptance remains
 manual: verify native placement on Samsung S24 Ultra/Chrome and iOS Safari using
 the HTTPS steps in README; do not infer that result from desktop or node tests.
 

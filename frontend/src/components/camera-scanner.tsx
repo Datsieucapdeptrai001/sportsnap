@@ -6,13 +6,21 @@ import { CAMERA_CONSTRAINTS, cameraErrorMessage, captureFrames, checkCameraSuppo
 import { Button } from './ui/button'
 import { Skeleton } from './ui/skeleton'
 import { selectBestFrame } from '../lib/explain'
+import { getCameraOverlayAsset } from '../lib/ar'
+import { sports3d } from '../lib/sports3d'
+import { CameraArOverlay } from './camera-ar-overlay'
 
 type CameraState =
   | { status: 'starting' | 'ready' | 'sending' }
   | { status: 'capturing'; count: number }
   | { status: 'error'; message: string }
 
-export function CameraScanner({ onResult }: { onResult: (result: ScanResult, image: Blob | null) => void }) {
+export function CameraScanner({ onResult, result, autoOverlay, onReset }: {
+  onResult: (result: ScanResult, image: Blob | null) => void
+  result: ScanResult | null
+  autoOverlay: boolean
+  onReset: () => void
+}) {
   const guideId = useId()
   const previewRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -59,7 +67,6 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult, ima
     }
     const interrupted = () => fail('Camera đã ngắt kết nối. Vui lòng mở lại camera hoặc chọn ảnh từ thư viện.')
     const videoError = () => fail('Không thể hiển thị hình ảnh từ camera. Vui lòng mở lại camera hoặc chọn ảnh từ thư viện.')
-    const hidden = () => { if (document.hidden) interrupted() }
     async function start() {
       try {
         checkCameraSupport()
@@ -78,13 +85,11 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult, ima
         fail(cameraErrorMessage(error))
       }
     }
-    document.addEventListener('visibilitychange', hidden)
     video?.addEventListener('error', videoError)
     void start()
     return () => {
       disposed = true
       requestRef.current?.abort()
-      document.removeEventListener('visibilitychange', hidden)
       video?.removeEventListener('error', videoError)
       stream?.getVideoTracks().forEach((track) => track.removeEventListener('ended', interrupted))
       stop()
@@ -95,6 +100,8 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult, ima
   async function scan() {
     if (busyRef.current || state.status !== 'ready' || !videoRef.current) return
     busyRef.current = true
+    onReset()
+    setScanError(null)
     const controller = new AbortController()
     requestRef.current = controller
     setState({ status: 'capturing', count: 0 })
@@ -105,7 +112,10 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult, ima
       controller.signal.throwIfAborted()
       setState({ status: 'sending' })
       const result = await scanFrames(frames, controller.signal)
-      if (!controller.signal.aborted) onResult(result, selectBestFrame(frames, result))
+      if (!controller.signal.aborted) {
+        setState({ status: 'ready' })
+        onResult(result, selectBestFrame(frames, result))
+      }
     } catch (error) {
       if (controller.signal.aborted) return
       const message = error instanceof Error ? error.message : 'Chưa thể quét khung hình. Vui lòng thử lại.'
@@ -118,13 +128,14 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult, ima
   }
 
   const scanning = state.status === 'capturing' || state.status === 'sending'
+  const arAsset = getCameraOverlayAsset(result, autoOverlay && state.status === 'ready', sports3d)
   const statusText = state.status === 'capturing' ? `Đang quét: ${state.count}/4…`
     : state.status === 'sending' ? 'Đang nhận diện khung hình…'
       : state.status === 'starting' ? 'Đang mở camera…' : 'Camera đã sẵn sàng'
 
   return (
     <div>
-      <div ref={previewRef} className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
+      <div ref={previewRef} className="relative aspect-[4/3] min-h-80 w-full overflow-hidden rounded-xl bg-black">
         <video
           ref={videoRef} playsInline muted autoPlay aria-label="Camera trực tiếp"
           aria-describedby={state.status !== 'error' ? guideId : undefined}
@@ -132,7 +143,7 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult, ima
           onCanPlay={() => setState((current) => current.status === 'starting' ? { status: 'ready' } : current)}
         />
         {state.status === 'starting' && <Skeleton className="absolute inset-0 h-full w-full" />}
-        {overlay && state.status !== 'starting' && state.status !== 'error' && (
+        {overlay && !arAsset && state.status !== 'starting' && state.status !== 'error' && (
           <div
             aria-hidden="true"
             className="pointer-events-none absolute border-2 border-emerald-300"
@@ -142,6 +153,8 @@ export function CameraScanner({ onResult }: { onResult: (result: ScanResult, ima
             }}
           />
         )}
+        {arAsset && result && <CameraArOverlay key={`${result.label}:${result.confidence}`} label={result.label}
+          confidence={result.confidence} asset={arAsset} onRescan={() => void scan()} />}
         {state.status === 'error' && (
           <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card/95 px-6 text-center">
             <TriangleAlert className="shrink-0 text-destructive" aria-hidden="true" />

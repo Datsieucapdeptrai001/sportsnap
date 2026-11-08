@@ -2,17 +2,13 @@ import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ModelViewerElement } from '@google/model-viewer'
 import { Box, LoaderCircle, RotateCcw, TriangleAlert, X } from 'lucide-react'
-import { createViewerLoader, getArAvailability, modelLoadProgress, modelSource, shouldAutoOpenAr, type ArAsset, type ArAutoOpenRequest } from '../lib/ar'
+import { getArAvailability, modelLoadProgress, modelSource, type ArAsset } from '../lib/ar'
+import { loadViewer } from '../lib/model-viewer'
 import { sportNameVi } from '../lib/sport-names'
 import { sports3d } from '../lib/sports3d'
 import { Button } from './ui/button'
 import { Progress } from './ui/progress'
 
-// This callback is invoked only by a mounted AR dialog, never by Scan/Bulk startup.
-const loadViewer = createViewerLoader(async () => {
-  await import('@google/model-viewer')
-  await customElements.whenDefined('model-viewer')
-})
 let retrySequence = 0
 
 type LoadState =
@@ -186,29 +182,15 @@ function ArDialog({ label, confidence, asset, returnFocusRef, onClose }: {
   )
 }
 
-export function SportArButton({ label, isUncertain, confidence, autoOpen, otherDialogOpen = false }: {
-  label: string; isUncertain: boolean; confidence?: number; autoOpen?: ArAutoOpenRequest; otherDialogOpen?: boolean
+export function SportArButton({ label, isUncertain, confidence, otherDialogOpen = false }: {
+  label: string; isUncertain: boolean; confidence?: number; otherDialogOpen?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const lastOpenedResultId = useRef<number | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const noteId = useId()
   const availability = getArAvailability(label, isUncertain, sports3d)
-  useEffect(() => {
-    if (!autoOpen || !shouldAutoOpenAr(autoOpen, lastOpenedResultId.current, open || otherDialogOpen, label, isUncertain, sports3d)) return
-    // Wait until scanner cleanup has released its stream before showing the dialog.
-    const frame = window.requestAnimationFrame(() => {
-      // Also guard native dialogs outside this result card before taking focus.
-      if (document.querySelector('dialog[open]')) return
-      lastOpenedResultId.current = autoOpen.resultId
-      setOpen(true)
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [autoOpen, open, otherDialogOpen, label, isUncertain])
-
   function openManually() {
     if (otherDialogOpen) return
-    if (autoOpen) lastOpenedResultId.current = autoOpen.resultId
     setOpen(true)
   }
   return <>

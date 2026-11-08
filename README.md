@@ -120,20 +120,38 @@ AR dùng các GLB đã commit tại `frontend/public/models/`, không tải asse
 Nút **Xem AR** hoạt động khi nhãn nằm trong manifest và kết quả chắc chắn
 (`is_uncertain=false`), áp dụng cho ảnh đơn, kết quả camera và lightbox Bulk.
 Kết quả chưa chắc chắn hoặc thiếu model sẽ vô hiệu hóa nút và giải thích bằng tiếng Việt.
-Thư viện `@google/model-viewer` chỉ tải khi mở dialog, không tải cùng trang Quét/Bulk.
-Riêng kết quả camera từ `/api/scan` chắc chắn và có model trong manifest sẽ tự mở
-dialog một lần cho mỗi lượt quét. Công tắc **Tự mở AR sau khi quét** trong khu camera
-mặc định bật, nhớ lựa chọn bằng localStorage; nếu trình duyệt chặn lưu trữ, lựa chọn
-vẫn có hiệu lực trong trang hiện tại. Ảnh thư viện/ảnh đơn và Bulk luôn mở bằng nút bấm.
-Đóng dialog không tự mở lại cùng kết quả; lượt quét mới vẫn có thể tự mở. Không tự mở
-chồng lên Grad-CAM. Kết quả chưa chắc chắn giữ nguyên chú thích và không tự mở AR.
-Camera preview dừng, giải phóng toàn bộ stream khi nhận kết quả, trước khi mở AR;
-sau khi đóng dialog, bấm **Quay lại camera trực tiếp** để cấp lại stream và quét tiếp.
+Thư viện `@google/model-viewer` được nạp lazy khi cần overlay hoặc mở dialog,
+dùng chung một lần import, không tải cùng trang Quét/Bulk.
+Riêng kết quả camera từ `/api/scan` chắc chắn và có model trong manifest sẽ hiện
+mô hình 3D nền trong suốt ngay trên video đang chạy, cùng khung camera; không đổi
+màn hình, không tự mở dialog. Thẻ phía trên mô hình ghi tên Việt, nhãn API gốc và
+độ tin cậy từ kết quả. Mô hình xuất hiện bằng scale/fade và tự xoay chậm; tắt xoay
+khi tab trình duyệt ẩn hoặc người dùng yêu cầu giảm chuyển động.
+Công tắc **Tự hiện AR sau khi quét** mặc định bật, dùng lại lựa chọn localStorage
+hiện có; nếu lưu trữ bị chặn, lựa chọn vẫn có hiệu lực trong trang hiện tại.
+Tắt công tắc ẩn overlay, bật lại hiện kết quả chắc chắn hiện tại. **Quét lại** xóa
+kết quả/overlay và bắt đầu lượt quét mới trên cùng stream. Nút Quét ở ngoài
+khung, không bị overlay che. Chưa chắc chắn/thiếu model không có overlay và giữ
+chú thích kết quả hiện có. Ảnh đơn và Bulk vẫn mở AR thủ công bằng **Xem AR**.
+
+Đây là **overlay trên camera**, không theo dõi mặt phẳng và không neo vật vào bàn.
+Muốn AR neo bàn/sàn, đợi model tải xong rồi chạm **AR thật** một lần: Android dùng
+Scene Viewer, iOS dùng Quick Look. Nút chỉ bật khi thiết bị hỗ trợ và trang dùng HTTPS.
+Nút **Xem AR** với dialog hiện có vẫn là phương án dự phòng cho mọi kết quả phù hợp.
+Overlay có thông báo tải/lỗi và **Thử lại**; không tải được model vẫn quét tiếp được.
+
+Hiện/ẩn overlay và nhận kết quả không dừng hay cấp lại camera stream. Frame gửi
+`/api/scan` vẫn được chụp từ chính phần tử video, không chụp DOM hay mô hình đè lên.
+Quét lại/tắt overlay tháo trình xem 3D; unmount dọn listener, timer và scene qua
+vòng đời model-viewer. Chuyển chế độ/tab ứng dụng hoặc rời trang giải phóng camera.
+Đưa trình duyệt ra nền không chủ động dừng stream, nhưng hệ điều hành có thể tạm
+dừng/thu hồi camera, đặc biệt iOS hoặc khi vào trình xem AR gốc; khi bị ngắt, dùng
+**Thử mở lại camera**. Không bảo đảm duy trì camera web trong phiên AR gốc.
 
 Dialog hiển thị tên môn tiếng Việt lớn, nhãn API gốc nhỏ bên dưới, độ tin cậy từ kết quả,
 tiến độ tải thật, lỗi có nút **Thử lại**, mô hình 3D tự xoay (tắt khi giảm chuyển động)
 và nút **Xem trong AR** với gợi ý **Chạm để đặt vật lên bàn**.
-Ứng dụng chỉ tự mở dialog, không tự gọi `activateAR()`; phải chạm nút để vào AR.
+Ứng dụng không tự gọi `activateAR()`; phải chạm nút để vào AR.
 Đóng bằng ESC hoặc nút X để trả focus về nút mở. Thiết bị không hỗ trợ AR vẫn xem 3D được.
 Tên môn cũng nằm trong overlay của model-viewer, dùng được trong WebXR có DOM overlay.
 Scene Viewer trên Android và Quick Look trên iOS là trình xem gốc, không mang theo
@@ -169,12 +187,17 @@ Các bước kiểm thử thủ công:
 1. Dùng Chrome trên Samsung S24 Ultra/Android hoặc Safari trên iPhone/iPad,
    mở URL HTTPS; cho phép camera khi quét hoặc khi trình xem AR yêu cầu.
 2. Chọn một ảnh thể thao rõ từ thư viện, đợi kết quả chắc chắn rồi bấm **Xem AR**.
-   Với **Quét đa khung hình**, kiểm tra dialog tự mở khi chắc chắn/có model, tên Việt,
-   nhãn gốc và confidence; tắt công tắc rồi tải lại trang để xác nhận đã nhớ lựa chọn.
-   Đóng dialog, đợi để kiểm tra không tự bật lại; quay lại camera, quét lượt mới.
-   Thử kết quả chưa chắc chắn và Grad-CAM, bảo đảm không tự mở chồng dialog.
+   Với **Quét đa khung hình**, kiểm tra overlay ngay trên video còn chuyển động khi
+   chắc chắn/có model, tên Việt, nhãn gốc và confidence; không có dialog tự mở.
+   Thử tên Việt dài trên màn hình hẹp; kiểm tra nút Quét không bị che.
+   Tắt/bật công tắc rồi tải lại trang để xác nhận đã nhớ lựa chọn. Bấm **Quét lại**,
+   kiểm tra overlay mất, video vẫn chạy và quét được lượt mới. Thử kết quả chưa
+   chắc chắn: không có overlay, chú thích vẫn có. Thử Grad-CAM, bảo đảm không tự mở AR.
    Thử thêm **Xem AR** trong lightbox Bulk (vẫn chỉ mở thủ công).
-3. Đợi tải xong, kéo để xoay mô hình rồi bấm **Xem trong AR**. Android ưu tiên
+3. Từ overlay, đợi tải xong rồi chạm **AR thật** một lần để mở Scene Viewer/Quick Look.
+   Kiểm tra quay lại trang và khả năng quét tiếp; thử ẩn/hiện tab (xoay dừng/tiếp tục),
+   giảm chuyển động và quyền camera bị thu hồi. Kiểm tra phương án dự phòng:
+   **Xem AR**, đợi tải xong, kéo để xoay mô hình rồi bấm **Xem trong AR**. Dialog Android ưu tiên
    WebXR, sau đó Scene Viewer; iOS dùng Quick Look. Không khai báo `ios-src` nên
    model-viewer tự tạo USDZ từ GLB khi mở Quick Look, có thể cần chờ thêm lần đầu.
 4. Hướng camera chậm về mặt bàn/sàn có đủ sáng, đặt vật, xoay và véo phóng/thu.
@@ -379,8 +402,8 @@ Các kiểm tra đa khung hình xác nhận trung bình xác suất (khác bỏ 
 thông báo lỗi camera, gọi API và bộ kiểm tra nền canvas hiện có.
 Các test AR kiểm tra bật/tắt nút theo đủ 20 nhãn manifest và `is_uncertain`, đường
 dẫn GLB thật, nhãn không có model, nạp thư viện lazy/dùng chung/thử lại và tiến độ tải.
-Test node còn kiểm tra quyết định tự mở theo nguồn camera/ảnh đơn, chắc chắn/không
-chắc chắn, model có/không, công tắc, dialog đang mở và ID kết quả đã đóng; ánh xạ
+Test node kiểm tra logic overlay chắc chắn/không chắc chắn, model có/không,
+công tắc và quét lại xóa kết quả (bật lại không hồi sinh kết quả cũ); ánh xạ
 tên Việt khớp đủ 20 nhãn, lưu/đọc lựa chọn và xử lý lỗi localStorage.
 Các kiểm tra bulk xác nhận batch 32/32/6, 300 tệp hỗn hợp, ZIP/CSV, tệp lỗi,
 giới hạn số tệp, hủy job, TTL, tên tệp an toàn, CSV injection và dọn tệp.

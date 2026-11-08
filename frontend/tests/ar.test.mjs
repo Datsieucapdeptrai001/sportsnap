@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
-import { createViewerLoader, getArAvailability, modelLoadProgress, modelSource, shouldAutoOpenAr, readAutoOpenArPreference, saveAutoOpenArPreference } from '../src/lib/ar.ts'
+import { createViewerLoader, getArAvailability, getCameraOverlayAsset, modelLoadProgress, modelSource, readAutoOpenArPreference, saveAutoOpenArPreference } from '../src/lib/ar.ts'
 import { sportNamesVi, sportNameVi } from '../src/lib/sport-names.ts'
 
 const manifest = JSON.parse(readFileSync(new URL('../public/models/manifest.json', import.meta.url), 'utf8'))
@@ -22,27 +22,28 @@ test('Vietnamese display names cover exactly all 20 unchanged training/manifest 
   assert.equal(sportNameVi('constructor'), 'constructor')
 })
 
-const cameraRequest = { resultId: 1, source: 'camera', enabled: true }
-
-test('only certain camera results with a manifest model auto-open', () => {
-  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'baseball', false, assets), true)
-  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'baseball', true, assets), false)
-  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'unknown sport', false, assets), false)
-  assert.equal(shouldAutoOpenAr({ ...cameraRequest, source: 'image' }, null, false, 'baseball', false, assets), false)
-  assert.equal(shouldAutoOpenAr(undefined, null, false, 'baseball', false, assets), false)
+test('camera overlay requires a certain mapped result and the enabled switch', () => {
+  for (const label of Object.keys(assets)) {
+    assert.equal(getCameraOverlayAsset({ label, is_uncertain: false }, true, assets), assets[label])
+    assert.equal(getCameraOverlayAsset({ label, is_uncertain: true }, true, assets), null)
+    assert.equal(getCameraOverlayAsset({ label, is_uncertain: false }, false, assets), null)
+  }
+  assert.equal(getCameraOverlayAsset({ label: 'unknown sport', is_uncertain: false }, true, assets), null)
+  assert.equal(getCameraOverlayAsset(null, true, assets), null)
 })
 
-test('closing a dialog consumes that result; a new scan of the same sport can auto-open', () => {
-  assert.equal(shouldAutoOpenAr(cameraRequest, 1, false, 'baseball', false, assets), false)
-  assert.equal(shouldAutoOpenAr({ ...cameraRequest, resultId: 2 }, 1, false, 'baseball', false, assets), true)
-  assert.equal(shouldAutoOpenAr({ ...cameraRequest, enabled: false }, null, false, 'baseball', false, assets), false)
-  assert.equal(shouldAutoOpenAr({ ...cameraRequest, enabled: false }, 1, false, 'baseball', false, assets), false)
-  assert.equal(shouldAutoOpenAr(cameraRequest, 1, false, 'baseball', false, assets), false)
-})
-
-test('an existing AR or Grad-CAM dialog blocks automatic opening without consuming the result', () => {
-  assert.equal(shouldAutoOpenAr(cameraRequest, null, true, 'baseball', false, assets), false)
-  assert.equal(shouldAutoOpenAr(cameraRequest, null, false, 'baseball', false, assets), true)
+test('rescan clears the result; toggling cannot restore it until a new certain scan', () => {
+  let result = { label: 'baseball', is_uncertain: false }
+  assert.ok(getCameraOverlayAsset(result, true, assets))
+  assert.equal(getCameraOverlayAsset(result, false, assets), null)
+  assert.ok(getCameraOverlayAsset(result, true, assets))
+  result = null // The scanner's reset callback clears the parent result without unmounting video.
+  assert.equal(getCameraOverlayAsset(result, false, assets), null)
+  assert.equal(getCameraOverlayAsset(result, true, assets), null)
+  result = { label: 'baseball', is_uncertain: true }
+  assert.equal(getCameraOverlayAsset(result, true, assets), null)
+  result = { label: 'baseball', is_uncertain: false }
+  assert.ok(getCameraOverlayAsset(result, true, assets))
 })
 
 test('auto-open preference defaults on, persists both choices and tolerates blocked storage', () => {

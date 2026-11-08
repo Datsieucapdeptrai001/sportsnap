@@ -1,22 +1,13 @@
 export interface ArAsset { glb: string; usdz?: string }
 
-export interface ArAutoOpenRequest {
-  resultId: number
-  source: 'camera' | 'image'
-  enabled: boolean
-}
-
-export function shouldAutoOpenAr(
-  request: ArAutoOpenRequest | undefined,
-  lastOpenedResultId: number | null,
-  dialogOpen: boolean,
-  label: string,
-  isUncertain: boolean,
+export function getCameraOverlayAsset(
+  result: { label: string; is_uncertain: boolean } | null,
+  enabled: boolean,
   assets: Readonly<Partial<Record<string, ArAsset>>>,
-): boolean {
-  return request !== undefined && request.source === 'camera' && request.enabled
-    && request.resultId !== lastOpenedResultId && !dialogOpen
-    && getArAvailability(label, isUncertain, assets).enabled
+): ArAsset | null {
+  if (!enabled || !result) return null
+  const availability = getArAvailability(result.label, result.is_uncertain, assets)
+  return availability.enabled ? availability.asset : null
 }
 
 const AUTO_OPEN_AR_KEY = 'sportsnap.auto-open-ar'
