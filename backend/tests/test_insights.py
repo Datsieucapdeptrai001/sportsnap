@@ -157,7 +157,26 @@ def test_experiments_rebuild_is_byte_reproducible(tmp_path: Path) -> None:
         sys.executable, str(BACKEND / "scripts/build_experiments.py"), "--output", str(tmp_path / "experiments.json"),
     ], check=True)
     assert (tmp_path / "experiments.json").read_bytes() == (BACKEND / "data/experiments.json").read_bytes()
-    assert (tmp_path / "insights/cm.png").read_bytes() == (BACKEND / "data/insights/cm.png").read_bytes()
+    # PNG compression/encoding can differ between Windows and Linux Pillow/zlib
+    # builds even when decoded pixels match. Compare image content, not PNG bytes.
+    with Image.open(tmp_path / "insights/cm.png") as actual, Image.open(BACKEND / "data/insights/cm.png") as expected:
+        assert actual.size == expected.size
+        assert actual.mode == expected.mode == "RGB"
+        actual_pixels = np.asarray(actual, dtype=np.int16)
+        expected_pixels = np.asarray(expected, dtype=np.int16)
+        mean_abs_diff = float(np.abs(actual_pixels - expected_pixels).mean())
+        # Allow less than one intensity level out of 255 on average for minor
+        # font/antialiasing differences, while keeping the matrix fills exact.
+        assert mean_abs_diff < 1.0, f"Confusion matrix pixel MAE {mean_abs_diff:.4f} must be < 1.0 on the 0-255 scale."
+        data = json.loads((tmp_path / "experiments.json").read_text(encoding="utf-8"))
+        matrix = next(split["confusion_matrix"] for split in data["splits"] if split["split"] == "test")
+        cell_width, cell_height = actual.width // len(matrix), actual.height // len(matrix)
+        # Sample the lower-right background of every cell, away from its count.
+        # This catches a changed matrix cell even if whole-image MAE stays small.
+        assert np.array_equal(
+            actual_pixels[cell_height - 2::cell_height, cell_width - 2::cell_width],
+            expected_pixels[cell_height - 2::cell_height, cell_width - 2::cell_width],
+        )
 
 
 def test_macro_f1_confusion_math_and_attribution(tmp_path: Path) -> None:
