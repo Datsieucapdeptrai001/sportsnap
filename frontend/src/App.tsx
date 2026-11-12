@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Activity, ChartNoAxesCombined, Layers, ScanLine } from 'lucide-react'
+import { Activity, ChartNoAxesCombined, Database, Layers, ScanLine } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import { ModelSelector } from './components/model-selector'
 import { SportCanvasBackground } from './components/sport-canvas-background'
@@ -8,9 +8,11 @@ import { cn } from './lib/utils'
 import { ScanPage } from './pages/scan'
 import { BulkPage } from './pages/bulk'
 import { InsightsPage } from './pages/insights'
+import { LibraryPage } from './pages/library'
 
 const tabs = [
   { id: 'scan', label: 'Quét', icon: ScanLine },
+  { id: 'library', label: 'Thư viện', icon: Database },
   { id: 'bulk', label: 'Phân loại hàng loạt', icon: Layers },
   { id: 'insights', label: 'Phân tích', icon: ChartNoAxesCombined },
 ] as const
@@ -97,7 +99,7 @@ function App() {
         </p>
       </aside>
       <main id="main-content" className="relative mx-auto max-w-[784px] px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:py-12">
-        {activeTab !== 'insights' && (
+        {(activeTab === 'scan' || activeTab === 'bulk') && (
           <ModelSelector
             models={models}
             activeModelId={activeModelId}
@@ -110,6 +112,9 @@ function App() {
         )}
         <div hidden={activeTab !== 'scan'}>
           <ScanPage active={activeTab === 'scan'} activeModelId={activeModelId} />
+        </div>
+        <div hidden={activeTab !== 'library'}>
+          <LibraryPage active={activeTab === 'library'} />
         </div>
         <div hidden={activeTab !== 'bulk'}>
           <BulkPage active={activeTab === 'bulk'} />
