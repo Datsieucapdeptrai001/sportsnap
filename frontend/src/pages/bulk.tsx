@@ -15,6 +15,7 @@ import { BULK_PAGE_SIZE, bulkPagination, bulkResultsQuery, bulkStatusAfterRemova
 const stateLabels: Record<BulkState, string> = {
   queued: 'Đang chờ', running: 'Đang phân loại', done: 'Đã hoàn tất', error: 'Phân loại thất bại', cancelled: 'Đã hủy',
 }
+const percent = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 const fileErrors: Record<string, string> = {
   unsupported_format: 'Định dạng không hỗ trợ', corrupt: 'Ảnh hỏng hoặc không đọc được', too_large: 'Vượt dung lượng cho phép',
 }
@@ -61,7 +62,7 @@ function BulkLightbox({ jobId, item, items, onChange, onClose }: {
         {item.error ? <p className="text-sm text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <p className="text-2xl font-bold tracking-tight">{sportNameVi(item.label ?? '')}</p>
-            <p className={cn('text-xl font-semibold tabular-nums', item.is_uncertain ? 'text-warning' : 'text-primary')}>{((item.confidence ?? 0) * 100).toFixed(1)}%</p>
+            <p className={cn('text-xl font-semibold tabular-nums', item.is_uncertain ? 'text-warning' : 'text-primary')}>{percent.format(item.confidence ?? 0)}</p>
           </div>
           <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">{item.label}{item.is_uncertain && <UncertainBadge />}</p>
           <h3 className="pt-2 text-sm font-semibold">Ba dự đoán hàng đầu</h3>
@@ -284,7 +285,7 @@ export function BulkPage({ active }: { active: boolean }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-5" aria-label="Kết quả phân loại">
               {items.map((item) => <button key={`${jobId}:${item.index}`} type="button" onClick={() => setLightboxIndex(item.index)} aria-label={`Xem ảnh ${item.filename}`} className={cn('min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-foreground/40', item.is_uncertain ? 'border-warning-line' : 'border-border')}>
                 <div className="aspect-square overflow-hidden bg-lane"><BulkImage src={getBulkThumbnailUrl(jobId!, item.index)} filename={item.filename} /></div>
-                <div className="space-y-2 p-2.5"><p className="truncate text-[11px] text-muted-foreground" title={item.filename}>{item.filename}</p>{item.error ? <p className="text-xs text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <><div className="flex items-baseline justify-between gap-2"><p className="min-w-0 break-words text-sm leading-snug font-semibold" title={item.label ?? undefined}>{sportNameVi(item.label ?? '')}</p><p className="shrink-0 text-xs tabular-nums">{((item.confidence ?? 0) * 100).toFixed(1)}%</p></div><Progress value={(item.confidence ?? 0) * 100} label={`Độ tin cậy của ${item.filename}`} className={item.is_uncertain ? 'bg-warning-bar' : undefined} />{item.is_uncertain && <UncertainBadge />}</>}</div>
+                <div className="space-y-2 p-2.5"><p className="truncate text-[11px] text-muted-foreground" title={item.filename}>{item.filename}</p>{item.error ? <p className="text-xs text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <><div className="flex items-baseline justify-between gap-2"><p className="min-w-0 break-words text-sm leading-snug font-semibold" title={item.label ?? undefined}>{sportNameVi(item.label ?? '')}</p><p className="shrink-0 text-xs tabular-nums">{percent.format(item.confidence ?? 0)}</p></div><Progress value={(item.confidence ?? 0) * 100} label={`Độ tin cậy của ${item.filename}`} className={item.is_uncertain ? 'bg-warning-bar' : undefined} />{item.is_uncertain && <UncertainBadge />}</>}</div>
               </button>)}
             </div>
             {!items.length && <p className="py-10 text-center text-sm text-muted-foreground">{running && !job.processed ? 'Kết quả sẽ xuất hiện khi ảnh được xử lý.' : 'Không có ảnh phù hợp bộ lọc.'}</p>}
