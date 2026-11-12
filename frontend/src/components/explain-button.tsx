@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Focus, LoaderCircle, X } from 'lucide-react'
 import { explainImage } from '../lib/api'
+import { sportNameVi } from '../lib/sport-names'
 import { loadExplanation, type ExplanationState } from '../lib/explain'
 import { Button } from './ui/button'
 
@@ -42,16 +43,17 @@ function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
   }, [image, attempt])
 
   return createPortal(<dialog ref={dialogRef} aria-labelledby={titleId}
-    className="fixed inset-0 m-auto max-h-[95svh] w-[calc(100%_-_1rem)] max-w-3xl overflow-y-auto rounded-xl border border-border bg-card p-4 text-card-foreground shadow-xl backdrop:bg-black/80 sm:p-6"
+    className="fixed inset-0 m-auto max-h-[95svh] w-[calc(100%_-_1rem)] max-w-3xl overflow-y-auto rounded-xl border border-border bg-card p-4 text-card-foreground shadow-2xl backdrop:bg-black/75 sm:p-6"
     onCancel={(event) => { event.preventDefault(); event.stopPropagation(); onClose() }}
     onKeyDown={(event) => event.stopPropagation()}
     onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <div className="flex items-center justify-between gap-3">
-      <h2 id={titleId} className="text-lg font-semibold">Vùng AI chú ý · Grad-CAM</h2>
+      <h2 id={titleId} className="text-xl font-semibold tracking-tight">Vùng AI chú ý <span className="font-normal text-muted-foreground">(Grad-CAM)</span></h2>
       <Button autoFocus variant="outline" className="size-11 shrink-0 p-0" aria-label="Đóng bản đồ chú ý" onClick={onClose}><X size={20} aria-hidden="true" /></Button>
     </div>
-    <p className="mt-3 text-sm text-muted-foreground">Màu nóng biểu thị vùng góp phần vào dự đoán. Đây là gợi ý giải thích, không phải vị trí vật thể được xác nhận.</p>
-    {camera && <p className="mt-3 text-sm text-muted-foreground">Phân tích khung hình tốt nhất trong lượt quét; nhãn và độ tin cậy riêng của ảnh có thể khác kết quả trung bình nhiều khung hình.</p>}
+    <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted-foreground">Màu nóng biểu thị vùng góp phần vào dự đoán. Đây là gợi ý giải thích, không phải vị trí vật thể được xác nhận.</p>
+    <div className="mt-3 flex max-w-xs items-center gap-2 text-xs text-muted-foreground" aria-hidden="true"><span>Ít</span><span className="h-2 flex-1 rounded-full" style={{ background: 'linear-gradient(90deg, #00007f, #0000ff, #00ffff, #ffff00, #ff0000, #7f0000)' }} /><span>Nhiều</span></div>
+    {camera && <p className="mt-3 max-w-prose rounded-xl border border-border bg-muted/50 p-3 text-sm leading-relaxed text-muted-foreground">Phân tích khung hình tốt nhất trong lượt quét; nhãn và độ tin cậy riêng của ảnh có thể khác kết quả trung bình nhiều khung hình.</p>}
     <div className="mt-5 grid gap-4 sm:grid-cols-2">
       <figure><figcaption className="mb-2 text-sm font-medium">Ảnh gốc</figcaption><img ref={originalRef} alt="Ảnh gốc dùng để giải thích" className="aspect-square w-full rounded-xl bg-muted/40 object-contain" onError={() => setImageFailed(true)} /></figure>
       <figure><figcaption className="mb-2 text-sm font-medium">Bản đồ chú ý</figcaption>
@@ -67,8 +69,8 @@ function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
     </div>
     {imageFailed && <p role="alert" className="mt-3 text-sm text-destructive">Không thể hiển thị ảnh. Hãy đóng rồi mở lại bản đồ chú ý.</p>}
     {state.status === 'success' && <div className="mt-5 space-y-4">
-      <p className="font-semibold">{state.result.label} · {(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%{state.result.is_uncertain && <span className="ml-2 text-warning">Không chắc chắn</span>}</p>
-      <div><label htmlFor={sliderId} className="flex justify-between text-sm"><span>Độ hiển thị lớp phủ</span><span className="tabular-nums">{opacity}%</span></label><input id={sliderId} type="range" min="0" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} className="min-h-11 w-full accent-emerald-500" /></div>
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-lg font-semibold">{sportNameVi(state.result.label)}</span><span className="font-semibold tabular-nums">{(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span>{state.result.is_uncertain && <span className="rounded-full border border-warning-line bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">Không chắc chắn</span>}</p>
+      <div><label htmlFor={sliderId} className="flex justify-between text-sm"><span>Độ hiển thị lớp phủ</span><span className="tabular-nums">{opacity}%</span></label><input id={sliderId} type="range" min="0" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} className="min-h-11 w-full accent-[var(--primary)]" /></div>
     </div>}
   </dialog>, document.body)
 }
@@ -81,7 +83,7 @@ export function ExplainButton({ image, camera = false, onOpenChange }: { image: 
     onOpenChange?.(next)
   }
   return <>
-    <Button ref={triggerRef} variant="outline" disabled={!image} aria-haspopup="dialog" aria-expanded={open} onClick={() => changeOpen(true)}><Focus size={17} aria-hidden="true" />Xem vùng AI chú ý</Button>
+    <Button ref={triggerRef} variant="ink" className="min-h-12 w-full" disabled={!image} aria-haspopup="dialog" aria-expanded={open} onClick={() => changeOpen(true)}><Focus size={18} aria-hidden="true" />Xem vùng AI chú ý</Button>
     {open && image && <ExplainDialog image={image} camera={camera} onClose={() => changeOpen(false)} returnFocusRef={triggerRef} />}
   </>
 }

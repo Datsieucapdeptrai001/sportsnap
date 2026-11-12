@@ -61,7 +61,7 @@ function App() {
         </div>
         {activeTab === 'insights' && <InsightsPage />}
       </main>
-      <Toaster richColors theme="system" closeButton toastOptions={{ className: 'font-sans' }} />
+      <Toaster position="top-center" richColors theme="system" closeButton toastOptions={{ className: 'font-sans' }} />
     </div>
   )
 }
