@@ -543,9 +543,9 @@ export function LibraryPage({ active }: { active: boolean }) {
           <Card className="p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">Lịch sử phiên bản mô hình &amp; Huấn luyện lại</h2>
+                <h2 className="text-base font-semibold">Cập nhật mô hình từ nhãn đã sửa</h2>
                 <p className="text-xs text-muted-foreground">
-                  Sửa/xác nhận nhãn ở hàng đợi bên dưới rồi bấm Huấn luyện lại để tạo phiên bản mới có Temperature Scaling.
+                  Sửa/xác nhận nhãn ở hàng đợi bên dưới rồi bấm Huấn luyện lại để cập nhật trực tiếp file mô hình hiện tại (không sinh thêm phiên bản mới).
                 </p>
               </div>
               <Button disabled={retraining} onClick={() => void handleRetrain()}>

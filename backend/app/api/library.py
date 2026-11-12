@@ -59,6 +59,7 @@ class SetLabelRequest(BaseModel):
 class RetrainRequest(BaseModel):
     epochs: int = Field(default=3, ge=1, le=10)
     activate: bool = True
+    in_place: bool = True
 
 
 class LibraryRuntime:
@@ -552,9 +553,10 @@ def library_retrain(request: Request, body: RetrainRequest) -> dict[str, str]:
                     rt.settings,
                     epochs=body.epochs,
                     activate=body.activate,
+                    in_place=body.in_place,
                     job_id=job_id,
                 )
-                if body.activate:
+                if body.activate or body.in_place:
                     _apply_version_to_app(request, rec)
             except Exception as exc:
                 update_job(
@@ -580,6 +582,9 @@ def _apply_version_to_app(request: Request, rec: ModelVersionRecord) -> None:
         request.app.state.labels = labels
         request.app.state.preprocess = rec.preprocess
         request.app.state.model_reason = None
+        cache = getattr(request.app.state, "loaded_models", None)
+        if isinstance(cache, dict):
+            cache["resnet50_finetune"] = (model, labels)
         request.app.state.bulk_jobs.set_active_model(model, labels, rec.preprocess)
 
 

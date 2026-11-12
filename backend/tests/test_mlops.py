@@ -134,3 +134,86 @@ def test_retrain_from_human_corrections_and_rollback(tmp_path: Path) -> None:
         assert get_active_version(conn).version == "v1"
     finally:
         conn.close()
+
+
+def test_retrain_in_place_updates_existing_checkpoint_without_new_version(tmp_path: Path) -> None:
+    import tensorflow as tf
+
+    data_dir = tmp_path / "data"
+    models_dir = tmp_path / "models"
+    models_dir.mkdir(parents=True)
+    source_ckpt = models_dir / "ResNet50_finetune_best.keras"
+
+    inputs = tf.keras.Input(shape=(224, 224, 3))
+    x = tf.keras.layers.Rescaling(1.0 / 255)(inputs)
+    x = tf.keras.layers.Conv2D(4, 3, activation="relu")(x)
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    outputs = tf.keras.layers.Dense(2, activation="softmax")(x)
+    tiny_model = tf.keras.Model(inputs, outputs)
+    tiny_model.save(source_ckpt)
+
+    settings = LibrarySettings(
+        project_root=tmp_path,
+        data_dir=data_dir,
+        db_path=data_dir / "library.db",
+        index_dir=data_dir / "index",
+        thumbs_dir=data_dir / "thumbs",
+        registry_dir=data_dir / "models_registry",
+        source_model_path=source_ckpt,
+        train_dir=tmp_path / "missing_train",
+        valid_dir=tmp_path / "missing_valid",
+        test_dir=tmp_path / "missing_test",
+    )
+    settings.ensure_dirs()
+
+    v1_dir = settings.registry_dir / "v1"
+    v1_dir.mkdir(parents=True, exist_ok=True)
+    v1_ckpt = v1_dir / "ResNet50_finetune_best.keras"
+    v1_lbls = v1_dir / "labels.json"
+    tiny_model.save(v1_ckpt)
+    v1_lbls.write_text('["archery", "boxing"]', encoding="utf-8")
+
+    img1 = tmp_path / "c1.jpg"
+    Image.new("RGB", (64, 64), (200, 10, 10)).save(img1)
+
+    conn = init_db(settings.db_path)
+    try:
+        register_version(
+            conn,
+            version="v1",
+            parent=None,
+            train_set_hash=None,
+            n_corrections_used=0,
+            metrics={},
+            temperature=1.0,
+            tau_high=0.60,
+            tau_low=0.35,
+            preprocess="none",
+            backbone="tiny",
+            checkpoint_path=v1_ckpt,
+            labels_path=v1_lbls,
+            activate=True,
+        )
+        cur = conn.execute(
+            "INSERT INTO images (path, sha1, width, height, taken_at, added_at, thumb_path) "
+            "VALUES (?, 'sha1', 64, 64, NULL, ?, ?)",
+            (str(img1), utc_now_iso(), str(img1)),
+        )
+        set_image_label(conn, int(cur.lastrowid), "archery", "human")
+        conn.commit()
+
+        updated = retrain_from_corrections(
+            conn,
+            settings,
+            epochs=1,
+            batch_size=1,
+            replay_per_class=0,
+            correction_repeat=1,
+            in_place=True,
+        )
+        assert updated.version == "v1"
+        assert updated.n_corrections_used == 1
+        assert [v.version for v in list_versions(conn)] == ["v1"]
+        assert not (settings.registry_dir / "v2").exists()
+    finally:
+        conn.close()

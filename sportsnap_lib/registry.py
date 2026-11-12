@@ -230,3 +230,47 @@ def register_version(
     ).fetchone()
     assert row is not None
     return _row_to_record(row)
+
+
+def update_version_in_place(
+    conn: sqlite3.Connection,
+    *,
+    version: str,
+    train_set_hash: str | None,
+    n_corrections_used: int,
+    metrics: dict[str, Any],
+    temperature: float,
+    tau_high: float | None,
+    tau_low: float | None,
+) -> ModelVersionRecord:
+    """Update metrics and calibration of an existing model version in place."""
+    conn.execute(
+        """
+        UPDATE model_versions
+        SET created_at = ?,
+            train_set_hash = ?,
+            n_corrections_used = ?,
+            metrics_json = ?,
+            temperature = ?,
+            tau_high = ?,
+            tau_low = ?
+        WHERE version = ?
+        """,
+        (
+            utc_now_iso(),
+            train_set_hash,
+            int(n_corrections_used),
+            json.dumps(metrics),
+            float(temperature),
+            tau_high,
+            tau_low,
+            version,
+        ),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT * FROM model_versions WHERE version = ?", (version,)
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Unknown model version: {version}")
+    return _row_to_record(row)

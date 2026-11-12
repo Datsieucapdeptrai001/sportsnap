@@ -22,6 +22,7 @@ from sportsnap_lib.registry import (
     get_active_version,
     next_version_name,
     register_version,
+    update_version_in_place,
 )
 
 
@@ -88,6 +89,8 @@ def retrain_from_corrections(
     correction_repeat: int = 3,
     learning_rate: float = 1e-4,
     activate: bool = False,
+    in_place: bool = False,
+    sync_source_model: bool = True,
     job_id: str | None = None,
 ) -> ModelVersionRecord:
     """Fine-tune the active ResNet50 model using human-corrected labels + replay."""
@@ -196,14 +199,6 @@ def retrain_from_corrections(
         eval_acc = float(history.history["accuracy"][-1])
         eval_f1 = eval_acc
 
-    new_version = next_version_name(conn)
-    version_dir = settings.registry_dir / new_version
-    version_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = version_dir / f"{parent.backbone}_retrained.keras"
-    labels_path = version_dir / "labels.json"
-    labels_path.write_text(json.dumps(labels, ensure_ascii=False, indent=2), encoding="utf-8")
-    model.save(ckpt_path)
-
     metrics = {
         "train_samples": len(train_samples),
         "n_corrections": n_corrections,
@@ -215,27 +210,63 @@ def retrain_from_corrections(
         "nll_before": cal_report.nll_before,
         "nll_after": cal_report.nll_after,
     }
-    record = register_version(
-        conn,
-        version=new_version,
-        parent=parent.version,
-        train_set_hash=train_hash,
-        n_corrections_used=n_corrections,
-        metrics=metrics,
-        temperature=cal_report.temperature,
-        tau_high=cal_report.tau_high,
-        tau_low=cal_report.tau_low,
-        preprocess=parent.preprocess,
-        backbone=parent.backbone,
-        checkpoint_path=ckpt_path,
-        labels_path=labels_path,
-        activate=activate,
-    )
+
+    if in_place:
+        target_ckpt = parent.checkpoint_path
+        target_ckpt.parent.mkdir(parents=True, exist_ok=True)
+        model.save(target_ckpt)
+        # Keep the active serving file in models/ updated when retraining in place
+        # (never touch backend/models/best_model.keras golden checkpoint).
+        src_norm = str(settings.source_model_path).replace("\\", "/")
+        if (
+            sync_source_model
+            and settings.source_model_path.is_file()
+            and "backend/models/" not in src_norm
+            and settings.source_model_path.resolve() != target_ckpt.resolve()
+        ):
+            model.save(settings.source_model_path)
+        record = update_version_in_place(
+            conn,
+            version=parent.version,
+            train_set_hash=train_hash,
+            n_corrections_used=n_corrections,
+            metrics=metrics,
+            temperature=cal_report.temperature,
+            tau_high=cal_report.tau_high,
+            tau_low=cal_report.tau_low,
+        )
+        done_label = parent.version
+    else:
+        new_version = next_version_name(conn)
+        version_dir = settings.registry_dir / new_version
+        version_dir.mkdir(parents=True, exist_ok=True)
+        ckpt_path = version_dir / f"{parent.backbone}_retrained.keras"
+        labels_path = version_dir / "labels.json"
+        labels_path.write_text(json.dumps(labels, ensure_ascii=False, indent=2), encoding="utf-8")
+        model.save(ckpt_path)
+        record = register_version(
+            conn,
+            version=new_version,
+            parent=parent.version,
+            train_set_hash=train_hash,
+            n_corrections_used=n_corrections,
+            metrics=metrics,
+            temperature=cal_report.temperature,
+            tau_high=cal_report.tau_high,
+            tau_low=cal_report.tau_low,
+            preprocess=parent.preprocess,
+            backbone=parent.backbone,
+            checkpoint_path=ckpt_path,
+            labels_path=labels_path,
+            activate=activate,
+        )
+        done_label = new_version
+
     update_job(
         conn,
         job_id,
         state="done",
         progress=1.0,
-        message=f"Hoàn tất {new_version} (eval acc: {eval_acc:.1%}, ECE: {cal_report.ece_after:.4f}).",
+        message=f"Đã cập nhật {done_label} (eval acc: {eval_acc:.1%}, ECE: {cal_report.ece_after:.4f}).",
     )
     return record
