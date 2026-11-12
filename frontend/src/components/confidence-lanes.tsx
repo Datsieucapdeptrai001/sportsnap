@@ -1,5 +1,4 @@
 import type { ClassConfidence } from '../lib/api'
-import { sportNameVi } from '../lib/sport-names'
 import { cn } from '../lib/utils'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
@@ -15,7 +14,7 @@ export function ConfidenceLanes({ predictions, uncertain, label = 'Ba dự đoá
   return (
     <ol aria-label={label} className="overflow-hidden rounded-xl border border-border bg-lane">
       {predictions.map((prediction, index) => {
-        const name = sportNameVi(prediction.label)
+        const name = prediction.label
         const leader = index === 0
         return (
           <li key={prediction.label} className={cn('relative grid min-h-15 grid-cols-[auto_1fr_auto] items-center gap-3 py-2.5 pr-5 pl-3', index > 0 && 'border-t-2 border-lane-line')}>
@@ -24,8 +23,7 @@ export function ConfidenceLanes({ predictions, uncertain, label = 'Ba dự đoá
               {index + 1}
             </span>
             <span className="min-w-0">
-              <span className={cn('block text-sm leading-snug break-words', leader ? 'font-semibold' : 'font-medium')}>{name}</span>
-              {name !== prediction.label && <span className="block text-xs leading-snug text-muted-foreground">{prediction.label}</span>}
+              <span className={cn('block text-sm leading-snug break-words capitalize', leader ? 'font-semibold' : 'font-medium')}>{name}</span>
             </span>
             <span className={cn('text-sm tabular-nums', leader ? 'font-semibold' : 'text-muted-foreground')}>{percentage.format(prediction.confidence)}</span>
             <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1.5">

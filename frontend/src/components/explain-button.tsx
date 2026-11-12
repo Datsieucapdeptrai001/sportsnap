@@ -2,7 +2,6 @@ import { useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { Focus, LoaderCircle, X } from 'lucide-react'
 import { explainImage } from '../lib/api'
-import { sportNameVi } from '../lib/sport-names'
 import { loadExplanation, type ExplanationState } from '../lib/explain'
 import { Button } from './ui/button'
 
@@ -69,7 +68,7 @@ function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
     </div>
     {imageFailed && <p role="alert" className="mt-3 text-sm text-destructive">Không thể hiển thị ảnh. Hãy đóng rồi mở lại bản đồ chú ý.</p>}
     {state.status === 'success' && <div className="mt-5 space-y-4">
-      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-lg font-semibold">{sportNameVi(state.result.label)}</span><span className="font-semibold tabular-nums">{(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span>{state.result.is_uncertain && <span className="rounded-full border border-warning-line bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">Không chắc chắn</span>}</p>
+      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-lg font-semibold">{state.result.label}</span><span className="font-semibold tabular-nums">{(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span>{state.result.is_uncertain && <span className="rounded-full border border-warning-line bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">Không chắc chắn</span>}</p>
       <div><label htmlFor={sliderId} className="flex justify-between text-sm"><span>Độ hiển thị lớp phủ</span><span className="tabular-nums">{opacity}%</span></label><input id={sliderId} type="range" min="0" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} className="min-h-11 w-full accent-[var(--primary)]" /></div>
     </div>}
   </dialog>, document.body)

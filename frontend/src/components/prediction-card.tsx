@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { CircleCheck, Lightbulb, TriangleAlert } from 'lucide-react'
 import { Progress } from './ui/progress'
 import type { Prediction, ScanResult } from '../lib/api'
-import { sportNameVi } from '../lib/sport-names'
 import { SportArButton } from './sport-ar-button'
 import { ExplainButton } from './explain-button'
 import { ConfidenceLanes } from './confidence-lanes'
@@ -13,7 +12,7 @@ const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFra
 export function PredictionCard({ result, image = null, onOpenAr }: { result: Prediction | ScanResult; image?: Blob | null; onOpenAr?: () => void }) {
   const uncertain = result.is_uncertain
   const [explainOpen, setExplainOpen] = useState(false)
-  const name = sportNameVi(result.label)
+  const name = result.label
   const camera = 'agreement' in result
 
   return (
@@ -25,10 +24,7 @@ export function PredictionCard({ result, image = null, onOpenAr }: { result: Pre
           {uncertain ? 'Không chắc chắn' : 'Đã nhận diện'}
         </p>
         {uncertain && <p className="mt-4 text-sm text-warning">Có thể là</p>}
-        <h2 className={cn('text-[2.5rem] leading-[1.05] font-bold tracking-[-0.02em] break-words sm:text-5xl', uncertain ? 'mt-1 text-foreground/80' : 'mt-4')}>{name}</h2>
-        {name !== result.label && <p className="mt-2 text-sm text-muted-foreground">
-          Nhãn mô hình: <span className="text-foreground">{result.label}</span>
-        </p>}
+        <h2 className={cn('text-[2.5rem] leading-[1.05] font-bold capitalize tracking-[-0.02em] break-words sm:text-5xl', uncertain ? 'mt-1 text-foreground/80' : 'mt-4')}>{name}</h2>
 
         <div className="mt-6">
           <div className="mb-2 flex items-baseline justify-between gap-4">

@@ -7,7 +7,6 @@ import { Progress } from '../components/ui/progress'
 import { Skeleton } from '../components/ui/skeleton'
 import { SportArButton } from '../components/sport-ar-button'
 import { ConfidenceLanes } from '../components/confidence-lanes'
-import { sportNameVi } from '../lib/sport-names'
 import { cn } from '../lib/utils'
 import { cancelBulkJob, createBulkJob, downloadBulkJob, getBulkImageUrl, getBulkResults, getBulkThumbnailUrl, type BulkResultItem, type BulkResults, type BulkSort, type BulkState, type BulkStatus } from '../lib/api'
 import { BULK_PAGE_SIZE, bulkPagination, bulkResultsQuery, bulkStatusAfterRemoval, changeBulkFilters, initialBulkView, isBulkTerminal, moveBulkLightbox, pollBulkJob, toggleBulkLabel } from '../lib/bulk'
@@ -61,10 +60,10 @@ function BulkLightbox({ jobId, item, items, onChange, onClose }: {
       <div className="mt-4 space-y-3">
         {item.error ? <p className="text-sm text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <p className="text-2xl font-bold tracking-tight">{sportNameVi(item.label ?? '')}</p>
+            <p className="text-2xl font-bold tracking-tight capitalize">{item.label ?? ''}</p>
             <p className={cn('text-xl font-semibold tabular-nums', item.is_uncertain ? 'text-warning' : 'text-primary')}>{percent.format(item.confidence ?? 0)}</p>
           </div>
-          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">{item.label}{item.is_uncertain && <UncertainBadge />}</p>
+          {item.is_uncertain && <p><UncertainBadge /></p>}
           <h3 className="pt-2 text-sm font-semibold">Ba dự đoán hàng đầu</h3>
           <ConfidenceLanes predictions={item.top3} uncertain={item.is_uncertain} />
           <SportArButton key={item.index} label={item.label ?? ''} confidence={item.confidence ?? undefined} isUncertain={item.is_uncertain} />
@@ -267,7 +266,7 @@ export function BulkPage({ active }: { active: boolean }) {
           <div className="sticky top-0 z-20 -mx-3 space-y-3 border-y border-border bg-card/95 px-3 py-3 backdrop-blur-md sm:-mx-5 sm:px-5">
             <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc theo môn thể thao">
               <Button variant={view.label ? 'outline' : 'default'} className="shrink-0 rounded-full" aria-pressed={!view.label} onClick={() => { setLightboxIndex(null); setView(changeBulkFilters(view, { label: '' })) }}>Tất cả <span className="tabular-nums opacity-80">{summary.processed}</span></Button>
-              {Object.entries(summary.counts).map(([label, count]) => <Button key={label} title={label} variant={view.label === label ? 'default' : 'outline'} className="shrink-0 rounded-full" aria-pressed={view.label === label} onClick={() => { setLightboxIndex(null); setView(toggleBulkLabel(view, label)) }}>{sportNameVi(label)} <span className="tabular-nums opacity-80">{count}</span></Button>)}
+              {Object.entries(summary.counts).map(([label, count]) => <Button key={label} title={label} variant={view.label === label ? 'default' : 'outline'} className="shrink-0 rounded-full" aria-pressed={view.label === label} onClick={() => { setLightboxIndex(null); setView(toggleBulkLabel(view, label)) }}>{label} <span className="tabular-nums opacity-80">{count}</span></Button>)}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="flex items-center gap-2 text-sm">Sắp xếp<select aria-label="Sắp xếp kết quả" value={view.sort} onChange={(event) => { setLightboxIndex(null); setView(changeBulkFilters(view, { sort: event.target.value as BulkSort })) }} className="min-h-11 max-w-48 rounded-xl border border-border bg-card px-2"><option value="confidence_desc">Tin cậy cao trước</option><option value="confidence_asc">Tin cậy thấp trước</option><option value="filename">Tên tệp A–Z</option></select></label>
@@ -285,7 +284,7 @@ export function BulkPage({ active }: { active: boolean }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-5" aria-label="Kết quả phân loại">
               {items.map((item) => <button key={`${jobId}:${item.index}`} type="button" onClick={() => setLightboxIndex(item.index)} aria-label={`Xem ảnh ${item.filename}`} className={cn('min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-foreground/40', item.is_uncertain ? 'border-warning-line' : 'border-border')}>
                 <div className="aspect-square overflow-hidden bg-lane"><BulkImage src={getBulkThumbnailUrl(jobId!, item.index)} filename={item.filename} /></div>
-                <div className="space-y-2 p-2.5"><p className="truncate text-[11px] text-muted-foreground" title={item.filename}>{item.filename}</p>{item.error ? <p className="text-xs text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <><div className="flex items-baseline justify-between gap-2"><p className="min-w-0 break-words text-sm leading-snug font-semibold" title={item.label ?? undefined}>{sportNameVi(item.label ?? '')}</p><p className="shrink-0 text-xs tabular-nums">{percent.format(item.confidence ?? 0)}</p></div><Progress value={(item.confidence ?? 0) * 100} label={`Độ tin cậy của ${item.filename}`} className={item.is_uncertain ? 'bg-warning-bar' : undefined} />{item.is_uncertain && <UncertainBadge />}</>}</div>
+                <div className="space-y-2 p-2.5"><p className="truncate text-[11px] text-muted-foreground" title={item.filename}>{item.filename}</p>{item.error ? <p className="text-xs text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <><div className="flex items-baseline justify-between gap-2"><p className="min-w-0 break-words text-sm leading-snug font-semibold" title={item.label ?? undefined}>{item.label ?? ''}</p><p className="shrink-0 text-xs tabular-nums">{percent.format(item.confidence ?? 0)}</p></div><Progress value={(item.confidence ?? 0) * 100} label={`Độ tin cậy của ${item.filename}`} className={item.is_uncertain ? 'bg-warning-bar' : undefined} />{item.is_uncertain && <UncertainBadge />}</>}</div>
               </button>)}
             </div>
             {!items.length && <p className="py-10 text-center text-sm text-muted-foreground">{running && !job.processed ? 'Kết quả sẽ xuất hiện khi ảnh được xử lý.' : 'Không có ảnh phù hợp bộ lọc.'}</p>}
