@@ -72,15 +72,15 @@ export function ModelCompareCard({
           ) : (
             <>
               <GitCompare size={16} aria-hidden="true" />
-              {state.status === 'success' ? 'Chạy lại tất cả' : 'Test tất cả mô hình'}
+              {state.status === 'success' ? 'Chạy lại tất cả' : 'Chạy tất cả mô hình'}
             </>
           )}
         </Button>
       </div>
 
       {state.status === 'error' && (
-        <p role="alert" className="mt-4 flex items-center gap-2 text-sm text-destructive">
-          <TriangleAlert size={16} className="shrink-0" aria-hidden="true" />
+        <p role="alert" className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/50 bg-destructive-surface p-3 text-sm">
+          <TriangleAlert size={16} className="shrink-0 text-destructive" aria-hidden="true" />
           {state.message}
         </p>
       )}
@@ -93,18 +93,18 @@ export function ModelCompareCard({
             return (
               <li
                 key={item.id}
-                className="rounded-xl border border-border/70 bg-background/40 p-3 text-sm"
+                className={uncertain ? 'rounded-xl border border-warning-line bg-warning-surface p-3 text-sm' : 'rounded-xl border border-border bg-lane p-3 text-sm'}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{item.name}</span>
                     {isCurrent && (
-                      <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+                      <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary">
                         Đang chọn
                       </span>
                     )}
                     {uncertain && (
-                      <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-warning">
+                      <span className="rounded-full border border-warning-line bg-warning-surface px-2 py-0.5 text-[11px] font-medium text-warning">
                         Không chắc chắn
                       </span>
                     )}
@@ -113,7 +113,7 @@ export function ModelCompareCard({
                     {item.prediction.latency_ms} ms
                   </span>
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="mt-2 mb-2 flex items-center justify-between gap-3 font-medium">
                   <SportLabel label={item.prediction.label} />
                   <span
                     className={
@@ -128,7 +128,7 @@ export function ModelCompareCard({
                 <Progress
                   value={item.prediction.confidence * 100}
                   label={item.name}
-                  className={uncertain ? 'mt-2 bg-warning' : 'mt-2'}
+                  className={uncertain ? 'bg-warning-bar' : undefined}
                 />
               </li>
             )
