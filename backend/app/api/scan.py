@@ -79,7 +79,13 @@ async def predict(request: Request, file: Annotated[UploadFile, File()]) -> Pred
         data = await read_image(file, config.MAX_UPLOAD_MB)
         return await run_in_threadpool(
             locked_prediction, request,
-            lambda: predict_image(data, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD),
+            lambda: predict_image(
+                data,
+                model,
+                request.app.state.labels,
+                config.CONFIDENCE_THRESHOLD,
+                config.PREPROCESS,
+            ),
         )
     finally:
         await file.close()
@@ -111,7 +117,13 @@ async def scan(
             )
         return await run_in_threadpool(
             locked_prediction, request,
-            lambda: predict_frames(frames, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD),
+            lambda: predict_frames(
+                frames,
+                model,
+                request.app.state.labels,
+                config.CONFIDENCE_THRESHOLD,
+                config.PREPROCESS,
+            ),
         )
     finally:
         for file in files:

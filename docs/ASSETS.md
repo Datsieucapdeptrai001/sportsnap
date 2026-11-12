@@ -25,8 +25,10 @@ Giới hạn mỗi file: 2.000.000 byte và 30.000 tam giác, đo từ chính GL
 
 | nhãn | file | nguồn và tác giả |
 | --- | --- | --- |
+| archery | `frontend/public/models/archery.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | baseball | `frontend/public/models/baseball.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | basketball | `frontend/public/models/basketball.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
+| boxing | `frontend/public/models/boxing.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | canoe slamon | `frontend/public/models/canoe_slamon.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | field hockey | `frontend/public/models/field_hockey.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | figure skating pairs | `frontend/public/models/figure_skating_pairs.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
@@ -44,7 +46,9 @@ Giới hạn mỗi file: 2.000.000 byte và 30.000 tam giác, đo từ chính GL
 | rollerblade racing | `frontend/public/models/rollerblade_racing.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | rugby | `frontend/public/models/rugby.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | swimming | `frontend/public/models/swimming.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
+| tennis | `frontend/public/models/tennis.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | uneven bars | `frontend/public/models/uneven_bars.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
+| volleyball | `frontend/public/models/volleyball.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 
 Giữ nguyên chính tả nhãn **canoe slamon** của mô hình. `football` được dựng là bóng
 bầu dục Mỹ: đã xem ảnh `backend/debug_frames/model_compare/test_data/football/1.jpg`
@@ -73,6 +77,10 @@ Không chuẩn hóa hay thêm bệ cho 11 môn ngoài phạm vi. Hai hình ngư�
 | figure skating pairs | Bệ băng có hai vệt cong giao nhau; hai bốt trắng thon đặt đối xứng, cùng lưỡi dao và toe pick. |
 | olympic wrestling | Bệ thảm tròn nhiều vòng màu; hai hình người capsule đỏ/xanh đang khóa vai và ôm eo, có tay/chân và đầu cầu. |
 | swimming | Bệ nước xanh, đúng ba dây phao đỏ/trắng, vạch T dưới đáy, bục xuất phát; mũ và kính phóng lớn đặt cạnh. |
+| archery | Bệ cỏ, bia bắn tròn 5 vòng màu trên giá ba chân gỗ, một mũi tên cắm gần tâm, cung recurve dựng cạnh và mũi tên đặt trước. |
+| boxing | Bệ võ đài vuông có 4 trụ góc, ba tầng dây đài xanh/trắng/đỏ và cặp găng tay boxing đỏ/xanh cỡ lớn đối diện ở giữa. |
+| tennis | Bệ sân đất nện có vạch trắng, lưới căng ngang ở giữa, vợt tennis đan lưới đặt chéo và hai quả bóng vàng có chỉ trắng. |
+| volleyball | Bệ sân gỗ có vạch 3m, lưới cao kèm ăng-ten đỏ/trắng hai bên và quả bóng chuyền cỡ lớn phối ba màu xanh/vàng/trắng. |
 
 Ảnh gốc từng model vẫn render 640×520. Contact sheet ghép ảnh rộng tối đa 200 px
 để đánh giá trực tiếp độ đọc của silhouette, màu nền và chi tiết chính.

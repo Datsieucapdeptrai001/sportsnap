@@ -9,6 +9,7 @@ import { Card } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
 import { getClasses, predictImage, type Prediction, type ScanResult } from '../lib/api'
 import { warnAboutUnmappedClasses } from '../lib/sports3d'
+import { sportNameVi } from '../lib/sport-names'
 import { readAutoOpenArPreference, saveAutoOpenArPreference } from '../lib/ar'
 
 type ScanState =
@@ -171,7 +172,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
         {mode === 'gallery' && <p className="mt-3 text-center text-xs text-muted-foreground">Hỗ trợ JPG, JPEG, PNG và WebP · Mỗi lần một ảnh</p>}
       </Card>
       <p role="status" aria-live="polite" className="sr-only">
-        {state.status === 'loading' ? 'Đang nhận diện ảnh. Vui lòng đợi.' : state.status === 'success' ? `Đã có kết quả: ${state.result.label}. ${state.result.is_uncertain ? 'Không chắc chắn.' : ''}` : ''}
+        {state.status === 'loading' ? 'Đang nhận diện ảnh. Vui lòng đợi.' : state.status === 'success' ? `Đã có kết quả: ${sportNameVi(state.result.label)}. ${state.result.is_uncertain ? 'Không chắc chắn.' : ''}` : ''}
       </p>
       <div className="mt-6" aria-busy={state.status === 'loading'}>
         {state.status === 'idle' && (

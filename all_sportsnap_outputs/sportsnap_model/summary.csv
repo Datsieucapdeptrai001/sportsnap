@@ -1,0 +1,4 @@
+Mô hình,Test Accuracy,Đạt mục tiêu (>=0.88),Val Accuracy
+ResNet50,1.0,True,0.97
+MobileNetV2,0.97,True,0.98
+CNN_Scratch,0.79,False,0.77

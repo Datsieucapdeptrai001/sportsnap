@@ -189,3 +189,21 @@ def test_macro_f1_confusion_math_and_attribution(tmp_path: Path) -> None:
     summary.write_text("Mô hình,Test Accuracy,Val Accuracy\nMobileNetV2,0.9,1\nResNet50,1,1\n", encoding="utf-8")
     with pytest.raises(ValueError, match="ambiguous"):
         build_experiments(summary, BACKEND / "data/ket_qua_du_doan_tat_ca_anh.csv", BACKEND / "models/labels.json")
+
+
+def test_gradcam_supports_resnet_conv5_block3_out_and_preprocess(image_bytes: bytes) -> None:
+    import tensorflow as tf
+
+    inputs = tf.keras.Input((224, 224, 3))
+    conv = tf.keras.layers.Conv2D(4, 3, padding="same", name="conv5_block3_3_conv")(inputs)
+    out = tf.keras.layers.ReLU(name="conv5_block3_out")(conv)
+    base = tf.keras.Model(inputs, out, name="resnet50")
+    outer_input = tf.keras.Input((224, 224, 3))
+    outputs = tf.keras.layers.Dense(2, activation="softmax")(
+        tf.keras.layers.GlobalAveragePooling2D()(base(outer_input))
+    )
+    model = tf.keras.Model(outer_input, outputs)
+    result = explain_image(image_bytes, model, ["a", "b"], 0.6, preprocess="resnet50")
+    assert result.heatmap.shape == (224, 224)
+    assert np.isfinite(result.heatmap).all()
+    assert result.explanation.label in {"a", "b"}

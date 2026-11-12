@@ -27,7 +27,7 @@ def test_real_model_golden_regression_and_exif() -> None:
     )
     assert expected, "An empty golden manifest cannot pass the regression gate."
     assert len({item.file for item in expected}) == len(expected)
-    config = Settings()
+    config = Settings(_env_file=None)
     assert config.MODEL_PATH.is_file() and config.LABELS_PATH.is_file(), "Golden gate requires the unchanged model and labels."
 
     with TestClient(create_app(config)) as client:
@@ -60,7 +60,7 @@ def test_real_model_golden_regression_and_exif() -> None:
 
 
 def test_non_sport_image_is_uncertain() -> None:
-    config = Settings()
+    config = Settings(_env_file=None)
     assert config.MODEL_PATH.is_file() and config.LABELS_PATH.is_file(), "Acceptance check requires the unchanged model and labels."
     buffer = BytesIO()
     Image.new("RGB", (224, 224), (128, 128, 128)).save(buffer, format="PNG")

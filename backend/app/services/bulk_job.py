@@ -188,7 +188,7 @@ class BulkJobStore:
                     if image.error:
                         continue
                     try:
-                        arrays.append(preprocess_image(image.path.read_bytes()))
+                        arrays.append(preprocess_image(image.path.read_bytes(), preprocess=self.config.PREPROCESS))
                         valid.append(index)
                     except APIError as exc:
                         items[index].error = "unsupported_format" if exc.body.error.code == "unsupported_format" else "corrupt"

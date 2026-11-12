@@ -24,9 +24,9 @@ ROOT = Path(__file__).resolve().parents[2]
 TAU = math.tau
 Point = tuple[float, float, float]
 M: dict[str, Any] = {}
-DISPLAY_SPORTS = frozenset({'baseball', 'field hockey', 'hockey', 'polo', 'rugby',
-                          'figure skating women', 'figure skating pairs',
-                          'olympic wrestling', 'swimming'})
+DISPLAY_SPORTS = frozenset({'archery', 'baseball', 'boxing', 'field hockey', 'hockey', 'polo',
+                          'rugby', 'tennis', 'volleyball', 'figure skating women',
+                          'figure skating pairs', 'olympic wrestling', 'swimming'})
 
 
 def material(name: str, color: tuple[float, float, float], roughness: float = .55,
@@ -682,15 +682,221 @@ def uneven_bars() -> None:
         rod('Base connecting rail', (x, -.72, .07), (x, .72, .07), .025, 'blue')
 
 
+def archery() -> None:
+    from mathutils import Matrix
+    display_base('grass')
+    rod('Shooting line', (-.15, -.108, .017), (.15, -.108, .017), .0022, 'white')
+
+    # Target boss + concentric score rings on a wooden tripod stand at back-right.
+    target_pos = Vector((.052, .052, .148))
+    facing = Matrix.Translation(target_pos) @ Matrix.Rotation(-.35, 4, 'Z') @ Matrix.Rotation(math.pi/2, 4, 'X')
+    before = set(bpy.context.scene.objects)
+    rod('Target straw boss', (0, 0, -.024), (0, 0, -.002), .084, 'wood', vertices=48)
+    for idx, (radius, mat) in enumerate((
+        (.078, 'white'), (.062, 'black'), (.047, 'blue'), (.031, 'red'), (.015, 'yellow'),
+    )):
+        z0 = -.002 + idx*.0012
+        rod(f'Target ring {mat}', (0, 0, z0), (0, 0, z0+.0014), radius, mat, vertices=48)
+    # Embedded arrow hitting near the bullseye (pointing forward toward shooter).
+    rod('Target arrow shaft', (.008, .010, .005), (.008, .010, .105), .0022, 'silver', vertices=10)
+    rod('Target arrow point', (.008, .010, -.002), (.008, .010, .006), .0038, 'black', .0008, 10)
+    for angle in (0, TAU/3, 2*TAU/3):
+        dx, dy = math.cos(angle)*.008, math.sin(angle)*.008
+        box('Target arrow fletching', (.008+dx*.55, .010+dy*.55, .095), (.0014, .008, .02), 'red')
+        bpy.context.object.rotation_euler.z = angle + math.pi/2
+    bpy.context.view_layer.update()
+    for obj in set(bpy.context.scene.objects) - before:
+        obj.matrix_world = facing @ obj.matrix_world
+
+    # Wooden tripod legs placed BEHIND the target face so the target rings stay unobstructed.
+    apex = (.064, .084, .185)
+    for foot in ((.002, .062, .016), (.128, .042, .016), (.072, .126, .016)):
+        rod('Target tripod leg', foot, apex, .0055, 'wood', .0045)
+    rod('Tripod crossbar', (.018, .062, .052), (.112, .048, .052), .004, 'wood')
+
+    # Recurve bow standing upright/angled on front-left + spare ground arrow.
+    bx, by = -.092, -.028
+    bow_before = set(bpy.context.scene.objects)
+    box('Bow riser', (0, 0, .122), (.014, .018, .068), 'navy', .003)
+    box('Bow grip', (0, -.002, .114), (.016, .021, .026), 'black', .003)
+    rod('Bow stabilizer', (0, -.006, .092), (0, -.068, .082), .0035, 'black', .0025)
+    ball('Stabilizer weight', (0, -.072, .081), (.006,)*3, 'red', 16, 8)
+    upper_limb = [(0, .003, .152), (0, -.006, .185), (0, .008, .218), (0, .036, .242)]
+    lower_limb = [(0, .003, .092), (0, -.006, .059), (0, .008, .026), (0, .036, .016)]
+    line('Upper bow limb', upper_limb, .0042, 'teal')
+    line('Lower bow limb', lower_limb, .0042, 'teal')
+    rod('Bowstring', (0, .036, .016), (0, .036, .242), .0014, 'silver', vertices=8)
+    bpy.context.view_layer.update()
+    bow_xf = Matrix.Translation((bx, by, 0)) @ Matrix.Rotation(.55, 4, 'Z')
+    for obj in set(bpy.context.scene.objects) - bow_before:
+        obj.matrix_world = bow_xf @ obj.matrix_world
+
+    # Ground arrow along front edge.
+    rod('Ground arrow shaft', (-.125, -.084, .022), (.018, -.092, .022), .0024, 'silver', vertices=10)
+    rod('Ground arrow point', (.018, -.092, .022), (.031, -.093, .022), .0042, 'black', .0006, 10)
+    box('Ground arrow fletching', (-.112, -.085, .024), (.022, .011, .002), 'orange')
+
+
+def boxing() -> None:
+    display_base('navy', (.33, .33))
+    box('Boxing canvas mat', (0, 0, .022), (.298, .298, .014), 'white', .004)
+    # 4 corner posts + pads + 3 tensioned ring ropes.
+    corners = (
+        ((-.142, -.142), 'red'), ((.142, .142), 'blue'),
+        ((-.142, .142), 'white'), ((.142, -.142), 'white'),
+    )
+    for (cx, cy), pad_mat in corners:
+        rod('Ring corner post', (cx, cy, .016), (cx, cy, .142), .007, 'silver')
+        box('Corner pad', (cx*.93, cy*.93, .086), (.024, .024, .086), pad_mat, .005)
+    for z, rope_mat in ((.058, 'blue'), (.092, 'white'), (.126, 'red')):
+        line('Ring rope', [(-.138, -.138, z), (.138, -.138, z),
+                           (.138, .138, z), (-.138, .138, z)], .0032, rope_mat, True)
+    # Two oversized facing boxing gloves in the center of the ring.
+    from mathutils import Matrix
+    for sign, color, yaw in ((-1, 'red', .24), (1, 'blue', math.pi - .24)):
+        before = set(bpy.context.scene.objects)
+        fist = ball('Glove main fist', (.012, 0, .066), (.045, .035, .033), color, 32, 16)
+        for p in fist.data.polygons:
+            p.use_smooth = True
+        capsule('Glove thumb', (-.008, -.030, .059), (.028, -.033, .073), .015, color)
+        rod('Glove wrist cuff', (-.046, 0, .057), (-.018, 0, .061), .024, 'white', .027, 24)
+        rod('Glove wrist strap', (-.044, 0, .057), (-.032, 0, .059), .0255, 'black', .0255, 24)
+        bpy.context.view_layer.update()
+        xf = Matrix.Translation((sign*.064, sign*.008, 0)) @ Matrix.Rotation(yaw, 4, 'Z')
+        for obj in set(bpy.context.scene.objects) - before:
+            obj.matrix_world = xf @ obj.matrix_world
+
+
+def tennis() -> None:
+    from mathutils import Matrix
+    display_base('clay')
+    # White court markings (clay court).
+    line('Doubles court boundary', [(-.152, -.112, .0168), (.152, -.112, .0168),
+         (.152, .112, .0168), (-.152, .112, .0168)], .002, 'white', True)
+    for y in (-.086, .086):
+        rod('Singles sideline', (-.152, y, .0168), (.152, y, .0168), .0018, 'white')
+    for x in (-.082, .082):
+        rod('Service line', (x, -.086, .0168), (x, .086, .0168), .0018, 'white')
+    rod('Center service line', (-.082, 0, .0168), (.082, 0, .0168), .0018, 'white')
+    # Tennis net across the center.
+    for y in (-.118, .118):
+        rod('Tennis net post', (0, y, .016), (0, y, .072), .0045, 'navy')
+    rod('Net top headband', (0, -.118, .069), (0, .118, .069), .004, 'white')
+    for z in (.026, .040, .054):
+        rod('Net horizontal cord', (0, -.116, z), (0, .116, z), .0012, 'black', vertices=8)
+    for i in range(-7, 8):
+        y = i*.0155
+        rod('Net vertical cord', (0, y, .018), (0, y, .067), .001, 'black', vertices=8)
+    # Oversized tennis racket resting cleanly inside left court without touching the net.
+    before = set(bpy.context.scene.objects)
+    head_pts = [(.046+.056*math.cos(TAU*i/40), .044*math.sin(TAU*i/40), .023) for i in range(40)]
+    line('Tennis racket head frame', head_pts, .005, 'navy', True)
+    arc('Racket teal accent', (.046, 0), (.056, .044), -math.pi*.35, math.pi*.35, .023, .0055, 'teal')
+    for sy in (-1, 1):
+        rod('Racket throat strut', (-.038, 0, .023), (-.004, sy*.021, .023), .0038, 'navy')
+    rod('Racket shaft & grip', (-.114, 0, .023), (-.036, 0, .023), .0065, 'black', .005)
+    rod('Racket grip tape', (-.112, 0, .023), (-.066, 0, .023), .0072, 'white')
+    for i in range(-3, 4):
+        x = .046+i*.013
+        span_y = .041*math.sqrt(max(0, 1-(i*.013/.053)**2))
+        rod('Racket main string', (x, -span_y, .023), (x, span_y, .023), .0009, 'silver', vertices=8)
+    for j in range(-3, 4):
+        y = j*.0105
+        span_x = .052*math.sqrt(max(0, 1-(y/.041)**2))
+        rod('Racket cross string', (.046-span_x, y, .023), (.046+span_x, y, .023), .0009, 'silver', vertices=8)
+    bpy.context.view_layer.update()
+    racket_xf = Matrix.Translation((-.078, -.005, .001)) @ Matrix.Rotation(1.12, 4, 'Z')
+    for obj in set(bpy.context.scene.objects) - before:
+        obj.matrix_world = racket_xf @ obj.matrix_world
+    # Two oversized optic-yellow tennis balls with curved white seam.
+    for cx, cy, rz in ((.082, -.052, .038), (.105, .048, .038)):
+        r = .022
+        b = ball('Yellow tennis ball', (cx, cy, rz), (r, r, r), 'yellow', 32, 16)
+        for p in b.data.polygons:
+            p.use_smooth = True
+        pts = []
+        for i in range(65):
+            t = TAU*i/64
+            d = Vector((.55*math.cos(t), .83*math.sin(t), .45*math.cos(2*t))).normalized()
+            pts.append((cx+d.x*(r+.0004), cy+d.y*(r+.0004), rz+d.z*(r+.0004)))
+        line('White tennis ball seam', pts, .0014, 'white', True)
+
+
+def volleyball() -> None:
+    display_base('wood')
+    line('Volleyball court boundary', [(-.152, -.112, .0168), (.152, -.112, .0168),
+         (.152, .112, .0168), (-.152, .112, .0168)], .0022, 'white', True)
+    for x in (-.052, 0, .052):
+        rod('Attack or center line', (x, -.112, .0168), (x, .112, .0168), .002, 'white')
+    # High volleyball net + signature red/white antennas.
+    for y in (-.122, .122):
+        rod('Volleyball net post', (0, y, .016), (0, y, .178), .0055, 'blue')
+        rod('Net post pad', (0, y, .018), (0, y, .105), .0095, 'navy')
+    for z in (.098, .165):
+        rod('Volleyball net tape', (0, -.12, z), (0, .12, z), .0038, 'white')
+    for z in (.115, .132, .149):
+        rod('Volleyball net cord', (0, -.118, z), (0, .118, z), .0012, 'black', vertices=8)
+    for i in range(-7, 8):
+        y = i*.0155
+        rod('Volleyball net vertical', (0, y, .099), (0, y, .164), .001, 'black', vertices=8)
+    for y in (-.108, .108):
+        for idx in range(6):
+            z0 = .102 + idx*.016
+            rod('Volleyball antenna segment', (0, y, z0), (0, y, z0+.015),
+                .0028, 'red' if idx % 2 == 0 else 'white', vertices=10)
+    # Oversized tri-color (white / blue / yellow) volleyball placed clearly in front-left court.
+    c = Vector((-.078, -.045, .061))
+    r = .045
+    nlon, nlat = 36, 18
+    def sphere_patch(patch_name: str, mat: str, j_range: range, i_range: range) -> None:
+        verts: list[Point] = []
+        faces: list[tuple[int, int, int, int]] = []
+        vmap: dict[tuple[int, int], int] = {}
+        for j in range(j_range.start, j_range.stop + 1):
+            theta = math.pi * j / nlat
+            for i in range(i_range.start, i_range.stop + 1):
+                phi = TAU * (i % nlon) / nlon
+                p = Vector((math.sin(theta)*math.cos(phi), math.sin(theta)*math.sin(phi), math.cos(theta))) * r + c
+                vmap[(j, i)] = len(verts)
+                verts.append(tuple(p))
+        for j in j_range:
+            for i in i_range:
+                faces.append((vmap[(j, i)], vmap[(j+1, i)], vmap[(j+1, i+1)], vmap[(j, i+1)]))
+        patch = mesh(patch_name, verts, faces, mat)
+        for poly in patch.data.polygons:
+            poly.use_smooth = True
+
+    sphere_patch('Volleyball top blue cap', 'blue', range(0, 6), range(0, nlon))
+    sphere_patch('Volleyball bottom blue cap', 'blue', range(12, nlat), range(0, nlon))
+    for sector in range(6):
+        sphere_patch(
+            f'Volleyball band {sector}',
+            'yellow' if sector % 2 == 0 else 'white',
+            range(6, 12),
+            range(sector * 6, (sector + 1) * 6),
+        )
+    for lat in (-math.pi/6, math.pi/6):
+        ring_r = r*math.cos(lat)+.0005
+        ring_z = c.z+r*math.sin(lat)
+        ring('Volleyball latitude seam', (c.x, c.y, ring_z), ring_r, .0013, 'navy', 'XY', 64)
+    for k in range(3):
+        axis_a = k * math.pi / 3
+        pts = [(c.x+(r+.0006)*math.cos(t)*math.cos(axis_a),
+                c.y+(r+.0006)*math.cos(t)*math.sin(axis_a),
+                c.z+(r+.0006)*math.sin(t)) for t in [TAU*i/64 for i in range(65)]]
+        line('Volleyball panel seam', pts, .0013, 'navy', True)
+
+
 BUILDERS: dict[str, Callable[[], None]] = {
-    'baseball': baseball, 'basketball': basketball, 'canoe slamon': canoe_slamon,
-    'field hockey': field_hockey, 'figure skating pairs': figure_skating_pairs,
+    'archery': archery, 'baseball': baseball, 'basketball': basketball, 'boxing': boxing,
+    'canoe slamon': canoe_slamon, 'field hockey': field_hockey,
+    'figure skating pairs': figure_skating_pairs,
     'figure skating women': figure_skating_women, 'football': football,
     'formula 1 racing': formula_1_racing, 'golf': golf, 'high jump': high_jump,
     'hockey': hockey, 'nascar racing': nascar_racing, 'olympic wrestling': olympic_wrestling,
     'polo': polo, 'rings': rings, 'roller derby': roller_derby,
     'rollerblade racing': rollerblade_racing, 'rugby': rugby, 'swimming': swimming,
-    'uneven bars': uneven_bars,
+    'tennis': tennis, 'uneven bars': uneven_bars, 'volleyball': volleyball,
 }
 
 
@@ -846,8 +1052,9 @@ def main() -> None:
     if bpy.app.version[:2] != (5, 2):
         raise RuntimeError(f'Validated with Blender 5.2; found {bpy.app.version_string}')
     labels = json.loads((ROOT/'backend/models/labels.json').read_text(encoding='utf-8-sig'))
-    if set(labels) != set(BUILDERS) or len(labels) != len(BUILDERS):
-        raise ValueError('Builders must match the unchanged training labels exactly')
+    if not set(labels).issubset(BUILDERS):
+        raise ValueError('Builders must cover all unchanged training labels')
+    all_sports = [*labels, *(name for name in sorted(BUILDERS) if name not in labels)]
     output = args.out.resolve(); output.mkdir(parents=True, exist_ok=True)
     previews = ROOT/'backend/debug_frames/model_previews'
     previews.mkdir(parents=True, exist_ok=True)
@@ -855,7 +1062,7 @@ def main() -> None:
     previous = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
     entries = previous.get('models', {}) if args.only else {}
     errors: dict[str, str] = {}
-    for label in labels:
+    for label in all_sports:
         if args.only and label != args.only:
             continue
         target = output/f'{slug(label)}.glb'
@@ -887,7 +1094,7 @@ def main() -> None:
             traceback.print_exc()
             print(f'SPORTSNAP_ERROR {label}: {errors[label]}', flush=True)
     # Retain only validated files on partial rebuilds. Never advertise a stale failure.
-    entries = {label: entry for label in labels if (entry := entries.get(label))
+    entries = {label: entry for label in all_sports if (entry := entries.get(label))
                and (output/entry['file']).is_file()}
     manifest = {'generator': 'tools/blender/make_sport_models.py',
                 'blender': bpy.app.version_string, 'units': 'meters', 'up_axis': 'Y',

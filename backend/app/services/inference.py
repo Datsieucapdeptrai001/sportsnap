@@ -21,7 +21,7 @@ class Classifier(Protocol):
     ) -> NDArray[np.floating]: ...
 
 
-def preprocess_image(data: bytes) -> NDArray[np.float32]:
+def preprocess_image(data: bytes, preprocess: str = "mobilenet_v2") -> NDArray[np.float32]:
     """Apply only the notebook preprocessing specified in SPEC sections 4 and 12."""
     try:
         with warnings.catch_warnings():
@@ -46,16 +46,25 @@ def preprocess_image(data: bytes) -> NDArray[np.float32]:
         ) from exc
 
     # Keep TensorFlow lazy: a checkout without model files can still start.
-    from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+    if preprocess == "mobilenet_v2":
+        from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+    elif preprocess == "resnet50":
+        from tensorflow.keras.applications.resnet50 import preprocess_input
+    else:
+        raise ValueError(f"Unsupported preprocess mode: {preprocess}")
 
     return np.expand_dims(preprocess_input(pixels), axis=0)
 
 
 def predict_image(
-    data: bytes, model: Classifier, labels: list[str], threshold: float
+    data: bytes,
+    model: Classifier,
+    labels: list[str],
+    threshold: float,
+    preprocess: str = "mobilenet_v2",
 ) -> Prediction:
     started = perf_counter_ns()
-    batch = preprocess_image(data)
+    batch = preprocess_image(data, preprocess=preprocess)
     outputs = np.asarray(model.predict(batch, verbose=0))
     if (
         outputs.shape != (1, len(labels))
@@ -82,11 +91,17 @@ def predict_image(
 
 
 def predict_frames(
-    frames: list[bytes], model: Classifier, labels: list[str], threshold: float
+    frames: list[bytes],
+    model: Classifier,
+    labels: list[str],
+    threshold: float,
+    preprocess: str = "mobilenet_v2",
 ) -> ScanResult:
     started = perf_counter_ns()
     # Decode every frame before inference; one bad frame rejects the whole scan.
-    batch = np.concatenate([preprocess_image(frame) for frame in frames], axis=0)
+    batch = np.concatenate(
+        [preprocess_image(frame, preprocess=preprocess) for frame in frames], axis=0
+    )
     outputs = np.asarray(model.predict(batch, verbose=0))
     if (
         outputs.shape != (len(frames), len(labels))

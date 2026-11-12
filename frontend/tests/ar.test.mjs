@@ -2,22 +2,30 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { createViewerLoader, getArAvailability, getCameraOverlayAsset, modelLoadProgress, modelSource, readAutoOpenArPreference, saveAutoOpenArPreference } from '../src/lib/ar.ts'
-import { sportNamesVi, sportNameVi } from '../src/lib/sport-names.ts'
+import { splitSportLabel, sportNamesVi, sportNameVi } from '../src/lib/sport-names.ts'
 
 const manifest = JSON.parse(readFileSync(new URL('../public/models/manifest.json', import.meta.url), 'utf8'))
 const assets = Object.fromEntries(Object.entries(manifest.models).map(([label, model]) => [label, { glb: `/models/${model.file}` }]))
 
-test('Vietnamese display names cover exactly all 20 unchanged training/manifest labels', () => {
+test('Vietnamese display names cover all 24 manifest and training labels', () => {
   const labels = JSON.parse(readFileSync(new URL('../../backend/models/labels.json', import.meta.url), 'utf8'))
   assert.equal(labels.length, 20)
-  assert.deepEqual(Object.keys(sportNamesVi).sort(), [...labels].sort())
+  for (const label of labels) assert.ok(Object.hasOwn(sportNamesVi, label), label)
   assert.deepEqual(Object.keys(sportNamesVi).sort(), Object.keys(manifest.models).sort())
-  for (const label of labels) {
+  for (const label of Object.keys(manifest.models)) {
     assert.ok(sportNameVi(label).length > 0)
     assert.notEqual(sportNameVi(label), label)
   }
+  assert.equal(sportNameVi('archery'), 'Bắn cung')
+  assert.equal(sportNameVi('boxing'), 'Quyền anh')
+  assert.equal(sportNameVi('tennis'), 'Quần vợt')
+  assert.equal(sportNameVi('volleyball'), 'Bóng chuyền')
   assert.equal(sportNameVi('baseball'), 'Bóng chày')
   assert.equal(sportNameVi('basketball'), 'Bóng rổ')
+  assert.equal(sportNameVi('football'), 'Bóng bầu dục Mỹ')
+  assert.equal(sportNameVi('rugby'), 'Bóng bầu dục')
+  assert.deepEqual(splitSportLabel('football'), { display: 'Bóng bầu dục Mỹ', raw: 'football' })
+  assert.deepEqual(splitSportLabel('unknown sport'), { display: 'unknown sport', raw: null })
   assert.equal(sportNameVi('unknown sport'), 'unknown sport')
   assert.equal(sportNameVi('constructor'), 'constructor')
 })

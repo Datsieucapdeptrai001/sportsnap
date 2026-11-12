@@ -523,3 +523,21 @@ Chỉ hai artifact classifier đã nêu được đưa vào Git; không đưa da
    (`model_loaded: true`) và gửi thử một ảnh tới `/api/predict` trước khi demo.
 
 Xem [SPEC.md](SPEC.md) và [AGENTS.md](AGENTS.md) để biết phạm vi từng slice.
+
+## Smart Photo Library (Phase 0 — Audit & Spike)
+
+Giai đoạn mở rộng chạy cục bộ trên CPU (`ResNet50` mặc định qua `.env`, giữ `models/` và `datasets/` chỉ đọc):
+
+- Kiểm toán kiến trúc & quyết định kỹ thuật: xem [docs/AUDIT.md](docs/AUDIT.md) và [docs/DECISIONS.md](docs/DECISIONS.md).
+- Kiểm tra độ khớp phục vụ trên 100 ảnh test chuẩn (`sports-classification/test`):
+  ```powershell
+  .\backend\.venv\Scripts\python.exe scripts\parity_check.py
+  ```
+- Benchmark CLIP (`fastembed` ONNX Runtime vs `open_clip` PyTorch CPU):
+  ```powershell
+  .\backend\.venv\Scripts\python.exe scripts\spike_clip.py --backend fastembed
+  ```
+- Khởi tạo SQLite (`data/library.db`) và đăng ký phiên bản `v1` vào `data/models_registry/v1/` mà không chạm vào `models/`:
+  ```powershell
+  .\backend\.venv\Scripts\python.exe -c "from sportsnap_lib.config import LibrarySettings; from sportsnap_lib.db import init_db; from sportsnap_lib.registry import ensure_initial_version; s=LibrarySettings(); c=init_db(s.db_path); print(ensure_initial_version(c, s).version)"
+  ```

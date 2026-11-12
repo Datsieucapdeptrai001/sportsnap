@@ -29,5 +29,7 @@ backend/models/*
 !backend/models/labels.json
 **/datasets
 **/dataset
+/models
+/scratch
 **/*.zip
 **/*.ipynb

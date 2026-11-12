@@ -73,3 +73,21 @@ def test_exif_rotated_image_has_identical_pixels_and_prediction() -> None:
     first = predict_image(normal.getvalue(), model, ["a", "b", "c"], 0.6)
     second = predict_image(rotated.getvalue(), model, ["a", "b", "c"], 0.6)
     assert first.model_dump(exclude={"latency_ms"}) == second.model_dump(exclude={"latency_ms"})
+
+
+def test_resnet50_preprocessing_matches_keras_caffe_bgr() -> None:
+    pixels = np.array([[[10, 120, 240]]], dtype=np.uint8)
+    buffer = BytesIO()
+    Image.fromarray(pixels).save(buffer, format="PNG")
+    actual = preprocess_image(buffer.getvalue(), preprocess="resnet50")
+    assert actual.shape == (1, 224, 224, 3)
+    assert actual.dtype == np.float32
+    from tensorflow.keras.applications.resnet50 import preprocess_input
+
+    expected = preprocess_input(np.broadcast_to(pixels.astype(np.float32), (224, 224, 3)).copy())
+    np.testing.assert_allclose(actual[0], expected, atol=1e-5)
+
+
+def test_invalid_preprocess_mode_is_rejected(image_bytes: bytes) -> None:
+    with pytest.raises(ValueError, match="Unsupported preprocess mode"):
+        preprocess_image(image_bytes, preprocess="unknown")

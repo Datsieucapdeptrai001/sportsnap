@@ -24,3 +24,10 @@ def test_dotenv_paths_and_limits_are_independent_of_working_directory(
     assert config.MAX_BULK_FILES == 100
     assert config.DEBUG_SAVE_FRAMES is True
     assert config.DEBUG_FRAMES_DIR == tmp_path / "diagnostics/frames"
+
+
+def test_dotenv_accepts_resnet50_preprocess(tmp_path: Path) -> None:
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("PREPROCESS=resnet50\n", encoding="utf-8")
+    config = Settings(_env_file=dotenv)
+    assert config.PREPROCESS == "resnet50"

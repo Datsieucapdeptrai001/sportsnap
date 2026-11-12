@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom'
 import { Focus, LoaderCircle, X } from 'lucide-react'
 import { explainImage } from '../lib/api'
 import { loadExplanation, type ExplanationState } from '../lib/explain'
+import { sportNameVi } from '../lib/sport-names'
 import { Button } from './ui/button'
+import { SportLabel } from './sport-label'
 
 function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
   image: Blob; onClose: () => void; returnFocusRef: RefObject<HTMLButtonElement | null>; camera: boolean
@@ -59,7 +61,7 @@ function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
           <img ref={overlayBackgroundRef} alt="Ảnh nền" className={state.status === 'success' ? 'absolute size-full object-contain' : 'hidden'} />
           {state.status === 'loading' && <p role="status" className="flex items-center gap-2 p-4 text-sm"><LoaderCircle size={20} className="motion-safe:animate-spin" aria-hidden="true" />Đang tính vùng chú ý…</p>}
           {state.status === 'success' && <>
-            <img alt={`Grad-CAM cho ${state.result.label}`} src={`data:image/png;base64,${state.result.overlay_png_base64}`} style={{ opacity: opacity / 100 }} className="absolute size-full object-contain" onError={() => setImageFailed(true)} />
+            <img alt={`Grad-CAM cho ${sportNameVi(state.result.label)}`} src={`data:image/png;base64,${state.result.overlay_png_base64}`} style={{ opacity: opacity / 100 }} className="absolute size-full object-contain" onError={() => setImageFailed(true)} />
           </>}
           {state.status === 'error' && <div role="alert" className="p-4 text-center text-sm"><p>{state.message}</p><Button className="mt-4" variant="outline" onClick={() => { setImageFailed(false); setAttempt((n) => n + 1) }}>Thử lại</Button></div>}
         </div>
@@ -67,7 +69,7 @@ function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
     </div>
     {imageFailed && <p role="alert" className="mt-3 text-sm text-destructive">Không thể hiển thị ảnh. Hãy đóng rồi mở lại bản đồ chú ý.</p>}
     {state.status === 'success' && <div className="mt-5 space-y-4">
-      <p className="font-semibold">{state.result.label} · {(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%{state.result.is_uncertain && <span className="ml-2 text-warning">Không chắc chắn</span>}</p>
+      <p className="font-semibold"><SportLabel label={state.result.label} /> · {(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%{state.result.is_uncertain && <span className="ml-2 text-warning">Không chắc chắn</span>}</p>
       <div><label htmlFor={sliderId} className="flex justify-between text-sm"><span>Độ hiển thị lớp phủ</span><span className="tabular-nums">{opacity}%</span></label><input id={sliderId} type="range" min="0" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} className="min-h-11 w-full accent-emerald-500" /></div>
     </div>}
   </dialog>, document.body)

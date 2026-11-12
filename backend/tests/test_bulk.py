@@ -377,7 +377,7 @@ def test_bulk_and_predict_share_model_lock(
 def test_real_model_bulk_matches_unchanged_golden_expectations() -> None:
     golden_dir = Path(__file__).parent / "golden"
     expected = json.loads((golden_dir / "expected.json").read_text(encoding="utf-8"))
-    with TestClient(create_app(Settings())) as client:
+    with TestClient(create_app(Settings(_env_file=None))) as client:
         images = [(entry["file"], (golden_dir / entry["file"]).read_bytes(), "image/png") for entry in expected]
         job_id = upload(client, images)
         result = wait_done(client, job_id)

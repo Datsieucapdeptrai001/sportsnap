@@ -25,7 +25,8 @@ def main() -> None:
     spec.loader.exec_module(generator)
     baseline_path = generator.ROOT/'frontend/public/models/manifest.json'
     baseline = json.loads(baseline_path.read_text(encoding='utf-8'))
-    assert len(baseline['models']) == 20, 'Generate all production models first'
+    expected_count = len(generator.BUILDERS)
+    assert len(baseline['models']) == expected_count, 'Generate all production models first'
     for label in generator.DISPLAY_SPORTS:
         entry = baseline['models'][label]
         assert entry['scale'] == 'display', label
@@ -46,7 +47,7 @@ def main() -> None:
                 raise AssertionError('An individual failure must fail the overall run')
         failed = json.loads((output/'manifest.json').read_text(encoding='utf-8'))
         report = json.loads(report_path.read_text(encoding='utf-8'))
-        assert len(failed['models']) == 19
+        assert len(failed['models']) == expected_count - 1
         assert 'basketball' not in failed['models']
         assert 'uneven bars' in failed['models'], 'Sports after the failure must finish'
         assert list(report['errors']) == ['basketball']

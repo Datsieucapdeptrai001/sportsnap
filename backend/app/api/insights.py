@@ -28,7 +28,13 @@ async def explain(request: Request, file: Annotated[UploadFile, File()]) -> Expl
         data = await read_image(file, config.MAX_UPLOAD_MB)
         return await run_in_threadpool(
             locked_prediction, request,
-            lambda: explain_image(data, model, request.app.state.labels, config.CONFIDENCE_THRESHOLD).explanation,
+            lambda: explain_image(
+                data,
+                model,
+                request.app.state.labels,
+                config.CONFIDENCE_THRESHOLD,
+                config.PREPROCESS,
+            ).explanation,
         )
     finally:
         await file.close()

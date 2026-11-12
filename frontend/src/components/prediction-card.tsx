@@ -5,6 +5,8 @@ import { Progress } from './ui/progress'
 import type { Prediction, ScanResult } from '../lib/api'
 import { SportArButton } from './sport-ar-button'
 import { ExplainButton } from './explain-button'
+import { SportLabel } from './sport-label'
+import { splitSportLabel } from '../lib/sport-names'
 import { cn } from '../lib/utils'
 
 const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
@@ -12,6 +14,7 @@ const percentage = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFra
 export function PredictionCard({ result, image = null, onOpenAr }: { result: Prediction | ScanResult; image?: Blob | null; onOpenAr?: () => void }) {
   const uncertain = result.is_uncertain
   const [explainOpen, setExplainOpen] = useState(false)
+  const { display, raw } = splitSportLabel(result.label)
 
   return (
     <Card aria-label="Kết quả nhận diện" className={cn('surface-enter', uncertain && 'border-warning/40 bg-warning-surface/85 hover:border-warning/50')}>
@@ -25,7 +28,8 @@ export function PredictionCard({ result, image = null, onOpenAr }: { result: Pre
         </span>
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">Môn thể thao được dự đoán</p>
-          <h2 className="mt-1 break-words text-2xl font-semibold">{result.label}</h2>
+          <h2 className="mt-1 break-words text-2xl font-semibold">{display}</h2>
+          {raw && <p className="mt-0.5 text-xs text-muted-foreground">{raw}</p>}
         </div>
       </div>
       <div className="mt-6 mb-2 flex items-center justify-between gap-4 text-sm">
@@ -50,7 +54,7 @@ export function PredictionCard({ result, image = null, onOpenAr }: { result: Pre
           {result.top3.map((prediction, index) => (
             <li key={prediction.label} className="flex items-center gap-3 text-sm">
               <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground tabular-nums" aria-hidden="true">{index + 1}</span>
-              <span className="min-w-0 flex-1 break-words">{prediction.label}</span>
+              <span className="min-w-0 flex-1 break-words"><SportLabel label={prediction.label} /></span>
               <span className="text-muted-foreground tabular-nums">{percentage.format(prediction.confidence)}</span>
             </li>
           ))}

@@ -8,14 +8,18 @@ const modelsDir = new URL('../public/models/', import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', modelsDir), 'utf8'))
 const assetsDoc = readFileSync(new URL('../../docs/ASSETS.md', import.meta.url), 'utf8')
 
-test('the inventory contains all 20 builders and exact local training labels when available', () => {
-  assert.equal(Object.keys(manifest.models).length, 20)
+test('the inventory contains all 24 builders and covers all unchanged training labels when available', () => {
+  assert.equal(Object.keys(manifest.models).length, 24)
   assert.equal(manifest.units, 'meters')
   assert.equal(manifest.up_axis, 'Y')
   assert.equal(manifest.origin, 'bottom-center')
   const labelsFile = new URL('../../backend/models/labels.json', import.meta.url)
   if (existsSync(labelsFile)) {
-    assert.deepEqual(Object.keys(manifest.models), JSON.parse(readFileSync(labelsFile, 'utf8').replace(/^\uFEFF/, '')))
+    const labels = JSON.parse(readFileSync(labelsFile, 'utf8').replace(/^\uFEFF/, ''))
+    for (const label of labels) assert.ok(Object.hasOwn(manifest.models, label), label)
+  }
+  for (const extra of ['archery', 'boxing', 'tennis', 'volleyball']) {
+    assert.ok(Object.hasOwn(manifest.models, extra), extra)
   }
   const mapping = readFileSync(new URL('../src/lib/sports3d.ts', import.meta.url), 'utf8')
   assert.match(mapping, /import manifest from '\.\.\/\.\.\/public\/models\/manifest\.json'/)

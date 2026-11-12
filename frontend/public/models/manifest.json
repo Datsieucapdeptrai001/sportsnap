@@ -1,6 +1,6 @@
 {
   "generator": "tools/blender/make_sport_models.py",
-  "blender": "5.2.1 LTS",
+  "blender": "5.2.2 LTS",
   "units": "meters",
   "up_axis": "Y",
   "origin": "bottom-center",
@@ -233,6 +233,54 @@
         2.52,
         2.357246
       ]
+    },
+    "archery": {
+      "file": "archery.glb",
+      "bytes": 110644,
+      "triangles": 2232,
+      "sha256": "fb259235f5d4d6ced58bf3c732a684e30835615e72b60d2e0b0371f973527797",
+      "dimensions_m": [
+        0.35,
+        0.244762,
+        0.28
+      ],
+      "scale": "display"
+    },
+    "boxing": {
+      "file": "boxing.glb",
+      "bytes": 156956,
+      "triangles": 4240,
+      "sha256": "42fd9284291ff14d534ed3237e4ad0a8266678c880de1076275eecf63eaaa301",
+      "dimensions_m": [
+        0.33,
+        0.142,
+        0.33
+      ],
+      "scale": "display"
+    },
+    "tennis": {
+      "file": "tennis.glb",
+      "bytes": 160384,
+      "triangles": 6092,
+      "sha256": "0bc5ec2790ff7476c1017eacef410d774b6831b41ca81444a235ec4d187b7c64",
+      "dimensions_m": [
+        0.35,
+        0.073,
+        0.28
+      ],
+      "scale": "display"
+    },
+    "volleyball": {
+      "file": "volleyball.glb",
+      "bytes": 170696,
+      "triangles": 6624,
+      "sha256": "317518f1dbacc52c44100415f89adaff7fa54d1872ff39bf9a55abfff4669b18",
+      "dimensions_m": [
+        0.35,
+        0.197,
+        0.28
+      ],
+      "scale": "display"
     }
   }
 }

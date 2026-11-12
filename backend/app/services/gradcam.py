@@ -31,9 +31,14 @@ def build_gradcam_graph(model: Any) -> tuple[Any, Any]:
     if not bases:
         raise APIError(501, "gradcam_unsupported", "Mô hình này chưa hỗ trợ bản đồ vùng chú ý.")
     base = bases[-1]
-    try:
-        target = base.get_layer("out_relu")
-    except ValueError:
+    target = None
+    for layer_name in ("out_relu", "conv5_block3_out"):
+        try:
+            target = base.get_layer(layer_name)
+            break
+        except ValueError:
+            continue
+    if target is None:
         targets = [layer for layer in base.layers if isinstance(layer, keras.layers.Conv2D)]
         if not targets:
             raise APIError(501, "gradcam_unsupported", "Không tìm thấy lớp tích chập để tạo bản đồ chú ý.")
@@ -58,13 +63,19 @@ def jet_colors(heatmap: NDArray[np.float32]) -> NDArray[np.uint8]:
     return np.uint8(np.stack(channels, axis=-1) * 255)
 
 
-def explain_image(data: bytes, model: Any, labels: list[str], threshold: float) -> GradCamResult:
+def explain_image(
+    data: bytes,
+    model: Any,
+    labels: list[str],
+    threshold: float,
+    preprocess: str = "mobilenet_v2",
+) -> GradCamResult:
     """Caller must hold the shared model lock and run outside the event loop."""
     import tensorflow as tf
 
     started = perf_counter_ns()
-    prediction = predict_image(data, model, labels, threshold)
-    batch = preprocess_image(data)
+    prediction = predict_image(data, model, labels, threshold, preprocess=preprocess)
+    batch = preprocess_image(data, preprocess=preprocess)
     conv_model, classifier_model = build_gradcam_graph(model)
     target_index = labels.index(prediction.label)
     with tf.GradientTape() as tape:
