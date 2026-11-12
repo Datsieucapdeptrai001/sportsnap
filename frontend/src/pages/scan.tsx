@@ -11,7 +11,6 @@ import { Skeleton } from '../components/ui/skeleton'
 import { getClasses, predictImage, type Prediction, type ScanResult } from '../lib/api'
 import { warnAboutUnmappedClasses } from '../lib/sports3d'
 import { readAutoOpenArPreference, saveAutoOpenArPreference } from '../lib/ar'
-import { sportNameVi } from '../lib/sport-names'
 import { cn } from '../lib/utils'
 
 type ScanState =
@@ -171,7 +170,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
         </div>}
       </section>
       <p role="status" aria-live="polite" className="sr-only">
-        {state.status === 'loading' ? 'Đang nhận diện ảnh. Vui lòng đợi.' : state.status === 'success' ? `Đã có kết quả: ${sportNameVi(state.result.label)}. ${state.result.is_uncertain ? 'Không chắc chắn.' : ''}` : ''}
+        {state.status === 'loading' ? 'Đang nhận diện ảnh. Vui lòng đợi.' : state.status === 'success' ? `Đã có kết quả: ${state.result.label}. ${state.result.is_uncertain ? 'Không chắc chắn.' : ''}` : ''}
       </p>
       <div className="mt-8" aria-busy={state.status === 'loading'}>
         {state.status === 'idle' && (
