@@ -23,10 +23,10 @@ export function ModelSelector({
   const active = models.find((model) => model.id === activeModelId) ?? null
 
   return (
-    <Card aria-label="Chọn mô hình nhận diện" className="hud-panel mb-6 p-4 sm:p-5">
+    <Card aria-label="Chọn mô hình nhận diện" className="mb-6 p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
             <Cpu size={18} aria-hidden="true" />
           </span>
           <div>
@@ -34,7 +34,7 @@ export function ModelSelector({
               Mô hình AI đang dùng
             </label>
             <p className="text-xs text-muted-foreground">
-              Chọn bất kỳ mô hình nào để thử nghiệm nhận diện &amp; Grad-CAM
+              Đổi mô hình để thử nhận diện và Grad-CAM
             </p>
           </div>
         </div>
@@ -49,7 +49,7 @@ export function ModelSelector({
       {loading && !models.length ? (
         <p className="mt-3 text-xs text-muted-foreground">Đang tải danh sách mô hình…</p>
       ) : error && !models.length ? (
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-destructive">
+        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-destructive/50 bg-destructive-surface p-3 text-sm">
           <span>{error}</span>
           <Button variant="outline" onClick={onRetry}>
             <RefreshCw size={14} aria-hidden="true" />Thử lại
@@ -65,7 +65,7 @@ export function ModelSelector({
               const nextId = event.target.value
               if (nextId && nextId !== activeModelId) onSelect(nextId)
             }}
-            className="min-h-11 w-full rounded-xl border border-border bg-background/80 px-3 py-2 text-sm font-medium text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+            className="min-h-11 w-full rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground disabled:opacity-60"
           >
             {models.map((model) => (
               <option key={model.id} value={model.id}>
@@ -76,13 +76,13 @@ export function ModelSelector({
 
           {active && (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 tabular-nums">
+              <span className="rounded-full border border-border bg-lane px-2.5 py-0.5 tabular-nums">
                 {active.num_classes} môn
               </span>
-              <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5">
+              <span className="rounded-full border border-border bg-lane px-2.5 py-0.5">
                 Tiền xử lý: {active.preprocess}
               </span>
-              <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 tabular-nums">
+              <span className="rounded-full border border-border bg-lane px-2.5 py-0.5 tabular-nums">
                 {active.size_mb} MB
               </span>
               <span className="min-w-0 flex-1 truncate sm:flex-none">{active.description}</span>

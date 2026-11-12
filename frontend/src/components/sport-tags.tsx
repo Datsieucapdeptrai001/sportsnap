@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { getClasses } from '../lib/api'
-import { sportNameVi } from '../lib/sport-names'
 import { Skeleton } from './ui/skeleton'
 
 type TagsState =
@@ -28,31 +27,31 @@ export function SportTags() {
   }
 
   return (
-    <section aria-label="Các môn thể thao có thể nhận diện" className="mt-6 mb-8 min-w-0">
-      <p className="mb-3 text-xs font-medium tracking-wide text-slate-200">Các môn thể thao có thể nhận diện</p>
+    <section aria-label="Các môn thể thao có thể nhận diện" className="mt-10 min-w-0 border-t border-border pt-6">
+      <h2 className="mb-3 text-sm font-semibold">Các môn mô hình nhận diện được{state.status === 'ready' && state.classes.length > 0 && <span className="ml-2 font-normal text-muted-foreground tabular-nums">{state.classes.length}</span>}</h2>
       {state.status === 'loading' && (
         <div role="status" className="flex gap-2">
           <span className="sr-only">Đang tải danh sách môn thể thao…</span>
-          <Skeleton className="h-8 w-20 rounded-full bg-white/10" />
-          <Skeleton className="h-8 w-28 rounded-full bg-white/10" />
-          <Skeleton className="h-8 w-20 rounded-full bg-white/10" />
+          <Skeleton className="h-8 w-20 rounded-full" />
+          <Skeleton className="h-8 w-28 rounded-full" />
+          <Skeleton className="h-8 w-20 rounded-full" />
         </div>
       )}
       {state.status === 'error' && (
-        <div className="flex flex-wrap items-center gap-x-3 text-xs text-slate-300">
+        <div className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
           <p role="status">Chưa tải được danh sách môn thể thao.</p>
-          <button type="button" onClick={retry} className="min-h-11 rounded-lg px-2 font-medium text-emerald-300 hover:bg-white/5">Thử lại</button>
+          <button type="button" onClick={retry} className="min-h-11 rounded-lg px-2 font-medium text-primary hover:bg-muted">Thử lại</button>
         </div>
       )}
       {state.status === 'ready' && (state.classes.length ? (
-        <div role="region" aria-label="Danh sách môn thể thao, cuộn ngang để xem thêm" tabIndex={0} className="sport-tags overflow-x-auto rounded-xl pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300">
-          <ul className="flex w-max gap-2">
+        <div role="region" aria-label="Danh sách môn thể thao, cuộn ngang để xem thêm" tabIndex={0} className="sport-tags overflow-x-auto rounded-xl pb-2">
+          <ul className="flex w-max gap-2 md:w-auto md:flex-wrap">
             {state.classes.map((label) => (
-              <li key={label} title={label} className="rounded-full border border-emerald-300/20 bg-slate-950/30 px-3 py-1.5 text-xs whitespace-nowrap text-slate-100 backdrop-blur-md">{sportNameVi(label)}</li>
+              <li key={label} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs whitespace-nowrap">{label}</li>
             ))}
           </ul>
         </div>
-      ) : <p className="text-xs text-slate-300">Danh sách môn thể thao sẽ hiển thị khi mô hình sẵn sàng.</p>)}
+      ) : <p className="text-sm text-muted-foreground">Danh sách môn thể thao sẽ hiển thị khi mô hình sẵn sàng.</p>)}
     </section>
   )
 }

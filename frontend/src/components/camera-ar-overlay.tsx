@@ -63,9 +63,9 @@ export function CameraArOverlay({ label, confidence, asset, cameraReady, onOpenA
   }, [viewerActive, attempt])
 
   return <div className="pointer-events-none absolute inset-2 flex flex-col items-center gap-1 sm:inset-3 sm:gap-2" aria-label="Mô hình 3D trên camera">
-    <div className="max-w-full rounded-xl bg-black/75 px-3 py-1.5 text-center text-white" role="status">
-      <h2 className="text-xl leading-tight font-bold sm:text-2xl">{name}</h2>
-      <p className="mt-0.5 text-xs">{label} · Độ tin cậy: <span className="tabular-nums">{(confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span></p>
+    <div className="max-w-full rounded-xl bg-black/75 px-4 py-2 text-center text-white" role="status">
+      <h2 className="text-2xl leading-tight font-bold tracking-tight sm:text-3xl">{name}</h2>
+      <p className="mt-0.5 text-xs text-white/85">{label}, độ tin cậy <span className="tabular-nums">{(confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span></p>
     </div>
     <div className="relative min-h-0 w-4/5 max-w-sm flex-1">
       {viewerActive && <model-viewer ref={viewerRef} src={modelSource(asset.glb, attempt)}
@@ -84,7 +84,7 @@ export function CameraArOverlay({ label, confidence, asset, cameraReady, onOpenA
     </div>
     <div className="pointer-events-auto flex shrink-0 gap-2">
       <Button className="px-3" disabled={!cameraReady} onClick={onRescan}><RotateCcw size={16} aria-hidden="true" />Quét lại</Button>
-      <Button className="bg-black/80 px-3 text-white" disabled={!cameraReady} aria-describedby={noteId} onClick={onOpenAr}>
+      <Button variant="ink" className="px-3" disabled={!cameraReady} aria-describedby={noteId} onClick={onOpenAr}>
         <Box size={16} aria-hidden="true" />AR thật
       </Button>
     </div>
