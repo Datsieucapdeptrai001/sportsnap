@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChartNoAxesCombined, TriangleAlert } from 'lucide-react'
+import { RotateCcw, TriangleAlert } from 'lucide-react'
 import { getInsights, type Insights } from '../lib/api'
 import { confusionStrength, metric } from '../lib/insights'
 import { Button } from '../components/ui/button'
@@ -11,7 +11,7 @@ const splitLabels: Record<string, string> = { train: 'Huấn luyện', valid: 'V
 function InsightsContent({ data }: { data: Insights }) {
   const [selectedSplit, setSelectedSplit] = useState('test')
   const split = data.splits.find((item) => item.split === selectedSplit) ?? data.splits[0]
-  return <div className="mt-8 space-y-6">
+  return <div className="mt-6 space-y-5">
     <Card>
       <h2 className="text-lg font-semibold">So sánh mô hình</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Accuracy từ {data.sources.comparison}. Mô hình được chọn theo validation: <strong className="text-foreground">{data.selected_model}</strong>.</p>
@@ -48,7 +48,7 @@ function InsightsContent({ data }: { data: Insights }) {
       </> : <p className="mt-4 text-sm text-muted-foreground">Chưa có dữ liệu ma trận nhầm lẫn.</p>}
     </Card>
     <Card><h2 className="text-lg font-semibold">Nguồn dữ liệu và phạm vi đo</h2><p className="mt-3 text-sm text-muted-foreground">Nguồn dự đoán: {data.sources.predictions}. {data.sources.attribution}</p><ul className="mt-3 list-disc space-y-3 pl-5 text-sm leading-relaxed text-muted-foreground">{data.notes.map((note) => <li key={note}>{note}</li>)}</ul></Card>
-    <Card className="border-warning/40"><h2 className="flex items-center gap-2 text-lg font-semibold"><TriangleAlert size={21} className="text-warning" aria-hidden="true" />Hạn chế đã biết</h2><p className="mt-3 text-sm leading-relaxed text-muted-foreground">Camera nhận diện kém trên các frame bóng chày chụp lại màn hình đã thử. Sai lệch miền ảnh là nguyên nhân nghi ngờ, chưa được tách biệt và chứng minh. Hãy thử ảnh gốc hoặc cảnh thể thao thực, đủ sáng, chủ thể lấp đầy khung hướng dẫn.</p><p className="mt-3 text-xs text-muted-foreground">Nguồn: SPEC.md §13 · Camera scans of screens.</p></Card>
+    <Card className="border-warning-line bg-warning-surface"><h2 className="flex items-center gap-2 text-lg font-semibold"><TriangleAlert size={21} className="text-warning" aria-hidden="true" />Hạn chế đã biết</h2><p className="mt-3 max-w-prose text-sm leading-relaxed">Camera nhận diện kém trên các frame bóng chày chụp lại màn hình đã thử. Sai lệch miền ảnh là nguyên nhân nghi ngờ, chưa được tách biệt và chứng minh. Hãy thử ảnh gốc hoặc cảnh thể thao thực, đủ sáng, chủ thể lấp đầy khung hướng dẫn.</p><p className="mt-3 text-xs text-muted-foreground">Nguồn: SPEC.md §13 · Camera scans of screens.</p></Card>
   </div>
 }
 
@@ -65,8 +65,8 @@ export function InsightsPage() {
     return () => controller.abort()
   }, [attempt])
   return <>
-    <header className="text-white"><p className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-widest text-emerald-300 uppercase"><ChartNoAxesCombined size={16} aria-hidden="true" />Thí nghiệm và giải thích</p><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Phân tích mô hình</h1><p className="mt-4 text-sm leading-relaxed text-slate-200">Đối chiếu kết quả từ notebook huấn luyện và xem những nhãn mô hình còn nhầm.</p></header>
-    {state.error ? <Card className="mt-8"><p role="alert" className="text-sm">{state.error}</p><Button className="mt-4" variant="outline" onClick={() => { setState({ data: null, error: '' }); setAttempt((n) => n + 1) }}>Thử lại</Button></Card>
-      : state.data ? <InsightsContent data={state.data} /> : <Card className="mt-8" aria-busy="true"><p role="status" className="mb-4 text-sm">Đang tải dữ liệu thí nghiệm…</p><Skeleton className="h-8 w-2/3" /><Skeleton className="mt-5 h-40 w-full" /></Card>}
+    <header><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Phân tích mô hình</h1><p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground sm:text-base">Đối chiếu kết quả từ notebook huấn luyện và xem những nhãn mô hình còn nhầm.</p></header>
+    {state.error ? <Card className="mt-6 border-destructive/50 bg-destructive-surface"><p role="alert" className="text-sm">{state.error}</p><Button className="mt-4" variant="outline" onClick={() => { setState({ data: null, error: '' }); setAttempt((n) => n + 1) }}><RotateCcw size={18} aria-hidden="true" />Thử lại</Button></Card>
+      : state.data ? <InsightsContent data={state.data} /> : <Card className="mt-6" aria-busy="true"><p role="status" className="mb-4 text-sm">Đang tải dữ liệu thí nghiệm…</p><Skeleton className="h-8 w-2/3" /><Skeleton className="mt-5 h-40 w-full" /></Card>}
   </>
 }
