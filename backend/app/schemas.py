@@ -7,8 +7,32 @@ class HealthResponse(BaseModel):
     status: Literal["ok"] = "ok"
     model_loaded: bool
     num_classes: int = Field(ge=0)
-    preprocess: Literal["mobilenet_v2", "resnet50"]
+    preprocess: Literal["mobilenet_v2", "resnet50", "none"]
     reason: Literal["model_missing", "model_load_failed"] | None = None
+
+
+class ModelInfo(BaseModel):
+    id: str
+    name: str
+    description: str
+    preprocess: Literal["mobilenet_v2", "resnet50", "none"]
+    num_classes: int = Field(ge=0)
+    size_mb: float = Field(ge=0)
+    active: bool
+
+
+class ModelsListResponse(BaseModel):
+    active_model_id: str | None = None
+    models: list[ModelInfo]
+
+
+class SelectModelRequest(BaseModel):
+    model_id: str
+
+
+class SelectModelResponse(BaseModel):
+    active_model_id: str
+    model: ModelInfo
 
 
 class ClassConfidence(BaseModel):
@@ -21,6 +45,17 @@ class Prediction(ClassConfidence):
     is_uncertain: bool
     threshold: float = Field(ge=0, le=1)
     latency_ms: int = Field(ge=0)
+
+
+class ModelComparisonItem(BaseModel):
+    id: str
+    name: str
+    preprocess: Literal["mobilenet_v2", "resnet50", "none"]
+    prediction: Prediction
+
+
+class ModelComparisonResponse(BaseModel):
+    results: list[ModelComparisonItem]
 
 
 class FramePrediction(ClassConfidence):

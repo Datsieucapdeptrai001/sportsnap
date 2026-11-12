@@ -84,7 +84,7 @@ async def predict(request: Request, file: Annotated[UploadFile, File()]) -> Pred
                 model,
                 request.app.state.labels,
                 config.CONFIDENCE_THRESHOLD,
-                config.PREPROCESS,
+                getattr(request.app.state, "preprocess", config.PREPROCESS),
             ),
         )
     finally:
@@ -122,7 +122,7 @@ async def scan(
                 model,
                 request.app.state.labels,
                 config.CONFIDENCE_THRESHOLD,
-                config.PREPROCESS,
+                getattr(request.app.state, "preprocess", config.PREPROCESS),
             ),
         )
     finally:

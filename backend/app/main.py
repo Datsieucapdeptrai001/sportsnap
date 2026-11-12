@@ -19,10 +19,12 @@ from starlette.concurrency import run_in_threadpool
 from app.api.scan import router as inference_router
 from app.api.bulk import router as bulk_router
 from app.api.insights import router as insights_router
+from app.api.models import router as models_router
 from app.core.config import Settings
 from app.core.errors import APIError
 from app.schemas import ErrorDetail, ErrorResponse, HealthResponse
 from app.services.bulk_job import BulkJobStore
+from app.services.model_registry import find_spec_by_paths
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         application.state.model = None
         application.state.labels = []
+        application.state.preprocess = config.PREPROCESS
+        application.state.active_model_id = None
+        application.state.loaded_models = {}
         application.state.model_reason = None
         application.state.model_lock = Lock()
         try:
@@ -59,12 +64,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     raise ValueError("Model output size does not match the labels file.")
                 application.state.model = model
                 application.state.labels = labels
+                spec = find_spec_by_paths(config, config.MODEL_PATH, config.LABELS_PATH)
+                if spec is not None:
+                    application.state.active_model_id = spec.id
+                    application.state.preprocess = spec.preprocess
+                    application.state.loaded_models[spec.id] = (model, labels)
         except Exception:
             # Failed imports, unreadable files and invalid models must not prevent startup.
             application.state.model_reason = "model_load_failed"
             logger.exception("Model loading failed; health endpoint remains available.")
         application.state.bulk_jobs = BulkJobStore(
             config, application.state.model, application.state.labels, application.state.model_lock,
+        )
+        application.state.bulk_jobs.set_active_model(
+            application.state.model, application.state.labels, application.state.preprocess
         )
 
         async def cleanup_bulk_jobs() -> None:
@@ -84,6 +97,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await run_in_threadpool(application.state.bulk_jobs.close)
             application.state.model = None
             application.state.labels = []
+            application.state.loaded_models = {}
 
     application = FastAPI(title="SportSnap", lifespan=lifespan)
     application.state.settings = config
@@ -132,12 +146,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return HealthResponse(
             model_loaded=request.app.state.model is not None,
             num_classes=len(request.app.state.labels),
-            preprocess=config.PREPROCESS,
+            preprocess=getattr(request.app.state, "preprocess", config.PREPROCESS),
             reason=request.app.state.model_reason,
         )
 
     # Register API routes first so static serving cannot shadow them.
     application.include_router(inference_router, prefix="/api")
+    application.include_router(models_router, prefix="/api")
     application.include_router(bulk_router, prefix="/api")
     application.include_router(insights_router, prefix="/api")
     if (config.FRONTEND_DIST / "index.html").is_file():

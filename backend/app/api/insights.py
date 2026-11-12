@@ -33,7 +33,7 @@ async def explain(request: Request, file: Annotated[UploadFile, File()]) -> Expl
                 model,
                 request.app.state.labels,
                 config.CONFIDENCE_THRESHOLD,
-                config.PREPROCESS,
+                getattr(request.app.state, "preprocess", config.PREPROCESS),
             ).explanation,
         )
     finally:

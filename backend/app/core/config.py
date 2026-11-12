@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     BASE_DIR: Path = PROJECT_ROOT
     MODEL_PATH: Path = Path("backend/models/best_model.keras")
     LABELS_PATH: Path = Path("backend/models/labels.json")
-    PREPROCESS: Literal["mobilenet_v2", "resnet50"] = "mobilenet_v2"
+    PREPROCESS: Literal["mobilenet_v2", "resnet50", "none"] = "mobilenet_v2"
     CONFIDENCE_THRESHOLD: float = Field(default=0.60, ge=0, le=1)
     MAX_UPLOAD_MB: int = Field(default=12, gt=0)
     MAX_BULK_FILES: int = Field(default=2000, gt=0)

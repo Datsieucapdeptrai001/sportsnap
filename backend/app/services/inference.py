@@ -48,12 +48,18 @@ def preprocess_image(data: bytes, preprocess: str = "mobilenet_v2") -> NDArray[n
     # Keep TensorFlow lazy: a checkout without model files can still start.
     if preprocess == "mobilenet_v2":
         from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+
+        processed = preprocess_input(pixels)
     elif preprocess == "resnet50":
         from tensorflow.keras.applications.resnet50 import preprocess_input
+
+        processed = preprocess_input(pixels)
+    elif preprocess == "none":
+        processed = pixels
     else:
         raise ValueError(f"Unsupported preprocess mode: {preprocess}")
 
-    return np.expand_dims(preprocess_input(pixels), axis=0)
+    return np.expand_dims(processed, axis=0)
 
 
 def predict_image(

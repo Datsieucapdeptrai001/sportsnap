@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Activity, ChartNoAxesCombined, Layers, ScanLine } from 'lucide-react'
-import { Toaster } from 'sonner'
+import { Toaster, toast } from 'sonner'
+import { ModelSelector } from './components/model-selector'
 import { SportCanvasBackground } from './components/sport-canvas-background'
+import { getModels, selectModel, type ModelInfo } from './lib/api'
 import { cn } from './lib/utils'
 import { ScanPage } from './pages/scan'
 import { BulkPage } from './pages/bulk'
@@ -15,6 +17,47 @@ const tabs = [
 
 function App() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('scan')
+  const [models, setModels] = useState<ModelInfo[]>([])
+  const [activeModelId, setActiveModelId] = useState<string | null>(null)
+  const [loadingModels, setLoadingModels] = useState(true)
+  const [switchingModel, setSwitchingModel] = useState(false)
+  const [modelsError, setModelsError] = useState('')
+  const [modelsAttempt, setModelsAttempt] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoadingModels(true)
+    setModelsError('')
+    getModels(controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return
+        setModels(data.models)
+        setActiveModelId(data.active_model_id)
+        setLoadingModels(false)
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setModelsError(error instanceof Error ? error.message : 'Không thể tải danh sách mô hình.')
+        setLoadingModels(false)
+      })
+    return () => controller.abort()
+  }, [modelsAttempt])
+
+  const handleSelectModel = useCallback(async (modelId: string) => {
+    setSwitchingModel(true)
+    try {
+      const result = await selectModel(modelId)
+      setActiveModelId(result.active_model_id)
+      setModels((prev) =>
+        prev.map((item) => ({ ...item, active: item.id === result.active_model_id })),
+      )
+      toast.success(`Đã chuyển sang ${result.model.name}`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Không thể chuyển mô hình.')
+    } finally {
+      setSwitchingModel(false)
+    }
+  }, [])
 
   return (
     <div className="relative isolate min-h-svh md:pl-64">
@@ -54,8 +97,19 @@ function App() {
         </p>
       </aside>
       <main id="main-content" className="relative mx-auto max-w-[784px] px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:py-12">
+        {activeTab !== 'insights' && (
+          <ModelSelector
+            models={models}
+            activeModelId={activeModelId}
+            loading={loadingModels}
+            switching={switchingModel}
+            error={modelsError}
+            onSelect={(id) => void handleSelectModel(id)}
+            onRetry={() => setModelsAttempt((value) => value + 1)}
+          />
+        )}
         <div hidden={activeTab !== 'scan'}>
-          <ScanPage active={activeTab === 'scan'} />
+          <ScanPage active={activeTab === 'scan'} activeModelId={activeModelId} />
         </div>
         <div hidden={activeTab !== 'bulk'}>
           <BulkPage active={activeTab === 'bulk'} />

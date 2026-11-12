@@ -22,10 +22,7 @@ tmp_images/
 temp_images/
 # Local notebook datasets, working scripts and large model checkpoints
 /models/
-/datasets/
 /datasets.zip
 /scratch/
-/notebook/
-/data/
 *.keras
 !backend/models/best_model.keras

@@ -23,35 +23,54 @@ class GradCamResult:
     heatmap: NDArray[np.float32]
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=8)
 def build_gradcam_graph(model: Any) -> tuple[Any, Any]:
     from tensorflow import keras
 
     bases = [layer for layer in model.layers if isinstance(layer, keras.Model)]
-    if not bases:
-        raise APIError(501, "gradcam_unsupported", "Mô hình này chưa hỗ trợ bản đồ vùng chú ý.")
-    base = bases[-1]
+    if bases:
+        base = bases[-1]
+        target = None
+        for layer_name in ("out_relu", "conv5_block3_out"):
+            try:
+                target = base.get_layer(layer_name)
+                break
+            except ValueError:
+                continue
+        if target is None:
+            targets = [layer for layer in base.layers if isinstance(layer, keras.layers.Conv2D)]
+            if not targets:
+                raise APIError(501, "gradcam_unsupported", "Không tìm thấy lớp tích chập để tạo bản đồ chú ý.")
+            target = targets[-1]
+        # The outer model's input and the nested layer output are different graphs.
+        conv_model = keras.Model(base.input, target.output)
+        classifier_input = keras.Input(shape=target.output.shape[1:])
+        value = classifier_input
+        if target is not base.layers[-1]:
+            # A last-Conv2D fallback may still have BN/activation layers inside base.
+            tail = keras.Model(target.output, base.output)
+            value = tail(value, training=False)
+        for layer in model.layers[model.layers.index(base) + 1:]:
+            value = layer(value, training=False)
+        classifier_model = keras.Model(classifier_input, value)
+        return conv_model, classifier_model
+
+    # Flat models (such as cnn_scratch_best.keras) expose Conv2D layers directly.
     target = None
-    for layer_name in ("out_relu", "conv5_block3_out"):
-        try:
-            target = base.get_layer(layer_name)
-            break
-        except ValueError:
-            continue
+    try:
+        target = model.get_layer("last_conv")
+    except ValueError:
+        conv_layers = [layer for layer in model.layers if isinstance(layer, keras.layers.Conv2D)]
+        if conv_layers:
+            target = conv_layers[-1]
     if target is None:
-        targets = [layer for layer in base.layers if isinstance(layer, keras.layers.Conv2D)]
-        if not targets:
-            raise APIError(501, "gradcam_unsupported", "Không tìm thấy lớp tích chập để tạo bản đồ chú ý.")
-        target = targets[-1]
-    # The outer model's input and the nested layer output are different graphs.
-    conv_model = keras.Model(base.input, target.output)
+        raise APIError(501, "gradcam_unsupported", "Mô hình này chưa hỗ trợ bản đồ vùng chú ý.")
+
+    model_input = model.inputs[0] if getattr(model, "inputs", None) else model.input
+    conv_model = keras.Model(model_input, target.output)
     classifier_input = keras.Input(shape=target.output.shape[1:])
     value = classifier_input
-    if target is not base.layers[-1]:
-        # A last-Conv2D fallback may still have BN/activation layers inside base.
-        tail = keras.Model(target.output, base.output)
-        value = tail(value, training=False)
-    for layer in model.layers[model.layers.index(base) + 1:]:
+    for layer in model.layers[model.layers.index(target) + 1:]:
         value = layer(value, training=False)
     classifier_model = keras.Model(classifier_input, value)
     return conv_model, classifier_model

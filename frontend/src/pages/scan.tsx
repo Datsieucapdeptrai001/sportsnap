@@ -3,6 +3,7 @@ import { Camera, ImagePlus, ImageUp, ScanLine, ShieldCheck, TriangleAlert, X } f
 import { toast } from 'sonner'
 import { PredictionCard } from '../components/prediction-card'
 import { CameraScanner, type CameraScannerHandle } from '../components/camera-scanner'
+import { ModelCompareCard } from '../components/model-compare-card'
 import { SportTags } from '../components/sport-tags'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -41,11 +42,18 @@ function ImagePreview({ file }: { file: File }) {
   )
 }
 
-export function ScanPage({ active = true }: { active?: boolean }) {
+export function ScanPage({
+  active = true,
+  activeModelId = null,
+}: {
+  active?: boolean
+  activeModelId?: string | null
+}) {
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<CameraScannerHandle>(null)
   const requestRef = useRef<AbortController | null>(null)
   const resultSequence = useRef(0)
+  const previousModelRef = useRef<string | null>(activeModelId)
   const [autoOpenAr, setAutoOpenAr] = useState(readAutoOpenArPreference)
   const [file, setFile] = useState<File | null>(null)
   const [mode, setMode] = useState<'camera' | 'gallery'>('camera')
@@ -60,7 +68,15 @@ export function ScanPage({ active = true }: { active?: boolean }) {
       if (!controller.signal.aborted) console.warn('Could not validate 3D mapping against /api/classes.')
     })
     return () => controller.abort()
-  }, [])
+  }, [activeModelId])
+
+  useEffect(() => {
+    const previous = previousModelRef.current
+    previousModelRef.current = activeModelId
+    if (previous !== null && activeModelId && previous !== activeModelId && mode === 'gallery' && file) {
+      void recognize(file)
+    }
+  }, [activeModelId, file, mode])
 
   async function recognize(selected: File) {
     requestRef.current?.abort()
@@ -110,7 +126,7 @@ export function ScanPage({ active = true }: { active?: boolean }) {
           Quét bằng camera hoặc chọn ảnh từ thư viện để khám phá môn thể thao và các dự đoán phù hợp nhất.
         </p>
       </header>
-      <SportTags />
+      <SportTags key={activeModelId ?? 'default'} />
       <Card aria-label="Camera và thư viện ảnh" className="hud-panel p-4 sm:p-6">
         <div className="mb-4 flex gap-2" role="group" aria-label="Chế độ nhận diện">
           <Button className="flex-1" variant={mode === 'camera' ? 'default' : 'outline'} aria-pressed={mode === 'camera'} onClick={() => changeMode('camera')}>
@@ -210,8 +226,13 @@ export function ScanPage({ active = true }: { active?: boolean }) {
             {file && <Button className="mt-5" variant="outline" onClick={() => void recognize(file)}>Thử lại</Button>}
           </Card>
         )}
-        {state.status === 'success' && <PredictionCard key={state.resultId} result={state.result} image={state.image}
-          onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined} />}
+        {state.status === 'success' && (
+          <>
+            <PredictionCard key={state.resultId} result={state.result} image={state.image}
+              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined} />
+            <ModelCompareCard image={state.image} activeModelId={activeModelId} />
+          </>
+        )}
       </div>
       <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.

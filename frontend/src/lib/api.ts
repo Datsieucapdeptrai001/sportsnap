@@ -1,9 +1,42 @@
+export type PreprocessMode = 'mobilenet_v2' | 'resnet50' | 'none'
+
 export interface HealthResponse {
   status: 'ok'
   model_loaded: boolean
   num_classes: number
-  preprocess: 'mobilenet_v2'
+  preprocess: PreprocessMode
   reason?: 'model_missing' | 'model_load_failed'
+}
+
+export interface ModelInfo {
+  id: string
+  name: string
+  description: string
+  preprocess: PreprocessMode
+  num_classes: number
+  size_mb: number
+  active: boolean
+}
+
+export interface ModelsListResponse {
+  active_model_id: string | null
+  models: ModelInfo[]
+}
+
+export interface SelectModelResponse {
+  active_model_id: string
+  model: ModelInfo
+}
+
+export interface ModelComparisonItem {
+  id: string
+  name: string
+  preprocess: PreprocessMode
+  prediction: Prediction
+}
+
+export interface ModelComparisonResponse {
+  results: ModelComparisonItem[]
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
@@ -130,6 +163,66 @@ export async function getClasses(signal?: AbortSignal): Promise<string[]> {
   if (!response.ok) throw new Error('Không thể tải danh sách môn thể thao.')
   const result = await response.json() as { classes: string[] }
   return result.classes
+}
+
+export async function getModels(signal?: AbortSignal): Promise<ModelsListResponse> {
+  let response: Response
+  try {
+    response = await fetch('/api/models', { signal })
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new Error('Không thể tải danh sách mô hình. Vui lòng thử lại.', { cause: error })
+  }
+  if (!response.ok) throw new Error('Không thể tải danh sách mô hình. Vui lòng thử lại.')
+  return await response.json() as ModelsListResponse
+}
+
+export async function selectModel(modelId: string, signal?: AbortSignal): Promise<SelectModelResponse> {
+  let response: Response
+  try {
+    response = await fetch('/api/models/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: modelId }),
+      signal,
+    })
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new Error('Không thể kết nối khi đổi mô hình. Vui lòng thử lại.', { cause: error })
+  }
+  if (!response.ok) {
+    const payload: unknown = await response.json().catch(() => null)
+    const detail = payload && typeof payload === 'object' && 'error' in payload ? payload.error : null
+    const message = detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string'
+      ? detail.message
+      : 'Không thể chuyển mô hình lúc này.'
+    throw new Error(message)
+  }
+  return await response.json() as SelectModelResponse
+}
+
+export async function compareModels(image: Blob, signal?: AbortSignal): Promise<ModelComparisonResponse> {
+  const body = new FormData()
+  body.append('file', image, image instanceof File ? image.name : 'frame.jpg')
+  let response: Response
+  try {
+    response = await fetch('/api/models/compare', { method: 'POST', body, signal })
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new Error('Không thể kết nối khi so sánh các mô hình. Vui lòng thử lại.', { cause: error })
+  }
+  if (!response.ok) {
+    const payload: unknown = await response.json().catch(() => null)
+    const detail = payload && typeof payload === 'object' && 'error' in payload ? payload.error : null
+    const code = detail && typeof detail === 'object' && 'code' in detail ? detail.code : null
+    if (code === 'file_too_large' || response.status === 413) {
+      throw new Error('Ảnh vượt quá giới hạn dung lượng của hệ thống. Vui lòng chọn ảnh nhỏ hơn.')
+    }
+    throw new Error(typeof code === 'string' && errorMessages[code]
+      ? errorMessages[code]
+      : 'Chưa thể so sánh các mô hình lúc này. Vui lòng thử lại.')
+  }
+  return await response.json() as ModelComparisonResponse
 }
 
 export type BulkState = 'queued' | 'running' | 'done' | 'error' | 'cancelled'

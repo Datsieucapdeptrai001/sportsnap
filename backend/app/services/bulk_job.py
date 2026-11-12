@@ -89,11 +89,19 @@ class BulkJobStore:
         self.config = config
         self.model = model
         self.labels = labels
+        self.preprocess = config.PREPROCESS
         self.model_lock = model_lock
         self.lock = Lock()
         self.jobs: dict[str, BulkJob] = {}
         self.expired: set[str] = set()
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sportsnap-bulk")
+
+    def set_active_model(
+        self, model: Classifier | None, labels: list[str], preprocess: str
+    ) -> None:
+        self.model = model
+        self.labels = labels
+        self.preprocess = preprocess
 
     def reserve(self) -> BulkJob:
         with self.lock:
@@ -182,13 +190,19 @@ class BulkJobStore:
                 items = [BulkItem(filename=image.filename, error=image.error) for image in inputs]
                 valid: list[int] = []
                 arrays: list[np.ndarray] = []
+                with self.model_lock:
+                    if job.cancel.is_set():
+                        return
+                    active_model = self.model
+                    active_labels = list(self.labels)
+                    active_preprocess = self.preprocess
                 for index, image in enumerate(inputs):
                     if job.cancel.is_set():
                         return
                     if image.error:
                         continue
                     try:
-                        arrays.append(preprocess_image(image.path.read_bytes(), preprocess=self.config.PREPROCESS))
+                        arrays.append(preprocess_image(image.path.read_bytes(), preprocess=active_preprocess))
                         valid.append(index)
                     except APIError as exc:
                         items[index].error = "unsupported_format" if exc.body.error.code == "unsupported_format" else "corrupt"
@@ -200,15 +214,15 @@ class BulkJobStore:
                     with self.model_lock:
                         if job.cancel.is_set():
                             return
-                        if self.model is None:
+                        if active_model is None:
                             raise RuntimeError("Model is not available")
-                        outputs = np.asarray(self.model.predict(batch, verbose=0))
+                        outputs = np.asarray(active_model.predict(batch, verbose=0))
                     del batch
-                    if (outputs.shape != (len(valid), len(self.labels)) or not self.labels
+                    if (outputs.shape != (len(valid), len(active_labels)) or not active_labels
                             or not np.isfinite(outputs).all() or (outputs < 0).any() or (outputs > 1).any()):
                         raise ValueError("Invalid model output")
                     for index, probabilities in zip(valid, outputs):
-                        top3 = [ClassConfidence(label=self.labels[int(i)], confidence=float(probabilities[i]))
+                        top3 = [ClassConfidence(label=active_labels[int(i)], confidence=float(probabilities[i]))
                                 for i in np.argsort(-probabilities, kind="stable")[:3]]
                         uncertain = top3[0].confidence < self.config.CONFIDENCE_THRESHOLD
                         items[index] = BulkItem(
