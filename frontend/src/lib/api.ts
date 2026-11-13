@@ -39,6 +39,39 @@ export interface ModelComparisonResponse {
   results: ModelComparisonItem[]
 }
 
+const DEV_TOKEN_KEY = 'sportdev_token'
+
+export function getDevToken(): string | null {
+  try {
+    return sessionStorage.getItem(DEV_TOKEN_KEY) || localStorage.getItem(DEV_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setDevToken(token: string | null): void {
+  try {
+    if (token) {
+      sessionStorage.setItem(DEV_TOKEN_KEY, token)
+      localStorage.setItem(DEV_TOKEN_KEY, token)
+    } else {
+      sessionStorage.removeItem(DEV_TOKEN_KEY)
+      localStorage.removeItem(DEV_TOKEN_KEY)
+    }
+  } catch {
+    // Ignore storage errors in restrictive environments
+  }
+}
+
+export function isDevAuthenticated(): boolean {
+  return Boolean(getDevToken())
+}
+
+export function authHeaders(): Record<string, string> {
+  const token = getDevToken()
+  return token ? { 'X-Dev-Token': token } : {}
+}
+
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   const response = await fetch('/api/health', { signal })
   if (!response.ok) {
@@ -111,7 +144,10 @@ export interface Insights {
 
 export async function getInsights(signal?: AbortSignal): Promise<Insights> {
   try {
-    const response = await fetch('/api/insights', { signal })
+    const response = await fetch('/api/insights', {
+      headers: { ...authHeaders() },
+      signal,
+    })
     if (!response.ok) throw new Error('Không thể tải dữ liệu thí nghiệm. Vui lòng thử lại.')
     return await response.json() as Insights
   } catch (error) {
@@ -168,7 +204,10 @@ export async function getClasses(signal?: AbortSignal): Promise<string[]> {
 export async function getModels(signal?: AbortSignal): Promise<ModelsListResponse> {
   let response: Response
   try {
-    response = await fetch('/api/models', { signal })
+    response = await fetch('/api/models', {
+      headers: { ...authHeaders() },
+      signal,
+    })
   } catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể tải danh sách mô hình. Vui lòng thử lại.', { cause: error })
@@ -182,7 +221,7 @@ export async function selectModel(modelId: string, signal?: AbortSignal): Promis
   try {
     response = await fetch('/api/models/select', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ model_id: modelId }),
       signal,
     })
@@ -206,7 +245,12 @@ export async function compareModels(image: Blob, signal?: AbortSignal): Promise<
   body.append('file', image, image instanceof File ? image.name : 'frame.jpg')
   let response: Response
   try {
-    response = await fetch('/api/models/compare', { method: 'POST', body, signal })
+    response = await fetch('/api/models/compare', {
+      method: 'POST',
+      headers: { ...authHeaders() },
+      body,
+      signal,
+    })
   } catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể kết nối khi so sánh các mô hình. Vui lòng thử lại.', { cause: error })

@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, File, Request, UploadFile
@@ -12,6 +13,7 @@ from app.services.gradcam import explain_image
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/gradcam", response_model=Explanation, include_in_schema=False)
@@ -43,10 +45,15 @@ async def explain(request: Request, file: Annotated[UploadFile, File()]) -> Expl
 @router.get("/insights", response_model=InsightsResponse, response_model_exclude_unset=True)
 def insights(request: Request) -> InsightsResponse:
     try:
-        return InsightsResponse.model_validate_json(
-            request.app.state.settings.EXPERIMENTS_PATH.read_text(encoding="utf-8")
-        )
+        path = request.app.state.settings.EXPERIMENTS_PATH
+        if not path.is_file():
+            logger.error("Experiments file missing at path: %s", path)
+            raise APIError(500, "internal_error", "Chưa thể tải dữ liệu thí nghiệm (tệp không tồn tại).")
+        return InsightsResponse.model_validate_json(path.read_text(encoding="utf-8"))
+    except APIError:
+        raise
     except (OSError, ValueError, ValidationError) as exc:
+        logger.exception("Failed to validate insights JSON: %s", exc)
         raise APIError(500, "internal_error", "Chưa thể tải dữ liệu thí nghiệm. Vui lòng thử lại sau.") from exc
 
 

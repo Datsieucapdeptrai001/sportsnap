@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     DEBUG_SAVE_FRAMES: bool = False
     DEBUG_FRAMES_DIR: Path = Path("backend/debug_frames")
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    DEV_TOKEN: str | None = None
 
     @model_validator(mode="after")
     def resolve_paths(self) -> Self:

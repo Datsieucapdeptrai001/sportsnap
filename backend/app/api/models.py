@@ -6,6 +6,7 @@ from fastapi import APIRouter, File, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
 
 from app.api.scan import read_image
+from app.core.auth import is_dev_request, require_dev_token
 from app.core.errors import APIError
 from app.schemas import (
     ErrorResponse,
@@ -38,18 +39,29 @@ def _load_keras_model(path):
 def list_models(request: Request) -> ModelsListResponse:
     config = request.app.state.settings
     active_id = getattr(request.app.state, "active_model_id", None)
+    all_models = list_available_models(config, active_id)
+    if is_dev_request(request):
+        return ModelsListResponse(
+            active_model_id=active_id,
+            models=all_models,
+        )
+    # User mode: only expose the active verified model
+    user_models = [m for m in all_models if m.id == active_id]
+    if not user_models and all_models:
+        user_models = [all_models[0]]
     return ModelsListResponse(
         active_model_id=active_id,
-        models=list_available_models(config, active_id),
+        models=user_models,
     )
 
 
 @router.post(
     "/models/select",
     response_model=SelectModelResponse,
-    responses={status: {"model": ErrorResponse} for status in (400, 404, 500, 503)},
+    responses={status: {"model": ErrorResponse} for status in (400, 403, 404, 500, 503)},
 )
 async def select_model(request: Request, body: SelectModelRequest) -> SelectModelResponse:
+    require_dev_token(request)
     spec = find_spec_by_id(body.model_id)
     if spec is None:
         raise APIError(404, "model_not_found", "Không tìm thấy mô hình được chọn.")
@@ -92,11 +104,12 @@ async def select_model(request: Request, body: SelectModelRequest) -> SelectMode
 @router.post(
     "/models/compare",
     response_model=ModelComparisonResponse,
-    responses={status: {"model": ErrorResponse} for status in (400, 413, 415, 422, 500, 503)},
+    responses={status: {"model": ErrorResponse} for status in (400, 403, 413, 415, 422, 500, 503)},
 )
 async def compare_models(
     request: Request, file: Annotated[UploadFile, File()]
 ) -> ModelComparisonResponse:
+    require_dev_token(request)
     try:
         config = request.app.state.settings
         data = await read_image(file, config.MAX_UPLOAD_MB)
@@ -135,3 +148,15 @@ async def compare_models(
         return ModelComparisonResponse(results=items)
     finally:
         await file.close()
+
+
+@router.get("/models/verification")
+def get_model_verification(request: Request) -> dict:
+    require_dev_token(request)
+    verification_data = getattr(request.app.state, "model_verification", None)
+    if not verification_data:
+        from app.verify_models import get_cached_or_verify
+
+        verification_data = get_cached_or_verify(request.app.state.settings)
+        request.app.state.model_verification = verification_data
+    return verification_data

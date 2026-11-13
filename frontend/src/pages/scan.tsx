@@ -25,9 +25,11 @@ type ScanState =
 export function ScanPage({
   active = true,
   activeModelId = null,
+  isDevMode = false,
 }: {
   active?: boolean
   activeModelId?: string | null
+  isDevMode?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<CameraScannerHandle>(null)
@@ -235,7 +237,7 @@ export function ScanPage({
       </div>
       </div>
       </div>
-      {state.status === 'success' && <ModelCompareCard image={state.image} activeModelId={activeModelId} />}
+      {isDevMode && state.status === 'success' && <ModelCompareCard image={state.image} activeModelId={activeModelId} />}
       <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.
       </p>

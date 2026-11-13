@@ -26,3 +26,5 @@ temp_images/
 /scratch/
 *.keras
 !backend/models/best_model.keras
+data/uploads/
+data/index/

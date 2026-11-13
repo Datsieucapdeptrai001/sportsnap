@@ -49,7 +49,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.active_model_id = None
         application.state.loaded_models = {}
         application.state.model_reason = None
+        application.state.model_verification = None
         application.state.model_lock = Lock()
+        try:
+            from app.verify_models import CACHE_PATH
+            if CACHE_PATH.is_file():
+                application.state.model_verification = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            logger.warning("Could not load model verification cache.", exc_info=True)
         try:
             if not config.MODEL_PATH.is_file() or not config.LABELS_PATH.is_file():
                 application.state.model_reason = "model_missing"

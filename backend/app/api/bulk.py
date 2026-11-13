@@ -7,13 +7,14 @@ from starlette.datastructures import UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 from starlette.responses import Response, StreamingResponse
 
+from app.core.auth import is_dev_request
 from app.core.errors import APIError
 from app.schemas import BulkCreated, BulkResults, BulkResultsQuery, BulkStatus, ErrorResponse
 from app.services.bulk_job import BulkJobStore
 
 
 router = APIRouter(prefix="/bulk", responses={
-    status: {"model": ErrorResponse} for status in (400, 404, 409, 410, 413, 422, 500, 503)
+    status: {"model": ErrorResponse} for status in (400, 403, 404, 409, 410, 413, 422, 500, 503)
 })
 
 
@@ -31,7 +32,13 @@ class DiskMultipartParser(MultiPartParser):
 
 
 @router.post("", status_code=202, response_model=BulkCreated)
-async def create_bulk(request: Request) -> BulkCreated:
+async def create_bulk(
+    request: Request,
+    model_id: Annotated[str | None, Query()] = None,
+) -> BulkCreated:
+    if model_id is not None:
+        if not is_dev_request(request):
+            raise APIError(403, "forbidden", "Chỉ nhà phát triển mới được chỉ định mô hình qua model_id.")
     store: BulkJobStore = request.app.state.bulk_jobs
     if request.app.state.model is None:
         raise APIError(503, "model_not_loaded", "Mô hình chưa sẵn sàng. Vui lòng thử lại sau.")
