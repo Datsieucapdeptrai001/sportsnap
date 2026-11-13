@@ -116,7 +116,13 @@ def explain_image(
     # even for noisy RGB images (448*448*3 plus PNG/base64 overhead).
     original.thumbnail((448, 448), Image.Resampling.LANCZOS)
     resized = np.asarray(Image.fromarray(heatmap).resize(original.size, Image.Resampling.BILINEAR))
-    overlay = np.uint8(np.asarray(original) * 0.6 + jet_colors(resized) * 0.4)
+    # Threshold background noise to avoid washing out the original photo with a blue tint.
+    # Pixels with heatmap < 0.18 keep 100% original photo. Higher activations smoothly ramp up to alpha 0.55.
+    threshold_val = 0.18
+    alpha = np.clip((resized - threshold_val) / (1.0 - threshold_val), 0.0, 1.0)[..., np.newaxis] * 0.55
+    orig_arr = np.asarray(original, dtype=np.float32)
+    jet_arr = jet_colors(resized).astype(np.float32)
+    overlay = np.uint8(orig_arr * (1.0 - alpha) + jet_arr * alpha)
     buffer = BytesIO()
     Image.fromarray(overlay).save(buffer, format="PNG")
     explanation = Explanation(
