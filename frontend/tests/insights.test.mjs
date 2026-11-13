@@ -76,17 +76,17 @@ test('Insights reads the API data and passes its abort signal', async (t) => {
   assert.deepEqual(await getInsights(signal), data)
 })
 
-test('analysis renders null as Chưa đo and preserves measured zero', () => {
-  assert.equal(metric(null), 'Chưa đo')
-  assert.equal(metric(null, true), 'Chưa đo')
+test('analysis renders null as a dash and preserves measured zero', () => {
+  assert.equal(metric(null), '—')
+  assert.equal(metric(null, true), '—')
   assert.equal(metric(0), '0')
   assert.match(metric(0.99, true), /99/)
   assert.deepEqual(data.models.map((model) => model.name).sort(), ['CNN_Scratch', 'MobileNetV2', 'ResNet50'])
   for (const model of data.models) {
-    assert.equal(metric(model.latency_ms), 'Chưa đo')
-    assert.equal(metric(model.size_mb), 'Chưa đo')
-    assert.equal(metric(model.params_m), 'Chưa đo')
-    if (model.name !== data.selected_model) assert.equal(metric(model.macro_f1), 'Chưa đo')
+    assert.equal(metric(model.latency_ms), '—')
+    assert.equal(metric(model.size_mb), '—')
+    assert.equal(metric(model.params_m), '—')
+    if (model.name !== data.selected_model) assert.equal(metric(model.macro_f1), '—')
   }
 })
 

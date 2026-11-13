@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@fontsource/barlow-condensed/600.css";
+@import "@fontsource/barlow-condensed/700.css";
 
 /* Geist (SIL OFL 1.1, see assets/fonts/OFL-Geist.txt), self-hosted with the Vietnamese subset. */
 @font-face {
@@ -32,7 +34,7 @@
  * Text pairs below meet WCAG AA (>= 4.5:1); bars and lines meet >= 3:1.
  */
 :root {
-  font-family: "Geist", "Segoe UI", system-ui, sans-serif;
+  font-family: "Geist", Inter, "Segoe UI", system-ui, sans-serif;
   color-scheme: light;
   --background: #f3f5f7;
   --foreground: #0e1a24;
@@ -56,6 +58,10 @@
   --warning-line: #efc46b;
   --warning-bar: #b45309;
   --radius: 0.75rem;
+  --glass-shadow: rgb(0 0 0 / 0.16);
+  --glass-highlight: rgb(255 255 255 / 0.04);
+  --glass-glow: rgb(52 211 153 / 0.07);
+  --hud-surface: rgb(15 23 42 / 0.72);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -82,6 +88,10 @@
     --warning-surface: #2a2111;
     --warning-line: #6b5216;
     --warning-bar: #f59e0b;
+    --glass-shadow: rgb(0 0 0 / 0.3);
+    --glass-highlight: rgb(255 255 255 / 0.05);
+    --glass-glow: rgb(52 211 153 / 0.12);
+    --hud-surface: rgb(15 23 42 / 0.85);
   }
 }
 
@@ -107,7 +117,8 @@
   --color-warning-surface: var(--warning-surface);
   --color-warning-line: var(--warning-line);
   --color-warning-bar: var(--warning-bar);
-  --font-sans: "Geist", "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist", Inter, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
 }
 
 body {
@@ -123,49 +134,95 @@ button:not(:disabled) {
   cursor: pointer;
 }
 
-:where(button, a, input, select, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 3px;
+/* Glass & HUD utility classes */
+.glass-surface {
+  background: var(--card);
+  border-color: var(--border);
 }
 
-@layer components {
-  /* Court corner marks drawn around the capture square (or any framed area). */
-  .court-box {
-    --court-color: #ffffff;
-    --court-arm: 26px;
-    --court-weight: 3px;
-    background:
-      linear-gradient(var(--court-color) 0 0) top left / var(--court-arm) var(--court-weight) no-repeat,
-      linear-gradient(var(--court-color) 0 0) top left / var(--court-weight) var(--court-arm) no-repeat,
-      linear-gradient(var(--court-color) 0 0) top right / var(--court-arm) var(--court-weight) no-repeat,
-      linear-gradient(var(--court-color) 0 0) top right / var(--court-weight) var(--court-arm) no-repeat,
-      linear-gradient(var(--court-color) 0 0) bottom left / var(--court-arm) var(--court-weight) no-repeat,
-      linear-gradient(var(--court-color) 0 0) bottom left / var(--court-weight) var(--court-arm) no-repeat,
-      linear-gradient(var(--court-color) 0 0) bottom right / var(--court-arm) var(--court-weight) no-repeat,
-      linear-gradient(var(--court-color) 0 0) bottom right / var(--court-weight) var(--court-arm) no-repeat;
-    outline: 1px solid rgb(255 255 255 / 0.45);
-    outline-offset: -1px;
-  }
+.hud-panel {
+  background: var(--card);
+  border-color: var(--border);
+}
 
-  /* Finish line at the end of each lane: a narrow chequer of lane colours. */
-  .lane-finish {
-    background: repeating-linear-gradient(180deg, var(--foreground) 0 4px, transparent 4px 8px);
-    opacity: 0.35;
-  }
+/* Subtle scrollbars for horizontally-scrollable sport tag lists. */
+.sport-tags::-webkit-scrollbar {
+  height: 4px;
+}
+.sport-tags::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}
 
-  .lane-trail {
-    transform-origin: left center;
-    animation: lane-run 650ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  }
-
-  .sport-tags {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+@layer utilities {
+  .camera-model-enter {
+    animation: camera-model-fade 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .surface-enter {
     animation: surface-enter 180ms ease-out both;
   }
+
+  /* Brand mark: a lane line crossing a finish line. */
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, transparent 55%, var(--background) 55% 63%, transparent 63%),
+      var(--primary);
+  }
+
+  /* Photo-finish scan: a slit sweeps across the photo while the model reads it. */
+  .photo-finish {
+    position: absolute;
+    inset: 0;
+    background: rgb(2 6 23 / 0.35);
+    pointer-events: none;
+  }
+  .photo-finish__line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: var(--primary);
+    box-shadow: 0 0 18px 4px rgb(52 211 153 / 0.55);
+    animation: photo-finish 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+  }
+  .photo-finish__line::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 3px;
+    width: 90px;
+    background: linear-gradient(90deg, transparent, rgb(52 211 153 / 0.18));
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--muted) 0%, #273449 50%, var(--muted) 100%);
+    background-size: 200% 100%;
+    animation: skeleton 1.4s ease-in-out infinite;
+  }
+
+  .result-enter { animation: surface-enter 220ms ease-out both; }
+  .confidence-fill { animation: confidence-fill 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: left; }
+}
+
+@keyframes photo-finish {
+  from { left: 0; }
+  to { left: calc(100% - 3px); }
+}
+
+@keyframes skeleton {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@keyframes confidence-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 @keyframes lane-run {
@@ -178,19 +235,13 @@ button:not(:disabled) {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.camera-model-enter {
-  animation: camera-model-enter 200ms ease-out both;
-}
-
-@keyframes camera-model-enter {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-    scroll-behavior: auto !important;
+@keyframes camera-model-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }

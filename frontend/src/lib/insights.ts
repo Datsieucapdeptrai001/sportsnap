@@ -1,7 +1,7 @@
 import type { SplitExperiment } from './api'
 
 export function metric(value: number | null, percent = false): string {
-  if (value === null) return 'Chưa đo'
+  if (value === null) return '—'
   return percent
     ? new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 2 }).format(value)
     : value.toLocaleString('vi-VN', { maximumFractionDigits: 4 })

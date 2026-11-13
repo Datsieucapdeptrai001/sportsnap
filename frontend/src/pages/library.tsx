@@ -14,7 +14,6 @@ import {
   Upload,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { SportLabel } from '../components/sport-label'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
@@ -43,8 +42,9 @@ import {
   type ModelVersionInfo,
   type ReviewItem,
 } from '../lib/api'
-import { sportNameVi } from '../lib/sport-names'
 import { cn } from '../lib/utils'
+
+const capitalize = (label: string) => label.charAt(0).toUpperCase() + label.slice(1)
 
 const pct = new Intl.NumberFormat('vi-VN', { style: 'percent', maximumFractionDigits: 1 })
 
@@ -133,7 +133,7 @@ export function LibraryPage({ active }: { active: boolean }) {
       setAvailableLabels(rev.labels)
       setVersions(ver.versions)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Không tải được dữ liệu MLOps.')
+      toast.error(error instanceof Error ? error.message : 'Không tải được dữ liệu dạy AI.')
     }
   }, [includeAllReview])
 
@@ -201,7 +201,7 @@ export function LibraryPage({ active }: { active: boolean }) {
       const res = await searchSimilarByFile(selected)
       setItems(res.items)
       setTotalItems(res.items.length)
-      setExpandedQuery(`Tìm ảnh tương tự: ${selected.name}`)
+      setExpandedQuery('Ảnh giống ảnh bạn tải lên')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Không thể tìm ảnh tương tự.')
     } finally {
@@ -237,66 +237,70 @@ export function LibraryPage({ active }: { active: boolean }) {
 
   return (
     <>
-      <header className="text-white">
-        <p className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-widest text-emerald-300 uppercase">
-          <Database size={16} aria-hidden="true" />Thư viện ảnh thông minh · CLIP &amp; MLOps
-        </p>
-        <h1 className="text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
-          Tìm kiếm ngữ nghĩa, lọc trùng &amp; cải thiện mô hình
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-200 sm:text-base">
-          Đánh chỉ mục thư viện ảnh bằng ResNet50 + CLIP ViT-B/32, tìm kiếm bằng ngôn ngữ tự nhiên, chọn ảnh đẹp nhất trong cụm trùng và huấn luyện lại từ nhãn sửa.
-        </p>
-      </header>
-
-      {/* Stats + Ingestion bar */}
-      <Card className="hud-panel mt-6 p-4 sm:p-5">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-xl border border-border/70 bg-background/40 p-3">
-            <p className="text-xs text-muted-foreground">Ảnh đã nạp</p>
-            <p className="mt-1 text-xl font-bold tabular-nums">{stats?.total_images ?? 0}</p>
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background/40 p-3">
-            <p className="text-xs text-muted-foreground">Vector CLIP</p>
-            <p className="mt-1 text-xl font-bold tabular-nums">{stats?.index_size ?? 0}</p>
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background/40 p-3">
-            <p className="text-xs text-muted-foreground">Nhóm ảnh trùng</p>
-            <p className="mt-1 text-xl font-bold tabular-nums">{stats?.total_dup_groups ?? 0}</p>
-          </div>
-          <div className="rounded-xl border border-border/70 bg-background/40 p-3">
-            <p className="text-xs text-muted-foreground">Nhãn người sửa</p>
-            <p className="mt-1 text-xl font-bold tabular-nums">{stats?.human_labels ?? 0}</p>
-          </div>
+      <Card className="hud-panel rounded-2xl p-3 sm:p-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 className="flex items-center gap-2 font-display text-lg font-bold tracking-wide uppercase">
+            <Database size={17} className="text-emerald-300" aria-hidden="true" />Kho dữ liệu cộng đồng
+          </h1>
+          <dl className="flex flex-wrap gap-1.5 text-xs">
+            {[
+              { label: 'Ảnh đã nạp', value: stats?.total_images ?? 0 },
+              { label: 'Ảnh đã học', value: stats?.index_size ?? 0 },
+              { label: 'Nhóm ảnh trùng', value: stats?.total_dup_groups ?? 0 },
+              { label: 'Lượt đóng góp', value: stats?.human_labels ?? 0 },
+            ].map((stat) => (
+              <div key={stat.label} className="flex items-baseline gap-1.5 rounded-full border border-border/70 bg-background/40 px-2.5 py-1">
+                <dt className="text-muted-foreground">{stat.label}</dt>
+                <dd className="font-semibold tabular-nums">{stat.value}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
-        <form onSubmit={(e) => void handleIngestFolder(e)} className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <input
-            type="text"
-            value={folder}
-            onChange={(e) => setFolder(e.target.value)}
-            placeholder="Đường dẫn thư mục trong dự án (vd: datasets/anh-ngoai)"
-            className="min-h-11 flex-1 rounded-xl border border-border bg-background/80 px-3 text-sm"
-          />
-          <Button type="submit" disabled={activeJob?.state === 'running'}>
-            <FolderUp size={17} aria-hidden="true" />Nạp thư mục
-          </Button>
-          <input
-            ref={uploadInputRef}
-            type="file"
-            multiple
-            accept="image/*"
-            className="sr-only"
-            onChange={(e) => void handleUploadIngest(e)}
-          />
-          <Button type="button" variant="outline" onClick={() => uploadInputRef.current?.click()}>
-            <Upload size={17} aria-hidden="true" />Tải ảnh lên
-          </Button>
-        </form>
+        <div className="mt-3 flex flex-col gap-2 border-t border-border/60 pt-3 lg:flex-row lg:items-center">
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Chức năng thư viện">
+            {([
+              { id: 'search', icon: Search, label: 'Tìm kiếm' },
+              { id: 'dedup', icon: CopyCheck, label: 'Lọc trùng & chọn ảnh đẹp' },
+              { id: 'mlops', icon: History, label: 'Dạy AI nhận diện' },
+            ] as const).map(({ id, icon: Icon, label }) => (
+              <Button key={id} role="tab" aria-selected={subTab === id} variant={subTab === id ? 'default' : 'outline'}
+                className="min-h-9 px-3 py-1 text-xs" onClick={() => setSubTab(id)}>
+                <Icon size={15} aria-hidden="true" />{label}
+              </Button>
+            ))}
+          </div>
+          <form onSubmit={(e) => void handleIngestFolder(e)} className="flex min-w-0 flex-1 gap-1.5 lg:justify-end">
+            <input
+              type="text"
+              value={folder}
+              onChange={(e) => setFolder(e.target.value)}
+              aria-label="Đường dẫn thư mục ảnh"
+              placeholder="Thư mục ảnh (vd: datasets/anh-ngoai)"
+              className="min-h-9 min-w-0 flex-1 rounded-lg border border-border bg-background/80 px-3 text-xs lg:max-w-64"
+            />
+            <Button type="submit" className="min-h-9 shrink-0 px-3 py-1 text-xs" disabled={activeJob?.state === 'running'}>
+              <FolderUp size={15} aria-hidden="true" />Nạp
+            </Button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => void handleUploadIngest(e)}
+            />
+            <Button type="button" variant="outline" className="min-h-9 shrink-0 px-3 py-1 text-xs" onClick={() => uploadInputRef.current?.click()}>
+              <Upload size={15} aria-hidden="true" />Tải ảnh lên
+            </Button>
+          </form>
+        </div>
 
         {activeJob && (
-          <div className="mt-3 rounded-xl border border-border bg-background/50 p-3">
-            <div className="mb-1.5 flex items-center justify-between text-xs">
+          <div className="mt-2 rounded-lg border border-border bg-background/50 px-3 py-2">
+            <div className="mb-1 flex items-center justify-between text-xs">
               <span className="font-medium">{activeJob.message ?? activeJob.state}</span>
               <span className="tabular-nums">{Math.round(activeJob.progress * 100)}%</span>
             </div>
@@ -305,54 +309,66 @@ export function LibraryPage({ active }: { active: boolean }) {
         )}
       </Card>
 
-      {/* Sub-tabs */}
-      <div className="mt-5 flex flex-wrap gap-2" role="tablist">
-        <Button variant={subTab === 'search' ? 'default' : 'outline'} onClick={() => setSubTab('search')}>
-          <Search size={16} aria-hidden="true" />Tìm kiếm CLIP
-        </Button>
-        <Button variant={subTab === 'dedup' ? 'default' : 'outline'} onClick={() => setSubTab('dedup')}>
-          <CopyCheck size={16} aria-hidden="true" />Lọc trùng &amp; Chọn ảnh đẹp
-        </Button>
-        <Button variant={subTab === 'mlops' ? 'default' : 'outline'} onClick={() => setSubTab('mlops')}>
-          <History size={16} aria-hidden="true" />Sửa nhãn &amp; MLOps
-        </Button>
-      </div>
-
       {/* Sub-tab 1: Semantic Search */}
       {subTab === 'search' && (
-        <div className="mt-5 space-y-5">
-          <Card className="p-4 sm:p-5">
+        <div className="mt-4 space-y-4">
+          <Card className="p-3 sm:p-4">
             <form
               onSubmit={(e) => {
                 e.preventDefault()
                 void runSearch()
               }}
-              className="flex flex-col gap-2 sm:flex-row"
+              className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
             >
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Tìm bằng ngôn ngữ tự nhiên (vd: bắn cung, swimmer in pool, racing car...)"
-                className="min-h-11 flex-1 rounded-xl border border-border bg-background/80 px-3 text-sm"
+                aria-label="Tìm ảnh bằng mô tả"
+                placeholder="Mô tả ảnh cần tìm (vd: bắn cung, swimmer in pool…)"
+                className="min-h-10 min-w-0 rounded-lg border border-border bg-background/80 px-3 text-sm"
               />
-              <Button type="submit" disabled={searching}>
-                {searching ? <LoaderCircle size={16} className="motion-safe:animate-spin" /> : <Search size={16} />}
-                Tìm kiếm
+              <select
+                value={filterLabel}
+                onChange={(e) => setFilterLabel(e.target.value)}
+                aria-label="Lọc theo môn thể thao"
+                className="min-h-10 rounded-lg border border-border bg-background/80 px-2.5 text-xs"
+              >
+                <option value="">Mọi môn</option>
+                {Object.keys(stats?.by_label ?? {}).sort().map((lbl) => (
+                  <option key={lbl} value={lbl}>{capitalize(lbl)}</option>
+                ))}
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                aria-label="Lọc theo trạng thái"
+                className="min-h-10 rounded-lg border border-border bg-background/80 px-2.5 text-xs"
+              >
+                <option value="">Mọi trạng thái</option>
+                <option value="auto">AI chắc chắn</option>
+                <option value="review">Cần xác nhận</option>
+                <option value="unknown">Chưa rõ môn</option>
+              </select>
+              <Button type="submit" className="min-h-10" disabled={searching}>
+                {searching ? <LoaderCircle size={16} className="motion-safe:animate-spin" aria-hidden="true" /> : <Search size={16} aria-hidden="true" />}
+                Tìm
               </Button>
               <input
                 ref={similarInputRef}
                 type="file"
                 accept="image/*"
                 className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
                 onChange={(e) => void handleSimilarByFile(e)}
               />
-              <Button type="button" variant="outline" onClick={() => similarInputRef.current?.click()}>
+              <Button type="button" variant="outline" className="min-h-10" onClick={() => similarInputRef.current?.click()}>
                 <ImagePlus size={16} aria-hidden="true" />Tìm bằng ảnh
               </Button>
             </form>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className="text-xs text-muted-foreground">Gợi ý:</span>
               {EXAMPLE_QUERIES.map((sample) => (
                 <button
@@ -362,43 +378,17 @@ export function LibraryPage({ active }: { active: boolean }) {
                     setQuery(sample)
                     void runSearch(sample)
                   }}
-                  className="rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs hover:bg-muted"
+                  className="rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs hover:bg-muted"
                 >
                   {sample}
                 </button>
               ))}
+              {expandedQuery && (
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {totalItems} ảnh · <span className="text-foreground">{expandedQuery}</span>
+                </span>
+              )}
             </div>
-
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <select
-                value={filterLabel}
-                onChange={(e) => setFilterLabel(e.target.value)}
-                className="min-h-10 rounded-xl border border-border bg-background/80 px-3 text-xs"
-              >
-                <option value="">Tất cả môn thể thao</option>
-                {Object.keys(stats?.by_label ?? {}).sort().map((lbl) => (
-                  <option key={lbl} value={lbl}>
-                    {sportNameVi(lbl)} ({lbl})
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="min-h-10 rounded-xl border border-border bg-background/80 px-3 text-xs"
-              >
-                <option value="">Tất cả trạng thái độ tin cậy</option>
-                <option value="auto">Tự động (auto)</option>
-                <option value="review">Cần kiểm tra (review)</option>
-                <option value="unknown">Không chắc chắn (unknown)</option>
-              </select>
-            </div>
-
-            {expandedQuery && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Truy vấn CLIP: <span className="font-medium text-foreground">{expandedQuery}</span> · {totalItems} kết quả
-              </p>
-            )}
           </Card>
 
           {items.length === 0 ? (
@@ -406,35 +396,39 @@ export function LibraryPage({ active }: { active: boolean }) {
               Chưa có ảnh nào phù hợp. Hãy bấm <strong>Nạp thư mục</strong> (mặc định <code>datasets/anh-ngoai</code>) ở trên để bắt đầu!
             </Card>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
               {items.map((item) => (
-                <Card key={item.image_id} className="overflow-hidden p-2.5">
-                  <div className="relative aspect-square overflow-hidden rounded-lg bg-muted/40">
-                    <img src={item.thumb_url} alt={item.filename} loading="lazy" className="size-full object-cover" />
+                <Card key={item.image_id} className="overflow-hidden rounded-2xl p-0">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-muted/40">
+                    <img src={item.thumb_url} alt={`Ảnh ${item.label}`} loading="lazy" decoding="async" className="size-full object-cover" />
+                    {item.status === 'review' && item.label_source !== 'human' && (
+                      <span className="absolute top-2 left-2 rounded-full bg-amber-400/90 px-2 py-0.5 text-[11px] font-semibold text-slate-950">
+                        Cần xác nhận
+                      </span>
+                    )}
                     {item.similarity !== null && (
                       <span className="absolute top-2 right-2 rounded-full bg-slate-950/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 tabular-nums">
                         Khớp {pct.format(Math.max(0, item.similarity))}
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 space-y-1">
-                    <p className="truncate text-xs font-medium" title={item.filename}>{item.filename}</p>
-                    <div className="flex items-center justify-between gap-1 text-xs">
-                      <SportLabel label={item.label} />
-                      <span className="text-muted-foreground tabular-nums">
+                  <div className="space-y-1.5 p-3">
+                    <div className="flex items-baseline justify-between gap-2 text-sm">
+                      <span className="min-w-0 truncate font-medium capitalize">{item.label}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         {pct.format(item.calibrated_prob ?? item.top1_prob)}
                       </span>
                     </div>
                     <Button
                       variant="outline"
-                      className="mt-1 min-h-8 w-full py-1 text-xs"
+                      className="mt-1 min-h-9 w-full py-1 text-xs"
                       onClick={() => {
                         setSearching(true)
                         void searchSimilarById(item.image_id)
                           .then((res) => {
                             setItems(res.items)
                             setTotalItems(res.items.length)
-                            setExpandedQuery(`Ảnh tương tự #${item.image_id} (${item.filename})`)
+                            setExpandedQuery('Ảnh giống ảnh đã chọn')
                           })
                           .finally(() => setSearching(false))
                       }}
@@ -451,13 +445,13 @@ export function LibraryPage({ active }: { active: boolean }) {
 
       {/* Sub-tab 2: Duplicate Detection & Best Shot */}
       {subTab === 'dedup' && (
-        <div className="mt-5 space-y-5">
+        <div className="mt-4 space-y-4">
           <Card className="p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Phát hiện ảnh trùng &amp; chọn ảnh đẹp nhất</h2>
                 <p className="text-xs text-muted-foreground">
-                  Kết hợp pHash (trùng/cắt/lật) + CLIP cosine &ge; 0.92 (chụp liên tiếp) và chấm điểm độ nét + ánh sáng + độ tin cậy.
+                  Gom các ảnh giống nhau (cắt, lật, chụp liên tiếp) và gợi ý ảnh nét, đủ sáng nhất để giữ lại.
                 </p>
               </div>
               <Button disabled={dedupRunning} onClick={() => void handleRunDedup()}>
@@ -505,15 +499,14 @@ export function LibraryPage({ active }: { active: boolean }) {
                       )}
                     >
                       <div className="relative aspect-square overflow-hidden rounded-lg bg-muted/40">
-                        <img src={m.thumb_url} alt={m.filename} className="size-full object-cover" />
+                        <img src={m.thumb_url} alt="Ảnh trong nhóm trùng"className="size-full object-cover" />
                         {m.is_best && (
                           <span className="absolute top-2 left-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-slate-950">
                             Ảnh đẹp nhất
                           </span>
                         )}
                       </div>
-                      <p className="mt-2 truncate font-medium">{m.filename}</p>
-                      <p className="mt-1 text-muted-foreground tabular-nums">
+                      <p className="mt-2 text-muted-foreground tabular-nums">
                         Tổng: <strong>{m.score_total.toFixed(2)}</strong> · Nét: {m.score_sharpness.toFixed(2)} · Sáng: {m.score_exposure.toFixed(2)}
                       </p>
                       <Button
@@ -537,20 +530,20 @@ export function LibraryPage({ active }: { active: boolean }) {
         </div>
       )}
 
-      {/* Sub-tab 3: Label Correction & MLOps Retrain */}
+      {/* Sub-tab 3: teach the AI (label correction + retrain) */}
       {subTab === 'mlops' && (
-        <div className="mt-5 space-y-5">
+        <div className="mt-4 space-y-4">
           <Card className="p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold">Cập nhật mô hình từ nhãn đã sửa</h2>
+                <h2 className="text-base font-semibold">Dạy AI từ các lượt đóng góp</h2>
                 <p className="text-xs text-muted-foreground">
-                  Sửa/xác nhận nhãn ở hàng đợi bên dưới rồi bấm Huấn luyện lại để cập nhật trực tiếp file mô hình hiện tại (không sinh thêm phiên bản mới).
+                  Xác nhận hoặc sửa tên môn ở danh sách bên dưới, rồi bấm Dạy lại AI để mô hình học thêm từ đóng góp của bạn.
                 </p>
               </div>
               <Button disabled={retraining} onClick={() => void handleRetrain()}>
                 {retraining ? <LoaderCircle size={16} className="motion-safe:animate-spin" /> : <Sparkles size={16} />}
-                Huấn luyện lại từ nhãn sửa
+                Dạy lại AI
               </Button>
             </div>
 
@@ -559,8 +552,8 @@ export function LibraryPage({ active }: { active: boolean }) {
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="py-2 pr-3">Phiên bản</th>
-                    <th className="py-2 pr-3">Nhãn sửa</th>
-                    <th className="py-2 pr-3">Eval Acc</th>
+                    <th className="py-2 pr-3">Lượt đóng góp</th>
+                    <th className="py-2 pr-3">Độ chính xác</th>
                     <th className="py-2 pr-3">Macro-F1</th>
                     <th className="py-2 pr-3">ECE (trước → sau)</th>
                     <th className="py-2 pr-3">Temp (T)</th>
@@ -612,7 +605,7 @@ export function LibraryPage({ active }: { active: boolean }) {
           <Card className="p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold">
-                <Tag size={16} aria-hidden="true" />Hàng đợi kiểm tra &amp; sửa nhãn ({reviewItems.length})
+                <Tag size={16} aria-hidden="true" />Ảnh chờ xác nhận ({reviewItems.length})
               </h3>
               <label className="flex cursor-pointer items-center gap-2 text-xs">
                 <input
@@ -625,24 +618,31 @@ export function LibraryPage({ active }: { active: boolean }) {
             </div>
             {reviewItems.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Không có ảnh nào đang ở trạng thái <code>review</code>/<code>unknown</code>. Tích chọn &ldquo;Hiện tất cả ảnh đã nạp&rdquo; để sửa nhãn bất kỳ ảnh nào.
+                Không còn ảnh nào cần xác nhận. Tích &ldquo;Hiện tất cả ảnh đã nạp&rdquo; để sửa tên môn của bất kỳ ảnh nào.
               </p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 {reviewItems.map((item) => (
-                  <div key={item.image_id} className="flex gap-3 rounded-xl border border-border bg-background/40 p-2.5">
-                    <img src={item.thumb_url} alt={item.filename} className="size-20 shrink-0 rounded-lg object-cover" />
-                    <div className="min-w-0 flex-1 space-y-1.5 text-xs">
-                      <p className="truncate font-medium">{item.filename}</p>
+                  <div key={item.image_id} className="flex gap-3 rounded-2xl border border-border bg-background/40 p-3">
+                    <img src={item.thumb_url} alt={`Ảnh AI đoán là ${item.top1_label}`} className="size-24 shrink-0 rounded-xl object-cover" />
+                    <div className="min-w-0 flex-1 space-y-2 text-xs">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        {item.label_source === 'human' ? (
+                          <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">Đã sửa tay</span>
+                        ) : item.status === 'review' ? (
+                          <span className="shrink-0 rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] font-medium text-amber-300">Cần xác nhận</span>
+                        ) : item.status === 'unknown' ? (
+                          <span className="shrink-0 rounded-full bg-slate-500/20 px-2 py-0.5 text-[11px] font-medium text-slate-300">Chưa rõ môn</span>
+                        ) : (
+                          <span className="shrink-0 rounded-full bg-slate-500/20 px-2 py-0.5 text-[11px] font-medium text-slate-300">AI tự gán</span>
+                        )}
+                      </div>
                       <p className="text-muted-foreground">
-                        AI: <SportLabel label={item.top1_label} /> ({pct.format(item.calibrated_prob ?? item.top1_prob)}) ·{' '}
-                        <span className={item.label_source === 'human' ? 'text-emerald-400' : ''}>
-                          {item.label_source === 'human' ? 'Đã sửa tay' : item.status}
-                        </span>
+                        AI đoán: <span className="text-foreground capitalize">{item.top1_label}</span> · {pct.format(item.calibrated_prob ?? item.top1_prob)}
                       </p>
                       <div className="flex gap-1.5">
                         <select
-                          aria-label={`Chọn nhãn cho ${item.filename}`}
+                          aria-label={`Sửa tên môn cho ảnh AI đoán là ${item.top1_label}`}
                           value={item.label}
                           onChange={(e) => {
                             const nextLabel = e.target.value
@@ -654,15 +654,15 @@ export function LibraryPage({ active }: { active: boolean }) {
                                   ),
                                 )
                                 void refreshStats()
-                                toast.success(`Đã gán nhãn ${sportNameVi(nextLabel)}`)
+                                toast.success(`Đã lưu: ${capitalize(nextLabel)}`)
                               })
                               .catch((err) => toast.error(err instanceof Error ? err.message : 'Không thể lưu nhãn.'))
                           }}
-                          className="min-h-9 min-w-0 flex-1 rounded-lg border border-border bg-white px-2 text-xs text-slate-900"
+                          className="min-h-9 min-w-0 flex-1 cursor-pointer truncate rounded-lg border border-border bg-card px-2 text-xs text-foreground transition-colors hover:border-primary/50"
                         >
                           {availableLabels.map((lbl) => (
-                            <option key={lbl} value={lbl} className="bg-white text-slate-900">
-                              {sportNameVi(lbl)} ({lbl})
+                            <option key={lbl} value={lbl} className="bg-card text-foreground">
+                              {capitalize(lbl)}
                             </option>
                           ))}
                         </select>
@@ -679,7 +679,7 @@ export function LibraryPage({ active }: { active: boolean }) {
                                   ),
                                 )
                                 void refreshStats()
-                                toast.success(`Đã xác nhận nhãn ${sportNameVi(item.label)}`)
+                                toast.success(`Đã xác nhận: ${capitalize(item.label)}`)
                               })
                               .catch((err) => toast.error(err instanceof Error ? err.message : 'Không thể lưu nhãn.'))
                           }}
@@ -689,14 +689,14 @@ export function LibraryPage({ active }: { active: boolean }) {
                         <Button
                           variant="outline"
                           title="Xóa ảnh lỗi / không phải thể thao khỏi thư viện"
-                          aria-label={`Xóa ${item.filename}`}
+                          aria-label="Xóa ảnh này khỏi thư viện"
                           className="min-h-9 shrink-0 px-2.5 py-1 text-xs text-destructive"
                           onClick={() => {
                             void deleteLibraryImage(item.image_id)
                               .then(() => {
                                 setReviewItems((prev) => prev.filter((r) => r.image_id !== item.image_id))
                                 void refreshStats()
-                                toast.success(`Đã xóa ${item.filename} khỏi thư viện`)
+                                toast.success('Đã xóa ảnh khỏi thư viện')
                               })
                               .catch((err) => toast.error(err instanceof Error ? err.message : 'Không thể xóa ảnh.'))
                           }}
