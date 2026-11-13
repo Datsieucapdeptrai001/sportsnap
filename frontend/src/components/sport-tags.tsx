@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getClasses } from '../lib/api'
+import { sportNameVi } from '../lib/sport-names'
 import { Skeleton } from './ui/skeleton'
 
 type TagsState =
@@ -47,7 +48,7 @@ export function SportTags() {
         <div role="region" aria-label="Danh sách môn thể thao, cuộn ngang để xem thêm" tabIndex={0} className="sport-tags overflow-x-auto rounded-xl pb-2">
           <ul className="flex w-max gap-2 md:w-auto md:flex-wrap">
             {state.classes.map((label) => (
-              <li key={label} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs whitespace-nowrap">{label}</li>
+              <li key={label} title={label} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs whitespace-nowrap">{sportNameVi(label)}</li>
             ))}
           </ul>
         </div>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from 'react'
+import type { ModelViewerElement } from '@google/model-viewer'
 import { Camera, ScanLine, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { scanFrames, type ScanResult } from '../lib/api'
@@ -33,6 +34,7 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
   const stopForArRef = useRef<(() => void) | null>(null)
   const arHandoffRef = useRef<ReturnType<typeof createCameraArHandoff> | null>(null)
   const returnFocusRef = useRef<HTMLButtonElement>(null)
+  const nativeArRef = useRef(false)
   const [arPhase, setArPhase] = useState<CameraArPhase>('camera')
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<CameraState>({ status: 'starting' })
@@ -157,6 +159,49 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
     }
   }, [])
 
+  // Native AR (Scene Viewer / WebXR / Quick Look) launched straight from the overlay
+  // viewer: the camera is released first and restarted when the user comes back.
+  function resumeAfterNativeAr() {
+    if (!nativeArRef.current) return
+    nativeArRef.current = false
+    setState({ status: 'starting' })
+    setAttempt((current) => current + 1)
+  }
+
+  function openNativeAr(viewer: ModelViewerElement) {
+    if (!window.isSecureContext || !viewer.canActivateAR) {
+      // No native AR here (desktop, plain http): fall back to the shared 3D/AR dialog.
+      arHandoffRef.current?.begin()
+      return
+    }
+    nativeArRef.current = true
+    stopForArRef.current?.()
+    let started = false
+    const onStatus = (event: Event) => {
+      const status = (event as CustomEvent<{ status?: string }>).detail?.status
+      if (status === 'session-started') started = true
+      if (status === 'failed' || (status === 'not-presenting' && started)) {
+        viewer.removeEventListener('ar-status', onStatus)
+        if (status === 'failed') toast.error('Chưa mở được AR. Kiểm tra quyền camera rồi thử lại.')
+        resumeAfterNativeAr()
+      }
+    }
+    viewer.addEventListener('ar-status', onStatus)
+    // Must stay inside the click gesture for Scene Viewer and Quick Look.
+    void viewer.activateAR().catch(() => {
+      viewer.removeEventListener('ar-status', onStatus)
+      toast.error('Không thể mở AR trên thiết bị này.')
+      resumeAfterNativeAr()
+    })
+  }
+
+  useEffect(() => {
+    // Scene Viewer and Quick Look leave the page; restart the camera on return.
+    const onVisible = () => { if (!document.hidden) resumeAfterNativeAr() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   useEffect(() => {
     // Passive effects run after React has removed the previous viewer and cleaned it up.
     if (arPhase === 'releasing') arHandoffRef.current?.overlayRemoved()
@@ -203,7 +248,7 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
 
   return (
     <div>
-      <div ref={previewRef} className="relative aspect-[4/3] min-h-80 w-full overflow-hidden rounded-xl bg-black">
+      <div ref={previewRef} className="relative aspect-[4/3] min-h-80 w-full overflow-hidden rounded-3xl bg-black">
         <video
           ref={videoRef} playsInline muted autoPlay aria-label="Camera trực tiếp"
           aria-describedby={state.status !== 'error' ? guideId : undefined}
@@ -223,7 +268,7 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
         )}
         {arAsset && result && <CameraArOverlay key={`${result.label}:${result.confidence}`} label={result.label}
           confidence={result.confidence} asset={arAsset} cameraReady={state.status === 'ready'}
-          onOpenAr={() => arHandoffRef.current?.begin()} onRescan={() => void scan()} />}
+          onNativeAr={openNativeAr} onRescan={() => void scan()} />}
         {state.status === 'error' && !arAsset && (
           <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card/95 px-6 text-center">
             <TriangleAlert className="shrink-0 text-destructive" aria-hidden="true" />

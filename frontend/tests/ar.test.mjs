@@ -30,17 +30,17 @@ test('Vietnamese display names cover all 24 manifest and training labels', () =>
   assert.equal(sportNameVi('constructor'), 'constructor')
 })
 
-test('camera overlay requires a certain mapped result and the enabled switch', () => {
+test('camera overlay shows the top-1 model for any result while the switch is on', () => {
   for (const label of Object.keys(assets)) {
     assert.equal(getCameraOverlayAsset({ label, is_uncertain: false }, true, assets), assets[label])
-    assert.equal(getCameraOverlayAsset({ label, is_uncertain: true }, true, assets), null)
+    assert.equal(getCameraOverlayAsset({ label, is_uncertain: true }, true, assets), assets[label])
     assert.equal(getCameraOverlayAsset({ label, is_uncertain: false }, false, assets), null)
   }
-  assert.equal(getCameraOverlayAsset({ label: 'unknown sport', is_uncertain: false }, true, assets), null)
+  assert.deepEqual(getCameraOverlayAsset({ label: 'unknown sport', is_uncertain: false }, true, assets), { glb: '/models/unknown_sport.glb' })
   assert.equal(getCameraOverlayAsset(null, true, assets), null)
 })
 
-test('rescan clears the result; toggling cannot restore it until a new certain scan', () => {
+test('rescan clears the result; toggling cannot restore it until a new scan', () => {
   let result = { label: 'baseball', is_uncertain: false }
   assert.ok(getCameraOverlayAsset(result, true, assets))
   assert.equal(getCameraOverlayAsset(result, false, assets), null)
@@ -49,8 +49,6 @@ test('rescan clears the result; toggling cannot restore it until a new certain s
   assert.equal(getCameraOverlayAsset(result, false, assets), null)
   assert.equal(getCameraOverlayAsset(result, true, assets), null)
   result = { label: 'baseball', is_uncertain: true }
-  assert.equal(getCameraOverlayAsset(result, true, assets), null)
-  result = { label: 'baseball', is_uncertain: false }
   assert.ok(getCameraOverlayAsset(result, true, assets))
 })
 
@@ -68,41 +66,37 @@ test('auto-open preference defaults on, persists both choices and tolerates bloc
 })
 
 for (const [label, model] of Object.entries(manifest.models)) {
-  test(`${label}: a certain result enables AR at the exact manifest GLB path`, () => {
+  test(`${label}: a result enables AR at the exact manifest GLB path`, () => {
     const state = getArAvailability(label, false, assets)
     assert.equal(state.enabled, true)
     assert.equal(state.asset.glb, `/models/${model.file}`)
     assert.ok(existsSync(new URL(`../public${state.asset.glb}`, import.meta.url)))
     assert.equal(state.message, '')
   })
-  test(`${label}: an uncertain result disables AR with a Vietnamese explanation`, () => {
+  test(`${label}: an uncertain result still enables AR with the same model`, () => {
     const state = getArAvailability(label, true, assets)
-    assert.equal(state.enabled, false)
-    assert.equal(state.message, 'Kết quả chưa chắc chắn nên chưa mở AR')
-    assert.equal(state.asset, undefined)
+    assert.equal(state.enabled, true)
+    assert.equal(state.asset.glb, `/models/${model.file}`)
   })
 }
 
-for (const label of ['unknown sport', '', 'constructor', 'toString', '__proto__']) {
-  test(`${label || '(empty label)'}: an absent manifest label disables AR`, () => {
+test('a label without a mapped model uses /models/<label>.glb (trophy fallback at load time)', () => {
+  assert.equal(getArAvailability('unknown sport', true, assets).asset.glb, '/models/unknown_sport.glb')
+  assert.equal(getArAvailability('Canoe  Slamon', false, {}).asset.glb, '/models/canoe_slamon.glb')
+  for (const label of ['', 'constructor', 'toString', '__proto__', '../secrets']) {
     const state = getArAvailability(label, false, assets)
-    assert.equal(state.enabled, false)
-    assert.match(state.message, /chưa có mô hình 3D/)
-  })
-}
-
-test('missing and uncertain results explain both restrictions', () => {
-  const state = getArAvailability('unknown sport', true, assets)
-  assert.equal(state.enabled, false)
-  assert.match(state.message, /Kết quả chưa chắc chắn nên chưa mở AR/)
-  assert.match(state.message, /chưa có mô hình 3D/)
+    assert.equal(state.enabled, true)
+    assert.match(state.asset.glb, /^\/models\/[a-z0-9_]+\.glb$/)
+  }
+  assert.equal(getArAvailability('', false, assets).asset.glb, '/models/trophy.glb')
+  assert.equal(getArAvailability('../secrets', false, assets).asset.glb, '/models/trophy.glb')
 })
 
-test('only local manifest model paths can enable AR', () => {
+test('unsafe mapped paths are ignored in favour of the local convention path', () => {
   for (const glb of ['/models/../secrets.glb', 'https://example.com/model.glb', '/models/missing.usdz']) {
-    assert.equal(getArAvailability('sport', false, { sport: { glb } }).enabled, false)
+    assert.equal(getArAvailability('sport', false, { sport: { glb } }).asset.glb, '/models/sport.glb')
   }
-  assert.equal(getArAvailability('sport', false, Object.create({ sport: { glb: '/models/sport.glb' } })).enabled, false)
+  assert.equal(getArAvailability('sport', false, Object.create({ sport: { glb: 'https://x/y.glb' } })).asset.glb, '/models/sport.glb')
 })
 
 test('viewer library is lazy and shares one in-flight and successful import', async () => {

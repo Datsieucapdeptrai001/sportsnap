@@ -164,3 +164,16 @@ với croquet vì gậy đầu búa và bệ cỏ tương tự nhau; mũ polo v�
 hiệu phân biệt chính. Không có hình ngựa trong bố cục dụng cụ được yêu cầu.
 Các chi tiết nhỏ như toe pick, dây găng và ô lưới rõ hơn trong ảnh 640×520;
 ở 200 px, nhận diện chủ yếu dựa vào silhouette, bệ và dụng cụ lớn.
+
+## Mô hình dự phòng và ảnh mẫu (giao diện một màn hình)
+
+| tệp | nguồn và tác giả |
+| --- | --- |
+| `frontend/public/fallback/podium.glb` | tự tạo bằng `frontend/scripts/make-fallback-glb.mjs` (bục 3 bậc, mét, Y-up), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
+| `frontend/public/samples/basketball.jpg` | chép nguyên từ `datasets/anh-ngoai/basketball/1.jpg` (Wikimedia Commons, xem `sources.csv`) |
+| `frontend/public/samples/formula-1.jpg` | chép nguyên từ `datasets/anh-ngoai/formula 1 racing/2.jpg` (Wikimedia Commons) |
+| `frontend/public/samples/swimming.jpg` | chép nguyên từ `datasets/anh-ngoai/swimming/3.jpg` (Wikimedia Commons) |
+| `frontend/public/samples/golf.jpg` | chép nguyên từ `datasets/anh-ngoai/golf/1.jpg` (Wikimedia Commons) |
+
+Bục vinh quang hiện khi chưa có kết quả, khi kết quả chưa chắc chắn, khi môn chưa có
+GLB riêng, hoặc khi GLB của môn tải lỗi. Mô hình dự phòng không mở AR.
