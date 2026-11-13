@@ -98,7 +98,7 @@ function App() {
           Mỗi bức ảnh,<br />một góc nhìn về thể thao.
         </p>
       </aside>
-      <main id="main-content" className="relative mx-auto max-w-[784px] px-4 pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:py-12">
+      <main id="main-content" className={cn('relative mx-auto px-4', activeTab === 'scan' || activeTab === 'library' ? 'max-w-6xl' : 'max-w-[784px]', ' pt-8 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 md:py-10')}>
         {(activeTab === 'scan' || activeTab === 'bulk') && (
           <ModelSelector
             models={models}

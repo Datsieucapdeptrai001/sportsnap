@@ -1,3 +1,5 @@
+import { sportModelAsset } from './sport-models.ts'
+
 export interface ArAsset { glb: string; usdz?: string }
 
 export const AR_VIEWER_ATTRIBUTES = {
@@ -130,18 +132,14 @@ export type ArAvailability =
   | { enabled: true; asset: ArAsset; message: '' }
   | { enabled: false; message: string }
 
+// Any prediction gets its top-1 sport model, whatever the confidence; a missing
+// GLB is handled at load time by the trophy/podium fallback chain.
 export function getArAvailability(
   label: string,
-  isUncertain: boolean,
+  _isUncertain: boolean,
   assets: Readonly<Partial<Record<string, ArAsset>>>,
 ): ArAvailability {
-  const asset = Object.hasOwn(assets, label) ? assets[label] : undefined
-  const hasModel = asset !== undefined && /^\/models\/[a-z0-9_]+\.glb$/.test(asset.glb)
-  const notes: string[] = []
-  if (isUncertain) notes.push('Kết quả chưa chắc chắn nên chưa mở AR')
-  if (!hasModel) notes.push('Môn thể thao này chưa có mô hình 3D để mở AR')
-  if (notes.length || !asset) return { enabled: false, message: notes.join('. ') }
-  return { enabled: true, asset, message: '' }
+  return { enabled: true, asset: sportModelAsset(label, assets), message: '' }
 }
 
 export function modelLoadProgress(value: unknown): number {

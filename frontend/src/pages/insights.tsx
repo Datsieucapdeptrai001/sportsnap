@@ -23,7 +23,7 @@ function InsightsContent({ data }: { data: Insights }) {
           <div className="h-2 overflow-hidden rounded-full bg-muted" aria-label={`Accuracy ${model.name}: ${metric(model.accuracy, true)}`}><div className="h-full rounded-full bg-primary" style={{ width: `${(model.accuracy ?? 0) * 100}%` }} /></div>
         </div>)}</div>
         <div className="mt-6 overflow-x-auto rounded-xl border border-border" tabIndex={0} role="region" aria-label="Bảng so sánh mô hình có thể cuộn ngang">
-          <table className="w-full min-w-[650px] text-left text-sm"><caption className="sr-only">Kết quả mô hình; Chưa đo nghĩa là nguồn CSV không có số liệu</caption>
+          <table className="w-full min-w-[650px] text-left text-sm"><caption className="sr-only">Kết quả mô hình; dấu — nghĩa là nguồn CSV không có số liệu</caption>
             <thead className="bg-muted/40"><tr>{['Mô hình / chiến lược', 'Accuracy kiểm thử', 'Accuracy validation', 'Macro-F1 kiểm thử', 'Tham số (triệu)', 'Dung lượng (MB)', 'Suy luận (ms)'].map((label) => <th key={label} scope="col" className="p-3 font-medium">{label}</th>)}</tr></thead>
             <tbody>{data.models.map((model) => <tr key={model.name} className="border-t border-border">
               <th scope="row" className="p-3 font-medium">{model.name}<span className="mt-1 block text-xs font-normal text-muted-foreground">{model.strategy}</span></th>

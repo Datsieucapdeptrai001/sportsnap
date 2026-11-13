@@ -28,8 +28,7 @@ export function SportTags() {
   }
 
   return (
-    <section aria-label="Các môn thể thao có thể nhận diện" className="mt-6 mb-8 min-w-0">
-      <p className="mb-3 text-xs font-medium tracking-wide text-slate-200">Các môn thể thao có thể nhận diện</p>
+    <section aria-label="Các môn thể thao có thể nhận diện" className="mt-3 mb-4 min-w-0">
       {state.status === 'loading' && (
         <div role="status" className="flex gap-2">
           <span className="sr-only">Đang tải danh sách môn thể thao…</span>
@@ -48,7 +47,7 @@ export function SportTags() {
         <div role="region" aria-label="Danh sách môn thể thao, cuộn ngang để xem thêm" tabIndex={0} className="sport-tags overflow-x-auto rounded-xl pb-2 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-300">
           <ul className="flex w-max gap-2">
             {state.classes.map((label) => (
-              <li key={label} title={label} className="rounded-full border border-emerald-300/20 bg-slate-950/30 px-3 py-1.5 text-xs whitespace-nowrap text-slate-100 backdrop-blur-md">{sportNameVi(label)}</li>
+              <li key={label} title={label} className="rounded-full border border-emerald-300/20 bg-slate-950/30 px-2.5 py-1 text-xs whitespace-nowrap text-slate-100 backdrop-blur-md">{sportNameVi(label)}</li>
             ))}
           </ul>
         </div>
