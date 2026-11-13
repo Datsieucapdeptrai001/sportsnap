@@ -156,6 +156,8 @@ def library_stats(request: Request) -> dict[str, Any]:
         total_dup_groups = int(rt.conn.execute("SELECT COUNT(*) FROM dup_groups").fetchone()[0])
         human_labels = int(
             rt.conn.execute("SELECT COUNT(*) FROM labels WHERE source = 'human'").fetchone()[0]
+        ) + int(
+            rt.conn.execute("SELECT COUNT(*) FROM corrections WHERE undone_at IS NULL").fetchone()[0]
         )
         status_rows = rt.conn.execute(
             "SELECT status, COUNT(*) AS cnt FROM predictions GROUP BY status"
@@ -537,6 +539,8 @@ def library_retrain(request: Request, body: RetrainRequest) -> dict[str, str]:
     with rt.db_lock:
         human_count = int(
             rt.conn.execute("SELECT COUNT(*) FROM labels WHERE source = 'human'").fetchone()[0]
+        ) + int(
+            rt.conn.execute("SELECT COUNT(*) FROM corrections WHERE undone_at IS NULL").fetchone()[0]
         )
     if human_count == 0:
         raise APIError(

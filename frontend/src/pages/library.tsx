@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
+  Box,
   CheckCircle2,
   CopyCheck,
   Database,
@@ -7,6 +8,7 @@ import {
   History,
   ImagePlus,
   LoaderCircle,
+  RotateCcw,
   Search,
   Sparkles,
   Tag,
@@ -17,6 +19,10 @@ import { toast } from 'sonner'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Progress } from '../components/ui/progress'
+import { SportArDialog } from '../components/sport-ar-button'
+import { getArAvailability } from '../lib/ar'
+import { sportNameVi } from '../lib/sport-names'
+import { sports3d } from '../lib/sports3d'
 import {
   decideLibraryDedupGroup,
   deleteLibraryImage,
@@ -72,6 +78,7 @@ export function LibraryPage({ active }: { active: boolean }) {
   const [searching, setSearching] = useState(false)
   const [items, setItems] = useState<LibrarySearchItem[]>([])
   const [totalItems, setTotalItems] = useState(0)
+  const [arSport, setArSport] = useState<string | null>(null)
 
   // Dedup state
   const [dedupRunning, setDedupRunning] = useState(false)
@@ -414,27 +421,41 @@ export function LibraryPage({ active }: { active: boolean }) {
                   </div>
                   <div className="space-y-1.5 p-3">
                     <div className="flex items-baseline justify-between gap-2 text-sm">
-                      <span className="min-w-0 truncate font-medium capitalize">{item.label}</span>
+                      <span className="min-w-0 truncate font-medium capitalize" title={item.label}>
+                        {sportNameVi(item.label)}
+                      </span>
                       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         {pct.format(item.calibrated_prob ?? item.top1_prob)}
                       </span>
                     </div>
-                    <Button
-                      variant="outline"
-                      className="mt-1 min-h-9 w-full py-1 text-xs"
-                      onClick={() => {
-                        setSearching(true)
-                        void searchSimilarById(item.image_id)
-                          .then((res) => {
-                            setItems(res.items)
-                            setTotalItems(res.items.length)
-                            setExpandedQuery('Ảnh giống ảnh đã chọn')
-                          })
-                          .finally(() => setSearching(false))
-                      }}
-                    >
-                      <Sparkles size={13} aria-hidden="true" />Tìm ảnh giống
-                    </Button>
+                    <div className="flex gap-1.5 pt-1">
+                      <Button
+                        variant="outline"
+                        className="min-h-9 flex-1 py-1 text-xs"
+                        onClick={() => {
+                          setSearching(true)
+                          void searchSimilarById(item.image_id)
+                            .then((res) => {
+                              setItems(res.items)
+                              setTotalItems(res.items.length)
+                              setExpandedQuery('Ảnh giống ảnh đã chọn')
+                            })
+                            .finally(() => setSearching(false))
+                        }}
+                      >
+                        <Sparkles size={13} aria-hidden="true" />Tìm ảnh giống
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="min-h-9 px-2.5 py-1 text-xs text-emerald-400 hover:text-emerald-300"
+                        title="Xem mô hình 3D & trải nghiệm AR"
+                        aria-label={`Xem mô hình 3D AR cho môn ${sportNameVi(item.label)}`}
+                        onClick={() => setArSport(item.label)}
+                      >
+                        <Box size={14} aria-hidden="true" />
+                        <span className="hidden sm:inline">3D &amp; AR</span>
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -538,13 +559,33 @@ export function LibraryPage({ active }: { active: boolean }) {
               <div>
                 <h2 className="text-base font-semibold">Dạy AI từ các lượt đóng góp</h2>
                 <p className="text-xs text-muted-foreground">
-                  Xác nhận hoặc sửa tên môn ở danh sách bên dưới, rồi bấm Dạy lại AI để mô hình học thêm từ đóng góp của bạn.
+                  Học tăng cường trên CPU kết hợp Replay Buffer bảo toàn độ chính xác. Lưu trữ 1 tệp duy nhất trên đĩa (<code>retrained_best.keras</code>).
                 </p>
               </div>
-              <Button disabled={retraining} onClick={() => void handleRetrain()}>
-                {retraining ? <LoaderCircle size={16} className="motion-safe:animate-spin" /> : <Sparkles size={16} />}
-                Dạy lại AI
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                {versions.some((v) => v.is_active && v.version !== 'v1') && (
+                  <Button
+                    variant="outline"
+                    className="min-h-9 border-amber-400/50 px-3 text-xs text-amber-300 hover:bg-amber-500/10"
+                    onClick={() =>
+                      void promoteLibraryModelVersion('v1').then((res) => {
+                        setVersions(res.versions)
+                        toast.success('Đã hoàn tác (Rollback) về mô hình gốc ban đầu.')
+                      })
+                    }
+                  >
+                    <RotateCcw size={14} aria-hidden="true" />Rollback về mô hình gốc
+                  </Button>
+                )}
+                <Button disabled={retraining} onClick={() => void handleRetrain()}>
+                  {retraining ? <LoaderCircle size={16} className="motion-safe:animate-spin" /> : <Sparkles size={16} />}
+                  Dạy lại AI
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-200">
+              💡 <strong>Kiến trúc MLOps tinh giản:</strong> Mọi phiên bản sau khi retrain đều được ghi đè tối ưu vào duy nhất file <code>data/models_registry/retrained_best.keras</code>, tránh phát sinh nhiều file nặng hàng chục MB. Toàn bộ lịch sử so sánh hiệu năng (Accuracy, Macro-F1 trước/sau) được lưu vết minh bạch trong cơ sở dữ liệu.
             </div>
 
             <div className="mt-4 overflow-x-auto">
@@ -553,50 +594,59 @@ export function LibraryPage({ active }: { active: boolean }) {
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="py-2 pr-3">Phiên bản</th>
                     <th className="py-2 pr-3">Lượt đóng góp</th>
-                    <th className="py-2 pr-3">Độ chính xác</th>
-                    <th className="py-2 pr-3">Macro-F1</th>
-                    <th className="py-2 pr-3">ECE (trước → sau)</th>
+                    <th className="py-2 pr-3">Độ chính xác (Trước → Sau)</th>
+                    <th className="py-2 pr-3">Macro-F1 (Trước → Sau)</th>
+                    <th className="py-2 pr-3">ECE (Trước → Sau)</th>
                     <th className="py-2 pr-3">Temp (T)</th>
                     <th className="py-2">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {versions.map((v) => (
-                    <tr key={v.version} className="border-b border-border/50">
-                      <td className="py-2 pr-3 font-semibold">
-                        {v.version} {v.is_active && <span className="ml-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-300">Active</span>}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums">{v.n_corrections_used}</td>
-                      <td className="py-2 pr-3 tabular-nums">
-                        {typeof v.metrics.eval_accuracy === 'number' ? pct.format(v.metrics.eval_accuracy) : 'Baseline'}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums">
-                        {typeof v.metrics.eval_macro_f1 === 'number' ? pct.format(v.metrics.eval_macro_f1) : '—'}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums">
-                        {typeof v.metrics.ece_before === 'number' && typeof v.metrics.ece_after === 'number'
-                          ? `${v.metrics.ece_before} → ${v.metrics.ece_after}`
-                          : '—'}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums">{v.temperature}</td>
-                      <td className="py-2">
-                        {!v.is_active && (
-                          <Button
-                            variant="outline"
-                            className="min-h-8 px-2.5 py-1 text-xs"
-                            onClick={() =>
-                              void promoteLibraryModelVersion(v.version).then((res) => {
-                                setVersions(res.versions)
-                                toast.success(`Đã kích hoạt ${res.active_version}`)
-                              })
-                            }
-                          >
-                            Kích hoạt
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {versions.map((v) => {
+                    const accBefore = typeof v.metrics.eval_accuracy_before === 'number' ? pct.format(v.metrics.eval_accuracy_before) : null
+                    const accAfter = typeof v.metrics.eval_accuracy === 'number' ? pct.format(v.metrics.eval_accuracy) : null
+                    const f1Before = typeof v.metrics.eval_macro_f1_before === 'number' ? v.metrics.eval_macro_f1_before.toFixed(3) : null
+                    const f1After = typeof v.metrics.eval_macro_f1 === 'number' ? v.metrics.eval_macro_f1.toFixed(3) : null
+                    return (
+                      <tr key={v.version} className="border-b border-border/50">
+                        <td className="py-2 pr-3 font-semibold">
+                          {v.version} {v.version === 'v1' && <span className="font-normal text-muted-foreground">(Gốc)</span>}
+                          {v.is_active && <span className="ml-1.5 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">Active</span>}
+                        </td>
+                        <td className="py-2 pr-3 tabular-nums">{v.n_corrections_used}</td>
+                        <td className="py-2 pr-3 font-medium tabular-nums">
+                          {accBefore && accAfter ? `${accBefore} → ${accAfter}` : accAfter ?? 'Baseline'}
+                        </td>
+                        <td className="py-2 pr-3 tabular-nums">
+                          {f1Before && f1After ? `${f1Before} → ${f1After}` : f1After ?? '—'}
+                        </td>
+                        <td className="py-2 pr-3 tabular-nums">
+                          {typeof v.metrics.ece_before === 'number' && typeof v.metrics.ece_after === 'number'
+                            ? `${v.metrics.ece_before} → ${v.metrics.ece_after}`
+                            : '—'}
+                        </td>
+                        <td className="py-2 pr-3 tabular-nums">{v.temperature}</td>
+                        <td className="py-2">
+                          {!v.is_active ? (
+                            <Button
+                              variant="outline"
+                              className="min-h-8 px-2.5 py-1 text-xs"
+                              onClick={() =>
+                                void promoteLibraryModelVersion(v.version).then((res) => {
+                                  setVersions(res.versions)
+                                  toast.success(`Đã kích hoạt ${res.active_version}`)
+                                })
+                              }
+                            >
+                              {v.version === 'v1' ? 'Rollback về gốc' : 'Kích hoạt'}
+                            </Button>
+                          ) : (
+                            <span className="text-[11px] font-medium text-emerald-400">Đang dùng</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -624,7 +674,7 @@ export function LibraryPage({ active }: { active: boolean }) {
               <div className="grid gap-3 md:grid-cols-2">
                 {reviewItems.map((item) => (
                   <div key={item.image_id} className="flex gap-3 rounded-2xl border border-border bg-background/40 p-3">
-                    <img src={item.thumb_url} alt={`Ảnh AI đoán là ${item.top1_label}`} className="size-24 shrink-0 rounded-xl object-cover" />
+                    <img src={item.thumb_url} alt={`Ảnh AI đoán là ${sportNameVi(item.top1_label)}`} className="size-24 shrink-0 rounded-xl object-cover" />
                     <div className="min-w-0 flex-1 space-y-2 text-xs">
                       <div className="flex min-w-0 items-center gap-1.5">
                         {item.label_source === 'human' ? (
@@ -638,23 +688,23 @@ export function LibraryPage({ active }: { active: boolean }) {
                         )}
                       </div>
                       <p className="text-muted-foreground">
-                        AI đoán: <span className="text-foreground capitalize">{item.top1_label}</span> · {pct.format(item.calibrated_prob ?? item.top1_prob)}
+                        AI đoán: <span className="font-medium capitalize text-foreground">{sportNameVi(item.top1_label)} ({item.top1_label})</span> · {pct.format(item.calibrated_prob ?? item.top1_prob)}
                       </p>
                       <div className="flex gap-1.5">
                         <select
-                          aria-label={`Sửa tên môn cho ảnh AI đoán là ${item.top1_label}`}
+                          aria-label={`Sửa tên môn cho ảnh AI đoán là ${sportNameVi(item.top1_label)}`}
                           value={item.label}
                           onChange={(e) => {
                             const nextLabel = e.target.value
                             void setLibraryImageLabel(item.image_id, nextLabel)
                               .then(() => {
                                 setReviewItems((prev) =>
-                                  prev.map((r) =>
+                                    prev.map((r) =>
                                     r.image_id === item.image_id ? { ...r, label: nextLabel, label_source: 'human' } : r,
                                   ),
                                 )
                                 void refreshStats()
-                                toast.success(`Đã lưu: ${capitalize(nextLabel)}`)
+                                toast.success(`Đã lưu: ${sportNameVi(nextLabel)}`)
                               })
                               .catch((err) => toast.error(err instanceof Error ? err.message : 'Không thể lưu nhãn.'))
                           }}
@@ -662,10 +712,19 @@ export function LibraryPage({ active }: { active: boolean }) {
                         >
                           {availableLabels.map((lbl) => (
                             <option key={lbl} value={lbl} className="bg-card text-foreground">
-                              {capitalize(lbl)}
+                              {sportNameVi(lbl)} ({lbl})
                             </option>
                           ))}
                         </select>
+                        <Button
+                          variant="outline"
+                          title="Xem mô hình 3D AR môn này"
+                          aria-label={`Xem 3D môn ${sportNameVi(item.label)}`}
+                          className="min-h-9 shrink-0 px-2.5 py-1 text-xs text-emerald-400 hover:text-emerald-300"
+                          onClick={() => setArSport(item.label)}
+                        >
+                          <Box size={14} aria-hidden="true" />
+                        </Button>
                         <Button
                           variant={item.label_source === 'human' ? 'default' : 'outline'}
                           title="Xác nhận nhãn hiện tại"
@@ -679,7 +738,7 @@ export function LibraryPage({ active }: { active: boolean }) {
                                   ),
                                 )
                                 void refreshStats()
-                                toast.success(`Đã xác nhận: ${capitalize(item.label)}`)
+                                toast.success(`Đã xác nhận: ${sportNameVi(item.label)}`)
                               })
                               .catch((err) => toast.error(err instanceof Error ? err.message : 'Không thể lưu nhãn.'))
                           }}
@@ -712,6 +771,21 @@ export function LibraryPage({ active }: { active: boolean }) {
           </Card>
         </div>
       )}
+
+      {(() => {
+        if (!arSport) return null
+        const availability = getArAvailability(arSport, false, sports3d)
+        if (!availability.enabled) return null
+        return (
+          <SportArDialog
+            key={arSport}
+            label={arSport}
+            asset={availability.asset}
+            returnFocusRef={{ current: null }}
+            onClose={() => setArSport(null)}
+          />
+        )
+      })()}
     </>
   )
 }
