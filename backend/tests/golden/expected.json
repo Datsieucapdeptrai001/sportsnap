@@ -1,42 +1,42 @@
 [
   {
     "file": "red_gradient.png",
-    "label": "rings",
-    "confidence": 0.1851830780506134
+    "label": "rollerblade racing",
+    "confidence": 0.29264596104621887
   },
   {
     "file": "green_gradient.png",
-    "label": "roller derby",
-    "confidence": 0.2821018099784851
+    "label": "boxing",
+    "confidence": 0.32653436064720154
   },
   {
     "file": "blue_gradient.png",
-    "label": "swimming",
-    "confidence": 0.22531095147132874
+    "label": "field hockey",
+    "confidence": 0.3380844295024872
   },
   {
     "file": "checkerboard.png",
-    "label": "roller derby",
-    "confidence": 0.18902242183685303
+    "label": "tennis",
+    "confidence": 0.42611366510391235
   },
   {
     "file": "diagonal_stripes.png",
-    "label": "swimming",
-    "confidence": 0.26718980073928833
+    "label": "uneven bars",
+    "confidence": 0.15089978277683258
   },
   {
     "file": "radial_rings.png",
-    "label": "swimming",
-    "confidence": 0.5701107382774353
+    "label": "archery",
+    "confidence": 0.3408755660057068
   },
   {
     "file": "noise.png",
-    "label": "swimming",
-    "confidence": 0.3385416269302368
+    "label": "field hockey",
+    "confidence": 0.26599499583244324
   },
   {
     "file": "neutral.png",
-    "label": "golf",
-    "confidence": 0.23569349944591522
+    "label": "field hockey",
+    "confidence": 0.3398934006690979
   }
 ]
