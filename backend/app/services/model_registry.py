@@ -67,8 +67,8 @@ MODEL_CATALOG: tuple[ModelSpec, ...] = (
     ),
     ModelSpec(
         id="legacy_mobilenet_v2",
-        name="MobileNetV2 (20 môn cũ · Golden)",
-        description="Mô hình 20 môn gốc (figure skating pairs, nascar racing, rings, rugby)",
+        name="MobileNetV2 (SportSnap · 20 môn chuẩn)",
+        description="Mô hình chính thức của đề tài SportSnap (20 môn chuẩn theo báo cáo)",
         model_rel_path="backend/models/best_model.keras",
         labels_rel_path="backend/models/labels.json",
         preprocess="mobilenet_v2",
