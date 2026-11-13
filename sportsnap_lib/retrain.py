@@ -16,6 +16,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from sportsnap_lib.calibration import fit_temperature
 from sportsnap_lib.config import LibrarySettings
 from sportsnap_lib.ingest import SUPPORTED_EXTENSIONS, preprocess_batch, update_job
+from sportsnap_lib.paths import resolve_stored_path
 from sportsnap_lib.registry import (
     ModelVersionRecord,
     ensure_initial_version,
@@ -114,11 +115,11 @@ def retrain_from_corrections(
         ORDER BY i.id ASC
         """
     ).fetchall()
-    corrections = [
-        (Path(str(r["path"])), label_to_idx[str(r["label"])])
-        for r in correction_rows
-        if str(r["label"]) in label_to_idx and Path(str(r["path"])).is_file()
-    ]
+    corrections: list[tuple[Path, int]] = []
+    for r in correction_rows:
+        resolved = resolve_stored_path(str(r["path"]), settings.project_root)
+        if str(r["label"]) in label_to_idx and resolved is not None:
+            corrections.append((resolved, label_to_idx[str(r["label"])]))
     n_corrections = len(corrections)
     if n_corrections == 0:
         raise ValueError("Chưa có ảnh nào được người dùng sửa/xác nhận nhãn (source='human').")

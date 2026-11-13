@@ -29,6 +29,7 @@ from sportsnap_lib.db import init_db, set_image_label, utc_now_iso  # noqa: E402
 from sportsnap_lib.dedup import list_dup_groups, run_dedup, set_group_decision  # noqa: E402
 from sportsnap_lib.embedder import FastEmbedClipEmbedder  # noqa: E402
 from sportsnap_lib.ingest import ingest_directory, ingest_paths, update_job  # noqa: E402
+from sportsnap_lib.paths import resolve_stored_path  # noqa: E402
 from sportsnap_lib.registry import (  # noqa: E402
     ModelVersionRecord,
     ensure_initial_version,
@@ -380,9 +381,11 @@ def library_image_thumb(request: Request, image_id: int) -> FileResponse:
         ).fetchone()
     if row is None:
         raise APIError(404, "image_not_found", "Không tìm thấy ảnh.")
-    thumb = Path(str(row["thumb_path"]))
-    target = thumb if thumb.is_file() else Path(str(row["path"]))
-    if not target.is_file():
+    root = rt.settings.project_root
+    target = resolve_stored_path(
+        str(row["thumb_path"]), root, (rt.settings.thumbs_dir,)
+    ) or resolve_stored_path(str(row["path"]), root)
+    if target is None:
         raise APIError(404, "image_not_found", "Không tìm thấy tệp ảnh.")
     return FileResponse(target)
 
@@ -394,8 +397,8 @@ def library_image_file(request: Request, image_id: int) -> FileResponse:
         row = rt.conn.execute("SELECT path FROM images WHERE id = ?", (image_id,)).fetchone()
     if row is None:
         raise APIError(404, "image_not_found", "Không tìm thấy ảnh.")
-    target = Path(str(row["path"]))
-    if not target.is_file():
+    target = resolve_stored_path(str(row["path"]), rt.settings.project_root)
+    if target is None:
         raise APIError(404, "image_not_found", "Không tìm thấy tệp ảnh.")
     return FileResponse(target)
 
