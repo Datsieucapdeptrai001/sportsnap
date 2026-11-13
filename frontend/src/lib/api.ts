@@ -39,6 +39,39 @@ export interface ModelComparisonResponse {
   results: ModelComparisonItem[]
 }
 
+const DEV_TOKEN_KEY = 'sportdev_token'
+
+export function getDevToken(): string | null {
+  try {
+    return sessionStorage.getItem(DEV_TOKEN_KEY) || localStorage.getItem(DEV_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function setDevToken(token: string | null): void {
+  try {
+    if (token) {
+      sessionStorage.setItem(DEV_TOKEN_KEY, token)
+      localStorage.setItem(DEV_TOKEN_KEY, token)
+    } else {
+      sessionStorage.removeItem(DEV_TOKEN_KEY)
+      localStorage.removeItem(DEV_TOKEN_KEY)
+    }
+  } catch {
+    // Ignore storage errors in restrictive environments
+  }
+}
+
+export function isDevAuthenticated(): boolean {
+  return Boolean(getDevToken())
+}
+
+export function authHeaders(): Record<string, string> {
+  const token = getDevToken()
+  return token ? { 'X-Dev-Token': token } : {}
+}
+
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   const response = await fetch('/api/health', { signal })
   if (!response.ok) {
@@ -57,6 +90,72 @@ export interface Prediction extends ClassConfidence {
   is_uncertain: boolean
   threshold: number
   latency_ms: number
+  confidence_tier?: 'certain' | 'likely' | 'uncertain'
+  tier_label_vi?: string
+  alternative_suggestions?: ClassConfidence[]
+}
+
+export interface CreateCorrectionPayload {
+  image_sha1: string
+  image_base64?: string
+  previous_label: string
+  predicted_label: string
+  corrected_label: string
+  confidence?: number
+  model_id?: string
+  batch_id?: string
+}
+
+export interface CorrectionRecord {
+  id: number
+  batch_id: string | null
+  image_sha1: string
+  previous_label: string
+  predicted_label: string
+  corrected_label: string
+  confidence: number | null
+  model_id: string
+  created_at: string
+  undone_at: string | null
+}
+
+export interface UndoCorrectionResponse {
+  undone: boolean
+  undone_count: number
+  restored_label: string | null
+  message: string
+}
+
+export async function submitCorrection(
+  payload: CreateCorrectionPayload,
+  signal?: AbortSignal,
+): Promise<CorrectionRecord> {
+  const response = await fetch('/api/corrections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload),
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error('Không thể lưu nhãn sửa đổi. Vui lòng thử lại.')
+  }
+  return (await response.json()) as CorrectionRecord
+}
+
+export async function undoCorrection(
+  options: { correction_id?: number; image_sha1?: string; batch_id?: string },
+  signal?: AbortSignal,
+): Promise<UndoCorrectionResponse> {
+  const response = await fetch('/api/corrections/undo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(options),
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error('Không thể hoàn tác nhãn lúc này. Vui lòng thử lại.')
+  }
+  return (await response.json()) as UndoCorrectionResponse
 }
 
 export type FramePrediction = ClassConfidence
@@ -111,7 +210,10 @@ export interface Insights {
 
 export async function getInsights(signal?: AbortSignal): Promise<Insights> {
   try {
-    const response = await fetch('/api/insights', { signal })
+    const response = await fetch('/api/insights', {
+      headers: { ...authHeaders() },
+      signal,
+    })
     if (!response.ok) throw new Error('Không thể tải dữ liệu thí nghiệm. Vui lòng thử lại.')
     return await response.json() as Insights
   } catch (error) {
@@ -168,7 +270,10 @@ export async function getClasses(signal?: AbortSignal): Promise<string[]> {
 export async function getModels(signal?: AbortSignal): Promise<ModelsListResponse> {
   let response: Response
   try {
-    response = await fetch('/api/models', { signal })
+    response = await fetch('/api/models', {
+      headers: { ...authHeaders() },
+      signal,
+    })
   } catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể tải danh sách mô hình. Vui lòng thử lại.', { cause: error })
@@ -182,7 +287,7 @@ export async function selectModel(modelId: string, signal?: AbortSignal): Promis
   try {
     response = await fetch('/api/models/select', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ model_id: modelId }),
       signal,
     })
@@ -206,7 +311,12 @@ export async function compareModels(image: Blob, signal?: AbortSignal): Promise<
   body.append('file', image, image instanceof File ? image.name : 'frame.jpg')
   let response: Response
   try {
-    response = await fetch('/api/models/compare', { method: 'POST', body, signal })
+    response = await fetch('/api/models/compare', {
+      method: 'POST',
+      headers: { ...authHeaders() },
+      body,
+      signal,
+    })
   } catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể kết nối khi so sánh các mô hình. Vui lòng thử lại.', { cause: error })

@@ -197,3 +197,44 @@ class ErrorDetail(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorDetail
+
+
+class CreateCorrectionRequest(BaseModel):
+    batch_id: str | None = None
+    image_sha1: str = Field(min_length=1)
+    image_base64: str | None = None
+    previous_label: str = Field(min_length=1)
+    predicted_label: str = Field(min_length=1)
+    corrected_label: str = Field(min_length=1)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    model_id: str = "legacy_mobilenet_v2"
+
+
+class CorrectionResponse(BaseModel):
+    id: int
+    batch_id: str | None = None
+    image_sha1: str
+    previous_label: str
+    predicted_label: str
+    corrected_label: str
+    confidence: float | None = None
+    model_id: str
+    created_at: str
+    undone_at: str | None = None
+
+
+class UndoCorrectionRequest(BaseModel):
+    correction_id: int | None = None
+    image_sha1: str | None = None
+    batch_id: str | None = None
+
+
+class UndoCorrectionResponse(BaseModel):
+    undone: bool
+    undone_count: int
+    restored_label: str | None = None
+    message: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail

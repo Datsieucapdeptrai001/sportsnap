@@ -25,9 +25,11 @@ type ScanState =
 export function ScanPage({
   active = true,
   activeModelId = null,
+  isDevMode = false,
 }: {
   active?: boolean
   activeModelId?: string | null
+  isDevMode?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<CameraScannerHandle>(null)
@@ -38,6 +40,7 @@ export function ScanPage({
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<{ url: string; owned: boolean; sampleId: string | null } | null>(null)
   const [mode, setMode] = useState<'camera' | 'gallery'>('camera')
+  const [overrideLabel, setOverrideLabel] = useState<string | null>(null)
   const [state, setState] = useState<ScanState>({ status: 'idle' })
 
   useEffect(() => () => requestRef.current?.abort(), [])
@@ -109,6 +112,7 @@ export function ScanPage({
     requestRef.current?.abort()
     setFile(null)
     setPreview(null)
+    setOverrideLabel(null)
     setState({ status: 'idle' })
   }
 
@@ -226,16 +230,24 @@ export function ScanPage({
         )}
         {state.status === 'success' && (
           <>
-            <SportViewer key={state.resultId} result={state.result}
-              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined} />
-            <PredictionCard key={`card-${state.resultId}`} result={state.result} image={state.image}
-              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined} />
+            <SportViewer
+              key={`${state.resultId}-${overrideLabel || state.result.label}`}
+              result={overrideLabel ? { ...state.result, label: overrideLabel } : state.result}
+              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined}
+            />
+            <PredictionCard
+              key={`card-${state.resultId}`}
+              result={state.result}
+              image={state.image}
+              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined}
+              onLabelChange={(newLabel) => setOverrideLabel(newLabel)}
+            />
           </>
         )}
       </div>
       </div>
       </div>
-      {state.status === 'success' && <ModelCompareCard image={state.image} activeModelId={activeModelId} />}
+      {isDevMode && state.status === 'success' && <ModelCompareCard image={state.image} activeModelId={activeModelId} />}
       <p className="mt-6 flex items-start justify-center gap-2 text-xs leading-relaxed text-slate-300">
         <ShieldCheck size={16} className="shrink-0" aria-hidden="true" />Ảnh chỉ được gửi đến hệ thống để nhận diện.
       </p>

@@ -106,6 +106,27 @@ def retrain_from_corrections(
     label_to_idx = {lbl: idx for idx, lbl in enumerate(labels)}
 
     update_job(conn, job_id, state="running", progress=0.05, message="Đang gom dữ liệu nhãn đã sửa...")
+    corrections: list[tuple[Path, int]] = []
+    seen_paths: set[str] = set()
+
+    # 1. Corrections recorded from Scan page (corrections table)
+    scan_corrections = conn.execute(
+        """
+        SELECT image_path, corrected_label
+        FROM corrections
+        WHERE undone_at IS NULL
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    for r in scan_corrections:
+        resolved = resolve_stored_path(str(r["image_path"]), settings.project_root)
+        if resolved is not None and resolved.is_file() and str(r["corrected_label"]) in label_to_idx:
+            resolved_key = str(resolved.resolve()).lower()
+            if resolved_key not in seen_paths:
+                seen_paths.add(resolved_key)
+                corrections.append((resolved, label_to_idx[str(r["corrected_label"])]))
+
+    # 2. Human labels from library review (labels table)
     correction_rows = conn.execute(
         """
         SELECT i.path, l.label
@@ -115,14 +136,17 @@ def retrain_from_corrections(
         ORDER BY i.id ASC
         """
     ).fetchall()
-    corrections: list[tuple[Path, int]] = []
     for r in correction_rows:
         resolved = resolve_stored_path(str(r["path"]), settings.project_root)
-        if str(r["label"]) in label_to_idx and resolved is not None:
-            corrections.append((resolved, label_to_idx[str(r["label"])]))
+        if resolved is not None and resolved.is_file() and str(r["label"]) in label_to_idx:
+            resolved_key = str(resolved.resolve()).lower()
+            if resolved_key not in seen_paths:
+                seen_paths.add(resolved_key)
+                corrections.append((resolved, label_to_idx[str(r["label"])]))
+
     n_corrections = len(corrections)
     if n_corrections == 0:
-        raise ValueError("Chưa có ảnh nào được người dùng sửa/xác nhận nhãn (source='human').")
+        raise ValueError("Chưa có ảnh nào được người dùng sửa/xác nhận nhãn.")
 
     replay = _collect_replay_samples(
         settings.train_dir, label_to_idx, max_per_class=replay_per_class
@@ -147,6 +171,17 @@ def retrain_from_corrections(
 
     update_job(conn, job_id, state="running", progress=0.35, message=f"Đang nạp mô hình gốc {parent.version}...")
     model = tf.keras.models.load_model(parent.checkpoint_path, compile=False)
+
+    update_job(conn, job_id, state="running", progress=0.40, message="Đang đánh giá mô hình trước khi tinh chỉnh...")
+    eval_target = test_samples if test_samples else val_samples
+    test_probs_before, test_y_before = _evaluate_split(model, eval_target, parent.preprocess)
+    if len(test_y_before) > 0:
+        test_preds_before = np.argmax(test_probs_before, axis=1)
+        eval_acc_before = float(accuracy_score(test_y_before, test_preds_before))
+        eval_f1_before = float(f1_score(test_y_before, test_preds_before, average="macro", zero_division=0))
+    else:
+        eval_acc_before = 0.0
+        eval_f1_before = 0.0
 
     # Match SportSnap_02_ThiNghiem_BoSung_Muc12.ipynb / DECISIONS.md §6:
     # Unfreeze conv5_block* layers while keeping BatchNormalization frozen.
@@ -190,7 +225,6 @@ def retrain_from_corrections(
     val_probs, val_y = _evaluate_split(model, val_samples, parent.preprocess)
     cal_report = fit_temperature(val_probs, val_y)
 
-    eval_target = test_samples if test_samples else val_samples
     test_probs, test_y = _evaluate_split(model, eval_target, parent.preprocess)
     if len(test_y) > 0:
         test_preds = np.argmax(test_probs, axis=1)
@@ -204,7 +238,9 @@ def retrain_from_corrections(
         "train_samples": len(train_samples),
         "n_corrections": n_corrections,
         "train_accuracy": round(float(history.history["accuracy"][-1]), 4),
+        "eval_accuracy_before": round(eval_acc_before, 4),
         "eval_accuracy": round(eval_acc, 4),
+        "eval_macro_f1_before": round(eval_f1_before, 4),
         "eval_macro_f1": round(eval_f1, 4),
         "ece_before": cal_report.ece_before,
         "ece_after": cal_report.ece_after,
@@ -239,11 +275,11 @@ def retrain_from_corrections(
         done_label = parent.version
     else:
         new_version = next_version_name(conn)
-        version_dir = settings.registry_dir / new_version
-        version_dir.mkdir(parents=True, exist_ok=True)
-        ckpt_path = version_dir / f"{parent.backbone}_retrained.keras"
-        labels_path = version_dir / "labels.json"
-        labels_path.write_text(json.dumps(labels, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Strictly save to ONE designated retrained checkpoint file on disk
+        ckpt_path = settings.registry_dir / "retrained_best.keras"
+        labels_path = settings.registry_dir / "labels.json"
+        if not labels_path.is_file():
+            labels_path.write_text(json.dumps(labels, ensure_ascii=False, indent=2), encoding="utf-8")
         model.save(ckpt_path)
         record = register_version(
             conn,
@@ -262,6 +298,9 @@ def retrain_from_corrections(
             activate=activate,
         )
         done_label = new_version
+
+    conn.execute("UPDATE corrections SET is_used_for_training = 1 WHERE undone_at IS NULL")
+    conn.commit()
 
     update_job(
         conn,

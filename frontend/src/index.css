@@ -208,6 +208,14 @@ button:not(:disabled) {
 
   .result-enter { animation: surface-enter 220ms ease-out both; }
   .confidence-fill { animation: confidence-fill 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: left; }
+
+  .sport-canvas-background {
+    position: fixed;
+    inset: 0;
+    z-index: -10;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 75% 35%, #052e2b 0%, transparent 65%), linear-gradient(145deg, #07111f, #020617 70%);
+  }
 }
 
 @keyframes photo-finish {

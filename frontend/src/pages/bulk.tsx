@@ -8,6 +8,7 @@ import { Skeleton } from '../components/ui/skeleton'
 import { SportArButton } from '../components/sport-ar-button'
 import { ConfidenceLanes } from '../components/confidence-lanes'
 import { cn } from '../lib/utils'
+import { sportNameVi } from '../lib/sport-names'
 import { cancelBulkJob, createBulkJob, downloadBulkJob, getBulkImageUrl, getBulkResults, getBulkThumbnailUrl, type BulkResultItem, type BulkResults, type BulkSort, type BulkState, type BulkStatus } from '../lib/api'
 import { BULK_PAGE_SIZE, bulkPagination, bulkResultsQuery, bulkStatusAfterRemoval, changeBulkFilters, initialBulkView, isBulkTerminal, moveBulkLightbox, pollBulkJob, toggleBulkLabel } from '../lib/bulk'
 
@@ -60,7 +61,7 @@ function BulkLightbox({ jobId, item, items, onChange, onClose }: {
       <div className="mt-4 space-y-3">
         {item.error ? <p className="text-sm text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <p className="text-2xl font-bold tracking-tight capitalize">{item.label ?? ''}</p>
+            <p className="text-2xl font-bold tracking-tight capitalize">{item.label ? `${sportNameVi(item.label)} (${item.label})` : ''}</p>
             <p className={cn('text-xl font-semibold tabular-nums', item.is_uncertain ? 'text-warning' : 'text-primary')}>{percent.format(item.confidence ?? 0)}</p>
           </div>
           {item.is_uncertain && <p><UncertainBadge /></p>}
@@ -93,6 +94,8 @@ export function BulkPage({ active }: { active: boolean }) {
   const [view, setView] = useState(initialBulkView)
   const [resultsState, setResultsState] = useState<ResultsState | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [startTime, setStartTime] = useState<number | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const removed = filesRemoved || !!job?.files_removed
   const terminal = job ? isBulkTerminal(job.status) : false
   const running = !!jobId && !terminal
@@ -139,12 +142,22 @@ export function BulkPage({ active }: { active: boolean }) {
     return () => controller.abort()
   }, [active, jobId, removed, requestKey, queryKey, view])
 
+  useEffect(() => {
+    if (!running || !startTime) return
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.max(1, Math.round((Date.now() - startTime) / 1000)))
+    }, 500)
+    return () => window.clearInterval(timer)
+  }, [running, startTime])
+
   function resetResults() {
     resultsRequestRef.current?.abort()
     setResultsState(null)
     setView(initialBulkView)
     setLightboxIndex(null)
     setFilesRemoved(false)
+    setStartTime(null)
+    setElapsedSeconds(0)
   }
 
   function choose(selected: File[]) {
@@ -174,6 +187,8 @@ export function BulkPage({ active }: { active: boolean }) {
     setError('')
     setJobId(null)
     setJob(null)
+    setStartTime(Date.now())
+    setElapsedSeconds(0)
     try {
       const result = await createBulkJob(files, setUploadPercent, controller.signal)
       if (!controller.signal.aborted) setJobId(result.job_id)
@@ -259,14 +274,35 @@ export function BulkPage({ active }: { active: boolean }) {
       </Card>
       {jobId && !job && !error && <Card className="mt-5 space-y-3 p-5" aria-label="Đang tải tiến độ"><Skeleton className="h-5 w-40" /><Skeleton className="h-3 w-full" /></Card>}
       {job && summary && <Card className="mt-5 space-y-5 p-3 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-lg font-semibold">{running && <LoaderCircle size={18} className="motion-safe:animate-spin" aria-hidden="true" />}{stateLabels[job.status]}</h2><span className="text-sm tabular-nums" aria-live="polite">{job.processed} / {job.total} tệp</span></div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">{running && <LoaderCircle size={18} className="motion-safe:animate-spin" aria-hidden="true" />}{stateLabels[job.status]}</h2>
+          <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm tabular-nums text-muted-foreground" aria-live="polite">
+            {elapsedSeconds > 0 && <span>Thời gian: <strong className="text-foreground">{elapsedSeconds}s</strong></span>}
+            {elapsedSeconds > 0 && job.processed > 0 && <span>Tốc độ: <strong className="text-foreground">{(job.processed / elapsedSeconds).toFixed(1)} ảnh/s</strong></span>}
+            <span>{job.processed} / {job.total} tệp</span>
+          </div>
+        </div>
         <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-border bg-border gap-px sm:grid-cols-4">{([['Tổng ảnh', summary.total, ''], ['Đã phân loại', summary.processed, ''], ['Không chắc chắn', summary.uncertain, 'text-warning'], ['Tệp lỗi', summary.errors, 'text-destructive']] as const).map(([title, count, tone]) => <div key={title} className="bg-card p-3"><dt className="text-xs text-muted-foreground">{title}</dt><dd className={cn('mt-1 text-2xl font-semibold tabular-nums', count ? tone : '')}>{count}</dd></div>)}</dl>
         <Progress value={progress} label="Tiến độ phân loại" />
         {removed ? <p role="status" className="rounded-xl border border-border bg-lane p-4 text-sm">Đã xóa tệp tạm. Kết quả tổng hợp vẫn được giữ trên trang này.</p> : <>
           <div className="sticky top-0 z-20 -mx-3 space-y-3 border-y border-border bg-card/95 px-3 py-3 backdrop-blur-md sm:-mx-5 sm:px-5">
             <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Lọc theo môn thể thao">
-              <Button variant={view.label ? 'outline' : 'default'} className="shrink-0 rounded-full" aria-pressed={!view.label} onClick={() => { setLightboxIndex(null); setView(changeBulkFilters(view, { label: '' })) }}>Tất cả <span className="tabular-nums opacity-80">{summary.processed}</span></Button>
-              {Object.entries(summary.counts).map(([label, count]) => <Button key={label} title={label} variant={view.label === label ? 'default' : 'outline'} className="shrink-0 rounded-full" aria-pressed={view.label === label} onClick={() => { setLightboxIndex(null); setView(toggleBulkLabel(view, label)) }}>{label} <span className="tabular-nums opacity-80">{count}</span></Button>)}
+              <Button variant={!view.label && !view.uncertain ? 'default' : 'outline'} className="shrink-0 rounded-full" aria-pressed={!view.label && !view.uncertain} onClick={() => { setLightboxIndex(null); setView(changeBulkFilters(view, { label: '', uncertain: false })) }}>Tất cả <span className="tabular-nums opacity-80">{summary.processed}</span></Button>
+              {summary.uncertain > 0 && (
+                <Button
+                  variant={view.uncertain ? 'default' : 'outline'}
+                  className={cn('shrink-0 rounded-full', view.uncertain ? 'border-amber-400 bg-amber-500 font-semibold text-slate-950 hover:bg-amber-400' : 'border-amber-400/50 text-amber-300 hover:bg-amber-400/10')}
+                  aria-pressed={view.uncertain}
+                  onClick={() => { setLightboxIndex(null); setView(changeBulkFilters(view, { uncertain: !view.uncertain, label: '' })) }}
+                >
+                  ⚠️ Cần kiểm tra <span className="tabular-nums opacity-80">{summary.uncertain}</span>
+                </Button>
+              )}
+              {Object.entries(summary.counts).map(([label, count]) => (
+                <Button key={label} title={label} variant={view.label === label ? 'default' : 'outline'} className="shrink-0 rounded-full" aria-pressed={view.label === label} onClick={() => { setLightboxIndex(null); setView(toggleBulkLabel(view, label)) }}>
+                  {sportNameVi(label)} <span className="tabular-nums opacity-80">{count}</span>
+                </Button>
+              ))}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="flex items-center gap-2 text-sm">Sắp xếp<select aria-label="Sắp xếp kết quả" value={view.sort} onChange={(event) => { setLightboxIndex(null); setView(changeBulkFilters(view, { sort: event.target.value as BulkSort })) }} className="min-h-11 max-w-48 rounded-xl border border-border bg-card px-2"><option value="confidence_desc">Tin cậy cao trước</option><option value="confidence_asc">Tin cậy thấp trước</option><option value="filename">Tên tệp A–Z</option></select></label>
@@ -284,7 +320,7 @@ export function BulkPage({ active }: { active: boolean }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-5" aria-label="Kết quả phân loại">
               {items.map((item) => <button key={`${jobId}:${item.index}`} type="button" onClick={() => setLightboxIndex(item.index)} aria-label={`Xem ảnh ${item.filename}`} className={cn('min-w-0 overflow-hidden rounded-xl border bg-card text-left transition-colors hover:border-foreground/40', item.is_uncertain ? 'border-warning-line' : 'border-border')}>
                 <div className="aspect-square overflow-hidden bg-lane"><BulkImage src={getBulkThumbnailUrl(jobId!, item.index)} filename={item.filename} /></div>
-                <div className="space-y-2 p-2.5"><p className="truncate text-[11px] text-muted-foreground" title={item.filename}>{item.filename}</p>{item.error ? <p className="text-xs text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <><div className="flex items-baseline justify-between gap-2"><p className="min-w-0 break-words text-sm leading-snug font-semibold" title={item.label ?? undefined}>{item.label ?? ''}</p><p className="shrink-0 text-xs tabular-nums">{percent.format(item.confidence ?? 0)}</p></div><Progress value={(item.confidence ?? 0) * 100} label={`Độ tin cậy của ${item.filename}`} className={item.is_uncertain ? 'bg-warning-bar' : undefined} />{item.is_uncertain && <UncertainBadge />}</>}</div>
+                <div className="space-y-2 p-2.5"><p className="truncate text-[11px] text-muted-foreground" title={item.filename}>{item.filename}</p>{item.error ? <p className="text-xs text-destructive">{fileErrors[item.error] ?? 'Không đọc được tệp'}</p> : <><div className="flex items-baseline justify-between gap-2"><p className="min-w-0 break-words text-sm leading-snug font-semibold" title={item.label ?? undefined}>{item.label ? sportNameVi(item.label) : ''}</p><p className="shrink-0 text-xs tabular-nums">{percent.format(item.confidence ?? 0)}</p></div><Progress value={(item.confidence ?? 0) * 100} label={`Độ tin cậy của ${item.filename}`} className={item.is_uncertain ? 'bg-warning-bar' : undefined} />{item.is_uncertain && <UncertainBadge />}</>}</div>
               </button>)}
             </div>
             {!items.length && <p className="py-10 text-center text-sm text-muted-foreground">{running && !job.processed ? 'Kết quả sẽ xuất hiện khi ảnh được xử lý.' : 'Không có ảnh phù hợp bộ lọc.'}</p>}

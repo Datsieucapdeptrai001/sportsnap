@@ -101,9 +101,27 @@ CREATE TABLE IF NOT EXISTS jobs (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS corrections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id TEXT,
+    image_sha1 TEXT NOT NULL,
+    image_path TEXT NOT NULL,
+    previous_label TEXT NOT NULL,
+    predicted_label TEXT NOT NULL,
+    corrected_label TEXT NOT NULL,
+    confidence REAL,
+    model_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    undone_at TEXT,
+    is_used_for_training INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS idx_predictions_status ON predictions(status);
 CREATE INDEX IF NOT EXISTS idx_labels_source ON labels(source);
 CREATE INDEX IF NOT EXISTS idx_embeddings_row ON embeddings(row_index);
+CREATE INDEX IF NOT EXISTS idx_corrections_undone ON corrections(undone_at);
+CREATE INDEX IF NOT EXISTS idx_corrections_sha1 ON corrections(image_sha1);
+CREATE INDEX IF NOT EXISTS idx_corrections_batch ON corrections(batch_id);
 """
 
 
@@ -154,3 +172,94 @@ def set_image_label(
         (image_id, label, source, utc_now_iso()),
     )
     conn.commit()
+
+
+def record_correction(
+    conn: sqlite3.Connection,
+    image_sha1: str,
+    image_path: str,
+    previous_label: str,
+    predicted_label: str,
+    corrected_label: str,
+    confidence: float | None = None,
+    model_id: str = "legacy_mobilenet_v2",
+    batch_id: str | None = None,
+) -> int:
+    """Record a user correction in the database."""
+    cur = conn.execute(
+        """
+        INSERT INTO corrections (
+            batch_id, image_sha1, image_path, previous_label,
+            predicted_label, corrected_label, confidence, model_id,
+            created_at, undone_at, is_used_for_training
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0)
+        """,
+        (
+            batch_id,
+            image_sha1,
+            image_path,
+            previous_label,
+            predicted_label,
+            corrected_label,
+            confidence,
+            model_id,
+            utc_now_iso(),
+        ),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+def undo_correction(
+    conn: sqlite3.Connection,
+    correction_id: int | None = None,
+    image_sha1: str | None = None,
+    batch_id: str | None = None,
+) -> tuple[int, str | None]:
+    """Mark matching active corrections as undone, returning (count, restored_label)."""
+    now = utc_now_iso()
+    restored_label: str | None = None
+    if correction_id is not None:
+        row = conn.execute(
+            "SELECT previous_label FROM corrections WHERE id = ? AND undone_at IS NULL",
+            (correction_id,),
+        ).fetchone()
+        if row:
+            restored_label = str(row["previous_label"])
+        cur = conn.execute(
+            "UPDATE corrections SET undone_at = ? WHERE id = ? AND undone_at IS NULL",
+            (now, correction_id),
+        )
+    elif image_sha1 is not None:
+        row = conn.execute(
+            "SELECT previous_label FROM corrections WHERE image_sha1 = ? AND undone_at IS NULL ORDER BY id DESC LIMIT 1",
+            (image_sha1,),
+        ).fetchone()
+        if row:
+            restored_label = str(row["previous_label"])
+        cur = conn.execute(
+            "UPDATE corrections SET undone_at = ? WHERE image_sha1 = ? AND undone_at IS NULL",
+            (now, image_sha1),
+        )
+    elif batch_id is not None:
+        cur = conn.execute(
+            "UPDATE corrections SET undone_at = ? WHERE batch_id = ? AND undone_at IS NULL",
+            (now, batch_id),
+        )
+    else:
+        return 0, None
+    conn.commit()
+    return int(cur.rowcount), restored_label
+
+
+def list_corrections(
+    conn: sqlite3.Connection,
+    limit: int = 100,
+    include_undone: bool = False,
+) -> list[sqlite3.Row]:
+    """List recent corrections."""
+    query = "SELECT * FROM corrections"
+    if not include_undone:
+        query += " WHERE undone_at IS NULL"
+    query += " ORDER BY id DESC LIMIT ?"
+    return conn.execute(query, (limit,)).fetchall()

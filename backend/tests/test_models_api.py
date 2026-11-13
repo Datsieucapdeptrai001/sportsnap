@@ -85,10 +85,26 @@ def test_models_list_select_and_compare(tmp_path: Path, monkeypatch: pytest.Monk
         MODEL_PATH=Path("models/ResNet50_finetune_best.keras"),
         LABELS_PATH=Path("models/labels.json"),
         PREPROCESS="resnet50",
+        DEV_TOKEN="dev_secret",
     )
 
     with TestClient(create_app(settings)) as client:
-        listed = client.get("/api/models")
+        # User mode (no token header): only active model returned
+        user_listed = client.get("/api/models")
+        assert user_listed.status_code == 200
+        assert len(user_listed.json()["models"]) == 1
+        assert user_listed.json()["models"][0]["id"] == "resnet50_finetune"
+
+        # User mode: select and compare are blocked (403)
+        assert client.post("/api/models/select", json={"model_id": "legacy_mobilenet_v2"}).status_code == 403
+        assert client.post(
+            "/api/models/compare",
+            files={"file": ("sample.jpg", make_image_bytes(), "image/jpeg")},
+        ).status_code == 403
+
+        # Dev mode (valid X-Dev-Token header)
+        dev_headers = {"X-Dev-Token": "dev_secret"}
+        listed = client.get("/api/models", headers=dev_headers)
         assert listed.status_code == 200
         payload = listed.json()
         assert payload["active_model_id"] == "resnet50_finetune"
@@ -98,7 +114,7 @@ def test_models_list_select_and_compare(tmp_path: Path, monkeypatch: pytest.Monk
             "legacy_mobilenet_v2",
         ]
 
-        selected = client.post("/api/models/select", json={"model_id": "legacy_mobilenet_v2"})
+        selected = client.post("/api/models/select", json={"model_id": "legacy_mobilenet_v2"}, headers=dev_headers)
         assert selected.status_code == 200
         assert selected.json()["active_model_id"] == "legacy_mobilenet_v2"
         assert client.get("/api/health").json()["preprocess"] == "mobilenet_v2"
@@ -107,6 +123,7 @@ def test_models_list_select_and_compare(tmp_path: Path, monkeypatch: pytest.Monk
         compared = client.post(
             "/api/models/compare",
             files={"file": ("sample.jpg", make_image_bytes(), "image/jpeg")},
+            headers=dev_headers,
         )
         assert compared.status_code == 200
         items = {entry["id"]: entry["prediction"]["label"] for entry in compared.json()["results"]}
