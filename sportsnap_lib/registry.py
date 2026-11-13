@@ -165,3 +165,112 @@ def promote_version(conn: sqlite3.Connection, version: str) -> ModelVersionRecor
     ).fetchone()
     assert updated is not None
     return _row_to_record(updated)
+
+
+def next_version_name(conn: sqlite3.Connection) -> str:
+    """Generate the next sequential version identifier (v2, v3, ...)."""
+    rows = conn.execute("SELECT version FROM model_versions").fetchall()
+    max_num = 1
+    for row in rows:
+        name = str(row["version"])
+        if name.startswith("v") and name[1:].isdigit():
+            max_num = max(max_num, int(name[1:]))
+    return f"v{max_num + 1}"
+
+
+def register_version(
+    conn: sqlite3.Connection,
+    *,
+    version: str,
+    parent: str | None,
+    train_set_hash: str | None,
+    n_corrections_used: int,
+    metrics: dict[str, Any],
+    temperature: float,
+    tau_high: float | None,
+    tau_low: float | None,
+    preprocess: str,
+    backbone: str,
+    checkpoint_path: Path,
+    labels_path: Path,
+    activate: bool = False,
+) -> ModelVersionRecord:
+    """Insert a newly trained model version into the SQLite registry."""
+    if activate:
+        conn.execute("UPDATE model_versions SET is_active = 0")
+    conn.execute(
+        """
+        INSERT INTO model_versions (
+            version, parent, created_at, train_set_hash, n_corrections_used,
+            metrics_json, temperature, tau_high, tau_low,
+            preprocess, backbone, checkpoint_path, labels_path, is_active
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            version,
+            parent,
+            utc_now_iso(),
+            train_set_hash,
+            int(n_corrections_used),
+            json.dumps(metrics),
+            float(temperature),
+            tau_high,
+            tau_low,
+            preprocess,
+            backbone,
+            str(checkpoint_path),
+            str(labels_path),
+            1 if activate else 0,
+        ),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT * FROM model_versions WHERE version = ?", (version,)
+    ).fetchone()
+    assert row is not None
+    return _row_to_record(row)
+
+
+def update_version_in_place(
+    conn: sqlite3.Connection,
+    *,
+    version: str,
+    train_set_hash: str | None,
+    n_corrections_used: int,
+    metrics: dict[str, Any],
+    temperature: float,
+    tau_high: float | None,
+    tau_low: float | None,
+) -> ModelVersionRecord:
+    """Update metrics and calibration of an existing model version in place."""
+    conn.execute(
+        """
+        UPDATE model_versions
+        SET created_at = ?,
+            train_set_hash = ?,
+            n_corrections_used = ?,
+            metrics_json = ?,
+            temperature = ?,
+            tau_high = ?,
+            tau_low = ?
+        WHERE version = ?
+        """,
+        (
+            utc_now_iso(),
+            train_set_hash,
+            int(n_corrections_used),
+            json.dumps(metrics),
+            float(temperature),
+            tau_high,
+            tau_low,
+            version,
+        ),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT * FROM model_versions WHERE version = ?", (version,)
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Unknown model version: {version}")
+    return _row_to_record(row)
