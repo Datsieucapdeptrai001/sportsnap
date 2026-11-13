@@ -90,6 +90,72 @@ export interface Prediction extends ClassConfidence {
   is_uncertain: boolean
   threshold: number
   latency_ms: number
+  confidence_tier?: 'certain' | 'likely' | 'uncertain'
+  tier_label_vi?: string
+  alternative_suggestions?: ClassConfidence[]
+}
+
+export interface CreateCorrectionPayload {
+  image_sha1: string
+  image_base64?: string
+  previous_label: string
+  predicted_label: string
+  corrected_label: string
+  confidence?: number
+  model_id?: string
+  batch_id?: string
+}
+
+export interface CorrectionRecord {
+  id: number
+  batch_id: string | null
+  image_sha1: string
+  previous_label: string
+  predicted_label: string
+  corrected_label: string
+  confidence: number | null
+  model_id: string
+  created_at: string
+  undone_at: string | null
+}
+
+export interface UndoCorrectionResponse {
+  undone: boolean
+  undone_count: number
+  restored_label: string | null
+  message: string
+}
+
+export async function submitCorrection(
+  payload: CreateCorrectionPayload,
+  signal?: AbortSignal,
+): Promise<CorrectionRecord> {
+  const response = await fetch('/api/corrections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload),
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error('Không thể lưu nhãn sửa đổi. Vui lòng thử lại.')
+  }
+  return (await response.json()) as CorrectionRecord
+}
+
+export async function undoCorrection(
+  options: { correction_id?: number; image_sha1?: string; batch_id?: string },
+  signal?: AbortSignal,
+): Promise<UndoCorrectionResponse> {
+  const response = await fetch('/api/corrections/undo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(options),
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error('Không thể hoàn tác nhãn lúc này. Vui lòng thử lại.')
+  }
+  return (await response.json()) as UndoCorrectionResponse
 }
 
 export type FramePrediction = ClassConfidence

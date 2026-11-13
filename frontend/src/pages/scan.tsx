@@ -40,6 +40,7 @@ export function ScanPage({
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<{ url: string; owned: boolean; sampleId: string | null } | null>(null)
   const [mode, setMode] = useState<'camera' | 'gallery'>('camera')
+  const [overrideLabel, setOverrideLabel] = useState<string | null>(null)
   const [state, setState] = useState<ScanState>({ status: 'idle' })
 
   useEffect(() => () => requestRef.current?.abort(), [])
@@ -111,6 +112,7 @@ export function ScanPage({
     requestRef.current?.abort()
     setFile(null)
     setPreview(null)
+    setOverrideLabel(null)
     setState({ status: 'idle' })
   }
 
@@ -228,10 +230,18 @@ export function ScanPage({
         )}
         {state.status === 'success' && (
           <>
-            <SportViewer key={state.resultId} result={state.result}
-              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined} />
-            <PredictionCard key={`card-${state.resultId}`} result={state.result} image={state.image}
-              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined} />
+            <SportViewer
+              key={`${state.resultId}-${overrideLabel || state.result.label}`}
+              result={overrideLabel ? { ...state.result, label: overrideLabel } : state.result}
+              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined}
+            />
+            <PredictionCard
+              key={`card-${state.resultId}`}
+              result={state.result}
+              image={state.image}
+              onOpenAr={state.source === 'camera' ? () => cameraRef.current?.openAr() : undefined}
+              onLabelChange={(newLabel) => setOverrideLabel(newLabel)}
+            />
           </>
         )}
       </div>

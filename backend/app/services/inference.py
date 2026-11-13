@@ -62,6 +62,16 @@ def preprocess_image(data: bytes, preprocess: str = "mobilenet_v2") -> NDArray[n
     return np.expand_dims(processed, axis=0)
 
 
+def get_confidence_tier(confidence: float, tau_high: float = 0.75, tau_low: float = 0.40) -> tuple[str, str]:
+    """Classify confidence into 3 user-friendly tiers."""
+    if confidence >= tau_high:
+        return "certain", "Chắc chắn"
+    elif confidence >= tau_low:
+        return "likely", "Có thể là…"
+    else:
+        return "uncertain", "Chưa chắc"
+
+
 def predict_image(
     data: bytes,
     model: Classifier,

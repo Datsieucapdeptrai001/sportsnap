@@ -28,3 +28,4 @@ temp_images/
 !backend/models/best_model.keras
 data/uploads/
 data/index/
+notebook/resnet50_v2_outputs/
