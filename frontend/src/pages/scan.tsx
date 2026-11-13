@@ -69,7 +69,7 @@ export function ScanPage({
     requestRef.current = controller
     setState({ status: 'loading' })
     try {
-      const result = await predictImage(selected, controller.signal)
+      const result = await predictImage(selected, controller.signal, activeModelId)
       if (!controller.signal.aborted) setState({ status: 'success', result, image: selected, source: 'image', resultId: ++resultSequence.current })
     } catch (error) {
       if (controller.signal.aborted) return

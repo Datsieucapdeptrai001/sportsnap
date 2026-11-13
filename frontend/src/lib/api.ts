@@ -178,10 +178,15 @@ const errorMessages: Record<string, string> = {
   job_expired: 'Lượt phân loại đã hết hạn. Vui lòng gửi lại ảnh.',
 }
 
-export async function predictImage(file: File, signal?: AbortSignal): Promise<Prediction> {
+export async function predictImage(
+  file: File,
+  signal?: AbortSignal,
+  modelId?: string | null,
+): Promise<Prediction> {
   const body = new FormData()
   body.append('file', file)
-  return postImages<Prediction>('/api/predict', body, signal)
+  const query = modelId ? `?model_id=${encodeURIComponent(modelId)}` : ''
+  return postImages<Prediction>(`/api/predict${query}`, body, signal)
 }
 
 export interface Explanation extends Prediction { overlay_png_base64: string }
