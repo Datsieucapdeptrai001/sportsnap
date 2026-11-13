@@ -60,9 +60,10 @@ def main() -> None:
     parser.add_argument("--source", type=Path, help="Optional dataset directory; sampled across subfolders.")
     parser.add_argument("--count", type=int, choices=range(5, 11), default=8)
     parser.add_argument("--output", type=Path, default=GOLDEN_DIR)
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing expected.json")
     args = parser.parse_args()
     output: Path = args.output.resolve()
-    if (output / "expected.json").exists():
+    if (output / "expected.json").exists() and not args.overwrite:
         parser.error("expected.json already exists; use a new --output directory for review.")
     config = Settings()
     labels = TypeAdapter(list[str]).validate_json(config.LABELS_PATH.read_text(encoding="utf-8"), strict=True)

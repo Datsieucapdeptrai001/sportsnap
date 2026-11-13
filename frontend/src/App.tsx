@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ChartNoAxesCombined, Database, Layers, ScanLine } from 'lucide-react'
+import { ChartNoAxesCombined, Layers, ScanLine } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import { BrandMark } from './components/brand-mark'
 import { ModelSelector } from './components/model-selector'
@@ -8,11 +8,9 @@ import { cn } from './lib/utils'
 import { ScanPage } from './pages/scan'
 import { BulkPage } from './pages/bulk'
 import { InsightsPage } from './pages/insights'
-import { LibraryPage } from './pages/library'
 
 const tabs = [
   { id: 'scan', label: 'Quét', icon: ScanLine },
-  { id: 'library', label: 'Thư viện', icon: Database },
   { id: 'bulk', label: 'Phân loại hàng loạt', icon: Layers },
   { id: 'insights', label: 'Phân tích', icon: ChartNoAxesCombined },
 ] as const
@@ -98,7 +96,7 @@ function App() {
         </p>
       </aside>
       <main id="main-content" className="mx-auto max-w-3xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-8 md:py-12">
-        {(activeTab === 'scan' || activeTab === 'bulk') && (
+        {activeTab !== 'insights' && (
           <ModelSelector
             models={models}
             activeModelId={activeModelId}
@@ -111,9 +109,6 @@ function App() {
         )}
         <div hidden={activeTab !== 'scan'}>
           <ScanPage active={activeTab === 'scan'} activeModelId={activeModelId} />
-        </div>
-        <div hidden={activeTab !== 'library'}>
-          <LibraryPage active={activeTab === 'library'} />
         </div>
         <div hidden={activeTab !== 'bulk'}>
           <BulkPage active={activeTab === 'bulk'} />
