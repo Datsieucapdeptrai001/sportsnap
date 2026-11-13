@@ -265,7 +265,14 @@ Bulk browsing/display: `BULK_RESULTS_PAGE_SIZE=24`, `BULK_RESULTS_MAX_LIMIT=100`
     404 image_not_found, 413 file_too_large | too_many_files, 415 unsupported_format, 422 invalid_image, 501 gradcam_unsupported,
     503 model_not_loaded, 500 internal_error. Body always {"error":{"code","message"}} with a Vietnamese user-facing message.
 
-## 13. Known issues
+## 13. Known issues & Model Verification
+
+- **Official SportSnap Model Synchronization (2026-11-13):**
+  - Backend model `backend/models/best_model.keras` is byte-identical (SHA256: `cb9cc8418ac9bc348c9e687abb36a3f04515205edad08102c6780634266ac5f4`, 9,722,117 bytes) to the official `sportsnap_best_model.keras` from notebook `SportSnap_FULL_fixed.ipynb`.
+  - Trained on 6,000 train images, 100 validation, 100 test across 20 official classes: `archery`, `baseball`, `basketball`, `boxing`, `canoe slamon`, `field hockey`, `figure skating women`, `football`, `formula 1 racing`, `golf`, `high jump`, `hockey`, `olympic wrestling`, `polo`, `roller derby`, `rollerblade racing`, `swimming`, `tennis`, `uneven bars`, `volleyball`.
+  - Test Accuracy: 0.9700 (97/100), Validation Accuracy: 0.9800 (98/100).
+  - Preprocessing: `PREPROCESS=mobilenet_v2` (`tf.keras.applications.mobilenet_v2.preprocess_input`).
+  - Grad-CAM layer: `out_relu` (output shape 7x7x1280).
 
 - **Camera scans of screens (domain shift):** recognition is poor on the saved
   baseball screen-recapture frames, despite correct predictions on the 100 held-out
