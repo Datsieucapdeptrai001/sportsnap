@@ -83,11 +83,11 @@ def retrain_from_corrections(
     conn: sqlite3.Connection,
     settings: LibrarySettings,
     *,
-    epochs: int = 3,
+    epochs: int = 5,
     batch_size: int = 16,
     replay_per_class: int = 6,
     eval_per_class: int = 5,
-    correction_repeat: int = 3,
+    correction_repeat: int = 16,
     learning_rate: float = 1e-4,
     activate: bool = False,
     in_place: bool = False,
@@ -151,7 +151,13 @@ def retrain_from_corrections(
     replay = _collect_replay_samples(
         settings.train_dir, label_to_idx, max_per_class=replay_per_class
     )
-    train_samples = corrections * max(1, correction_repeat) + replay
+    # Ensure human corrections are well-represented in each training batch (~25-35% of total):
+    effective_repeat = max(
+        correction_repeat,
+        16,
+        int(len(replay) / (2 * max(1, n_corrections))),
+    )
+    train_samples = corrections * effective_repeat + replay
     rng = random.Random(42)
     rng.shuffle(train_samples)
 
@@ -281,6 +287,10 @@ def retrain_from_corrections(
         if not labels_path.is_file():
             labels_path.write_text(json.dumps(labels, ensure_ascii=False, indent=2), encoding="utf-8")
         model.save(ckpt_path)
+        if activate and sync_source_model and settings.source_model_path.is_file():
+            src_norm = str(settings.source_model_path).replace("\\", "/")
+            if "backend/models/" not in src_norm:
+                model.save(settings.source_model_path)
         record = register_version(
             conn,
             version=new_version,

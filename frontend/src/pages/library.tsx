@@ -234,7 +234,7 @@ export function LibraryPage({ active }: { active: boolean }) {
   async function handleRetrain() {
     setRetraining(true)
     try {
-      const { job_id } = await triggerLibraryRetrain(3, true)
+      const { job_id } = await triggerLibraryRetrain(5, true)
       setActiveJob({ id: job_id, type: 'retrain', state: 'queued', progress: 0, message: 'Đang khởi chạy huấn luyện lại...', error: null })
     } catch (error) {
       setRetraining(false)

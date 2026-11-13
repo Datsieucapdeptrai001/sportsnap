@@ -202,7 +202,7 @@ function App() {
           />
         )}
         <div hidden={activeTab !== 'scan'}>
-          <ScanPage active={activeTab === 'scan'} activeModelId={activeModelId} isDevMode={isDevMode} />
+          <ScanPage active={activeTab === 'scan'} activeModelId={isDevMode ? activeModelId : null} isDevMode={isDevMode} />
         </div>
         <div hidden={activeTab !== 'library'}>
           <LibraryPage active={activeTab === 'library'} />

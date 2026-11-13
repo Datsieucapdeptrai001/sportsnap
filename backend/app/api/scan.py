@@ -82,10 +82,10 @@ async def predict(
         preprocess = getattr(request.app.state, "preprocess", config.PREPROCESS)
 
         if model_id is not None:
-            if not is_dev_request(request):
-                raise APIError(403, "forbidden", "Chỉ nhà phát triển mới được chỉ định mô hình qua model_id.")
             active_id = getattr(request.app.state, "active_model_id", None)
             if model_id != active_id:
+                if not is_dev_request(request):
+                    raise APIError(403, "forbidden", "Chỉ nhà phát triển mới được chỉ định mô hình qua model_id.")
                 spec = find_spec_by_id(model_id)
                 if spec is None:
                     raise APIError(404, "model_not_found", "Không tìm thấy mô hình được yêu cầu.")
@@ -135,10 +135,10 @@ async def scan(
         preprocess = getattr(request.app.state, "preprocess", config.PREPROCESS)
 
         if model_id is not None:
-            if not is_dev_request(request):
-                raise APIError(403, "forbidden", "Chỉ nhà phát triển mới được chỉ định mô hình qua model_id.")
             active_id = getattr(request.app.state, "active_model_id", None)
             if model_id != active_id:
+                if not is_dev_request(request):
+                    raise APIError(403, "forbidden", "Chỉ nhà phát triển mới được chỉ định mô hình qua model_id.")
                 spec = find_spec_by_id(model_id)
                 if spec is None:
                     raise APIError(404, "model_not_found", "Không tìm thấy mô hình được yêu cầu.")
