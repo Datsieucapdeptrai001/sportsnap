@@ -11,14 +11,16 @@ from app.core.errors import APIError
 
 
 def is_dev_request(request: Request) -> bool:
-    """Verifies whether the incoming request carries a valid X-Dev-Token header."""
+    """Verifies whether the incoming request carries a valid X-Dev-Token header.
+    When DEV_TOKEN is unset or empty, developer features are open (local / demo mode).
+    """
     settings = getattr(request.app.state, "settings", None)
     if settings is None:
-        return False
+        return True
     configured_token: str | None = getattr(settings, "DEV_TOKEN", None)
     if not configured_token:
-        # Dev mode is permanently disabled if DEV_TOKEN is unset or empty
-        return False
+        # Open access in local/demo environment
+        return True
 
     header_token = request.headers.get("X-Dev-Token")
     if not header_token:
