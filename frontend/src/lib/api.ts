@@ -362,3 +362,217 @@ function bulkImageUrl(jobId: string, index: number, kind: 'thumb' | 'image'): st
 
 export const getBulkThumbnailUrl = (jobId: string, index: number): string => bulkImageUrl(jobId, index, 'thumb')
 export const getBulkImageUrl = (jobId: string, index: number): string => bulkImageUrl(jobId, index, 'image')
+
+export interface LibraryStats {
+  total_images: number
+  total_dup_groups: number
+  human_labels: number
+  index_size: number
+  by_status: Record<string, number>
+  by_label: Record<string, number>
+}
+
+export interface LibraryJob {
+  id: string
+  type: string
+  state: 'queued' | 'running' | 'done' | 'error'
+  progress: number
+  message: string | null
+  error: string | null
+}
+
+export interface LibrarySearchItem {
+  image_id: number
+  filename: string
+  path: string
+  thumb_url: string
+  file_url: string
+  width: number
+  height: number
+  taken_at: string | null
+  label: string
+  label_source: 'model' | 'human'
+  top1_label: string
+  top1_prob: number
+  calibrated_prob: number | null
+  status: 'auto' | 'review' | 'unknown'
+  sharpness: number | null
+  exposure: number | null
+  similarity: number | null
+}
+
+export interface LibrarySearchResponse {
+  items: LibrarySearchItem[]
+  total: number
+  expanded_query: string
+}
+
+export interface DedupSummary {
+  total_images: number
+  num_groups: number
+  duplicate_images: number
+  archived_candidates: number
+  reduction_rate: number
+}
+
+export interface DedupMember {
+  image_id: number
+  filename: string
+  thumb_url: string
+  width: number
+  height: number
+  label: string
+  confidence: number
+  score_total: number
+  score_sharpness: number
+  score_exposure: number
+  score_conf: number
+  is_best: boolean
+  user_decision: 'keep' | 'archive' | null
+}
+
+export interface DedupGroup {
+  group_id: number
+  created_at: string
+  members: DedupMember[]
+}
+
+export interface ReviewItem {
+  image_id: number
+  filename: string
+  thumb_url: string
+  label: string
+  label_source: 'model' | 'human'
+  top1_label: string
+  top1_prob: number
+  calibrated_prob: number | null
+  status: 'auto' | 'review' | 'unknown'
+}
+
+export interface ModelVersionInfo {
+  version: string
+  parent: string | null
+  created_at: string
+  train_set_hash: string | null
+  n_corrections_used: number
+  metrics: Record<string, number | string>
+  temperature: number
+  tau_high: number | null
+  tau_low: number | null
+  preprocess: string
+  backbone: string
+  is_active: boolean
+}
+
+async function libraryJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init)
+  if (!response.ok) {
+    const payload: unknown = await response.json().catch(() => null)
+    const detail = payload && typeof payload === 'object' && 'error' in payload ? payload.error : null
+    const message = detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string'
+      ? detail.message
+      : 'Yêu cầu thất bại. Vui lòng thử lại.'
+    throw new Error(message)
+  }
+  return await response.json() as T
+}
+
+export const getLibraryStats = (signal?: AbortSignal) =>
+  libraryJson<LibraryStats>('/api/library/stats', { signal })
+
+export const ingestLibraryFolder = (folder: string) =>
+  libraryJson<{ job_id: string }>('/api/library/ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder }),
+  })
+
+export const ingestLibraryFiles = (files: File[]) => {
+  const body = new FormData()
+  files.forEach((f) => body.append('files', f))
+  return libraryJson<{ job_id: string }>('/api/library/ingest/upload', { method: 'POST', body })
+}
+
+export const getLibraryJob = (jobId: string, signal?: AbortSignal) =>
+  libraryJson<LibraryJob>(`/api/library/jobs/${encodeURIComponent(jobId)}`, { signal })
+
+export const searchLibrary = (params: {
+  q?: string; label?: string; status?: string; source?: string; minConf?: number; limit?: number
+}, signal?: AbortSignal) => {
+  const query = new URLSearchParams()
+  if (params.q) query.set('q', params.q)
+  if (params.label) query.set('label', params.label)
+  if (params.status) query.set('status', params.status)
+  if (params.source) query.set('source', params.source)
+  if (params.minConf !== undefined) query.set('min_conf', String(params.minConf))
+  query.set('limit', String(params.limit ?? 36))
+  return libraryJson<LibrarySearchResponse>(`/api/library/search?${query}`, { signal })
+}
+
+export const searchSimilarById = (imageId: number, k = 24) =>
+  libraryJson<{ items: LibrarySearchItem[] }>(`/api/library/search/similar?image_id=${imageId}&k=${k}`, {
+    method: 'POST',
+  })
+
+export const searchSimilarByFile = (file: Blob, k = 24) => {
+  const body = new FormData()
+  body.append('file', file, file instanceof File ? file.name : 'query.jpg')
+  return libraryJson<{ items: LibrarySearchItem[] }>(`/api/library/search/similar?k=${k}`, {
+    method: 'POST',
+    body,
+  })
+}
+
+export const runLibraryDedup = (phashThreshold = 8, clipThreshold = 0.92) =>
+  libraryJson<DedupSummary>(
+    `/api/library/dedup/run?phash_threshold=${phashThreshold}&clip_threshold=${clipThreshold}`,
+    { method: 'POST' },
+  )
+
+export const getLibraryDedupGroups = (signal?: AbortSignal) =>
+  libraryJson<{ groups: DedupGroup[] }>('/api/library/dedup/groups', { signal })
+
+export const decideLibraryDedupGroup = (groupId: number, payload: { best_image_id?: number; keep_all?: boolean }) =>
+  libraryJson<DedupGroup>(`/api/library/dedup/${groupId}/decision`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+export const getLibraryReviewQueue = (includeAll = false, signal?: AbortSignal) =>
+  libraryJson<{ items: ReviewItem[]; labels: string[] }>(
+    `/api/library/review?include_all=${includeAll}`,
+    { signal },
+  )
+
+export const setLibraryImageLabel = (imageId: number, label: string) =>
+  libraryJson<{ image_id: number; label: string; source: 'human' }>(
+    `/api/library/images/${imageId}/label`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label }),
+    },
+  )
+
+export const deleteLibraryImage = (imageId: number) =>
+  libraryJson<{ deleted: boolean; image_id: number }>(
+    `/api/library/images/${imageId}`,
+    { method: 'DELETE' },
+  )
+
+export const triggerLibraryRetrain = (epochs = 3, activate = true) =>
+  libraryJson<{ job_id: string }>('/api/library/retrain', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ epochs, activate }),
+  })
+
+export const getLibraryModelVersions = (signal?: AbortSignal) =>
+  libraryJson<{ versions: ModelVersionInfo[] }>('/api/library/models/versions', { signal })
+
+export const promoteLibraryModelVersion = (version: string) =>
+  libraryJson<{ active_version: string; versions: ModelVersionInfo[] }>(
+    `/api/library/models/${encodeURIComponent(version)}/promote`,
+    { method: 'POST' },
+  )

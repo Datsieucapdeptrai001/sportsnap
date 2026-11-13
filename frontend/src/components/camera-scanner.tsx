@@ -214,10 +214,10 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
         {overlay && !arAsset && state.status !== 'starting' && state.status !== 'error' && (
           <div
             aria-hidden="true"
-            className="court-box pointer-events-none absolute"
+            className="pointer-events-none absolute border-2 border-emerald-300"
             style={{
               left: overlay.left, top: overlay.top, width: overlay.size, height: overlay.size,
-              boxShadow: '0 0 0 100vmax rgb(0 0 0 / 0.38)',
+              boxShadow: '0 0 0 100vmax rgb(0 0 0 / 0.3)',
             }}
           />
         )}
@@ -234,14 +234,14 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
       {state.status === 'error' && arAsset && <p role="alert" className="mt-3 text-sm text-destructive">{state.message}</p>}
       {arPhase === 'releasing' && <p role="status" className="mt-3 text-sm text-muted-foreground">Đang nhả camera và mở trình xem AR…</p>}
       {state.status !== 'error' && <>
-        <p id={guideId} className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        <p id={guideId} className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
           Đưa vật thể vào giữa khung vuông, chiếm phần lớn khung hình. Tránh quay lại màn hình.
         </p>
-        <div className="mt-2 text-sm font-medium" role="status" aria-live="polite">
+        <div className="mt-3 text-center text-sm text-muted-foreground" role="status" aria-live="polite">
           {statusText}
           {state.status === 'capturing' && (
-            <div className="mt-2 grid grid-cols-4 gap-1.5" aria-hidden="true">
-              {[1, 2, 3, 4].map((frame) => <span key={frame} className={`h-1.5 rounded-full transition-colors duration-150 ${frame <= state.count ? 'bg-primary' : 'bg-muted'}`} />)}
+            <div className="mt-2 flex justify-center gap-2" aria-hidden="true">
+              {[1, 2, 3, 4].map((frame) => <span key={frame} className={`h-1.5 w-8 rounded-full ${frame <= state.count ? 'bg-primary' : 'bg-muted'}`} />)}
             </div>
           )}
         </div>
@@ -257,12 +257,12 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
           setAttempt((current) => current + 1)
         }}><Camera size={18} aria-hidden="true" />{result ? 'Quay lại camera' : 'Thử mở lại camera'}</Button>
       ) : (
-        <Button ref={returnFocusRef} className="mt-4 min-h-14 w-full text-base font-semibold" disabled={state.status !== 'ready'} onClick={() => { setScanError(null); void scan() }}>
+        <Button ref={returnFocusRef} className="mt-4 w-full" disabled={state.status !== 'ready'} onClick={() => { setScanError(null); void scan() }}>
           <ScanLine size={18} aria-hidden="true" />{scanning ? statusText : 'Quét đa khung hình'}
         </Button>
       )}
       {scanError && <p role="alert" className="mt-3 text-sm text-destructive">{scanError}</p>}
-      <p className="mt-3 text-center text-xs text-muted-foreground">Giữ máy yên trong lúc chụp 4 khung hình liên tiếp.</p>
+      <p className="mt-3 text-center text-xs text-muted-foreground">Giữ máy ổn định · Chụp 4 khung hình cách nhau khoảng 300 ms</p>
       {arPhase === 'dialog' && result && dialogAvailability?.enabled && <SportArDialog
         label={result.label} confidence={result.confidence} asset={dialogAvailability.asset}
         returnFocusRef={returnFocusRef} onClose={() => arHandoffRef.current?.close()}

@@ -151,21 +151,21 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
 
   return createPortal(
     <dialog ref={dialogRef} aria-labelledby={titleId} aria-describedby={descriptionId}
-      className="fixed inset-0 m-auto max-h-[95svh] w-[calc(100%_-_1rem)] max-w-2xl overflow-y-auto rounded-xl border border-border bg-card p-4 text-card-foreground shadow-2xl backdrop:bg-black/75 sm:p-6"
+      className="fixed inset-0 m-auto max-h-[95svh] w-[calc(100%_-_1rem)] max-w-2xl overflow-y-auto rounded-xl border border-border bg-card p-4 text-card-foreground shadow-xl backdrop:bg-black/80 sm:p-6"
       onCancel={(event) => { event.preventDefault(); event.stopPropagation(); onClose() }}
       onKeyDown={(event) => event.stopPropagation()}
       onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="mb-2 text-sm text-muted-foreground">Xem 3D và AR</p>
-          <h2 id={titleId} className="break-words text-4xl leading-[1.05] font-bold tracking-[-0.02em] sm:text-5xl">{sportName}</h2>
+          <h2 id={titleId} className="break-words text-3xl font-bold tracking-tight sm:text-4xl">{sportName}</h2>
           <p className="mt-1 text-xs text-muted-foreground">{label}</p>
           {confidence !== undefined && <p className="mt-3 font-semibold text-primary tabular-nums">Độ tin cậy: {(confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</p>}
         </div>
         <Button autoFocus variant="outline" className="size-11 shrink-0 p-0" aria-label="Đóng trình xem AR" onClick={onClose}><X size={20} aria-hidden="true" /></Button>
       </div>
       <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">Kéo để xoay mô hình 3D, véo để phóng to hoặc thu nhỏ. Khi mở AR, hướng camera về mặt bàn hoặc sàn.</p>
-      <div className="relative mt-4 min-h-48 overflow-hidden rounded-xl border border-border bg-lane" aria-busy={state.phase === 'library' || state.phase === 'model'}>
+      <div className="relative mt-4 min-h-48 overflow-hidden rounded-xl bg-muted/40" aria-busy={state.phase === 'library' || state.phase === 'model'}>
         {libraryReady && state.phase !== 'error' && <model-viewer key={attempt} ref={viewerRef}
           src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${sportName}`} {...AR_VIEWER_ATTRIBUTES}
           ios-src={asset.usdz} auto-rotate={!window.matchMedia('(prefers-reduced-motion: reduce)').matches}
@@ -207,7 +207,7 @@ export function SportArButton({ label, isUncertain, confidence, otherDialogOpen 
   }
   return <>
     <div>
-      <Button ref={triggerRef} variant="outline" className="min-h-12 w-full" disabled={!availability.enabled} aria-haspopup="dialog" aria-expanded={open}
+      <Button ref={triggerRef} variant="outline" disabled={!availability.enabled} aria-haspopup="dialog" aria-expanded={open}
         aria-describedby={availability.message ? noteId : undefined} onClick={openManually}>
         <Box size={17} aria-hidden="true" />Xem AR
       </Button>

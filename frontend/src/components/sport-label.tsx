@@ -1,4 +1,11 @@
-// Sport names are shown as the English model labels (capitalised for display only).
+import { splitSportLabel } from '../lib/sport-names'
+
 export function SportLabel({ label }: { label: string }) {
-  return <span className="capitalize">{label}</span>
+  const { display, raw } = splitSportLabel(label)
+  return (
+    <>
+      {display}
+      {raw && <span className="ml-1.5 text-xs font-normal text-muted-foreground">({raw})</span>}
+    </>
+  )
 }
