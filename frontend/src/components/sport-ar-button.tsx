@@ -6,6 +6,7 @@ import { AR_VIEWER_ATTRIBUTES, getArAvailability, modelLoadProgress, modelSource
 import { loadViewer } from '../lib/model-viewer'
 import { sportNameVi } from '../lib/sport-names'
 import { sports3d } from '../lib/sports3d'
+import { BasketballGame } from './ar/basketball-game'
 import { Button } from './ui/button'
 import { Progress } from './ui/progress'
 
@@ -31,6 +32,8 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
   const [arSupported, setArSupported] = useState<boolean | null>(null)
   const [arMessage, setArMessage] = useState('')
   const [launching, setLaunching] = useState(false)
+  const isBasketball = label === 'basketball'
+  const [activeTab, setActiveTab] = useState<'model' | 'interactive'>(isBasketball ? 'interactive' : 'model')
   const titleId = useId()
   const descriptionId = useId()
   const supportId = useId()
@@ -164,30 +167,57 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
         </div>
         <Button autoFocus variant="outline" className="size-11 shrink-0 p-0" aria-label="Đóng trình xem AR" onClick={onClose}><X size={20} aria-hidden="true" /></Button>
       </div>
-      <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">Kéo để xoay mô hình 3D, véo để phóng to hoặc thu nhỏ. Khi mở AR, hướng camera về mặt bàn hoặc sàn.</p>
-      <div className="relative mt-4 min-h-48 overflow-hidden rounded-xl border border-border bg-lane" aria-busy={state.phase === 'library' || state.phase === 'model'}>
-        {libraryReady && state.phase !== 'error' && <model-viewer key={attempt} ref={viewerRef}
-          src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${sportName}`} {...AR_VIEWER_ATTRIBUTES}
-          ios-src={asset.usdz} auto-rotate={!window.matchMedia('(prefers-reduced-motion: reduce)').matches}
-          className="block h-[min(52svh,26rem)] min-h-48 w-full" style={{ touchAction: 'pan-y' }}>
-          <span slot="ar-button" hidden />
-          <span slot="progress-bar" hidden />
-          <div className="pointer-events-none absolute top-3 left-3 max-w-[85%] rounded-lg bg-black/75 px-3 py-2 text-lg font-semibold text-white">{sportName}</div>
-        </model-viewer>}
-        {state.phase === 'library' && <div className="flex min-h-48 items-center justify-center gap-2 text-sm"><LoaderCircle className="motion-safe:animate-spin" size={20} aria-hidden="true" />Đang tải trình xem 3D…</div>}
-        {state.phase === 'error' && <div role="alert" className="flex min-h-48 flex-col items-center justify-center gap-4 p-5 text-center"><TriangleAlert className="text-destructive" size={28} aria-hidden="true" /><p className="text-sm">{state.message}</p><Button variant="outline" onClick={retryLoad}><RotateCcw size={18} aria-hidden="true" />Thử lại</Button></div>}
-      </div>
-      {(state.phase === 'library' || state.phase === 'model') && <div className="mt-4 space-y-2" role="status"><p className="text-sm">{state.phase === 'library' ? 'Đang chuẩn bị trình xem…' : `Đang tải mô hình: ${state.progress}%`}</p><Progress value={state.progress} label="Tiến độ tải mô hình 3D" /></div>}
-      <Button className="mt-4 min-h-14 w-full text-base font-semibold" disabled={!ready || !arSupported || launching} aria-describedby={supportId} onClick={activateAr}><Box size={22} aria-hidden="true" />{launching ? 'Đang mở AR…' : 'Xem trong AR'}</Button>
-      <p className="mt-2 text-center text-sm text-muted-foreground">Chạm để đặt vật lên bàn</p>
-      <p id={supportId} role="status" className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        {state.phase === 'error' ? 'Tải lại mô hình để tiếp tục xem 3D và kiểm tra AR.'
-          : !secure ? 'AR cần kết nối HTTPS. Bạn vẫn có thể xem và xoay mô hình 3D tại đây.'
-          : ready && arSupported === false ? 'Thiết bị hoặc trình duyệt này không hỗ trợ AR. Bạn vẫn có thể xem và xoay mô hình 3D.'
-            : ready && arSupported ? 'Bấm Xem trong AR để đặt mô hình. Bạn có thể điều chỉnh kích thước bằng hai ngón tay.'
-              : 'Đang kiểm tra khả năng hỗ trợ AR…'}
-      </p>
-      {arMessage && <p role="status" className="mt-3 text-sm leading-relaxed">{arMessage}</p>}
+      {isBasketball && (
+        <div className="mt-3 flex rounded-lg bg-muted p-1 text-xs sm:text-sm font-medium">
+          <button
+            type="button"
+            className={`flex-1 rounded-md py-1.5 transition-all text-center ${activeTab === 'model' ? 'bg-card text-foreground shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('model')}
+          >
+            Mô hình 3D & AR
+          </button>
+          <button
+            type="button"
+            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 transition-all text-center ${activeTab === 'interactive' ? 'bg-primary text-primary-foreground shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setActiveTab('interactive')}
+          >
+            <span>🏀 Ném bóng rổ AR</span>
+            <span className="rounded-full bg-amber-400 text-slate-950 font-bold text-[10px] px-1.5 py-0.5">Mới</span>
+          </button>
+        </div>
+      )}
+      {activeTab === 'interactive' && isBasketball ? (
+        <div className="mt-4">
+          <BasketballGame onClose={onClose} />
+        </div>
+      ) : (
+        <>
+          <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">Kéo để xoay mô hình 3D, véo để phóng to hoặc thu nhỏ. Khi mở AR, hướng camera về mặt bàn hoặc sàn.</p>
+          <div className="relative mt-4 min-h-48 overflow-hidden rounded-xl border border-border bg-lane" aria-busy={state.phase === 'library' || state.phase === 'model'}>
+            {libraryReady && state.phase !== 'error' && <model-viewer key={attempt} ref={viewerRef}
+              src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${sportName}`} {...AR_VIEWER_ATTRIBUTES}
+              ios-src={asset.usdz} auto-rotate={!window.matchMedia('(prefers-reduced-motion: reduce)').matches}
+              className="block h-[min(52svh,26rem)] min-h-48 w-full" style={{ touchAction: 'pan-y' }}>
+              <span slot="ar-button" hidden />
+              <span slot="progress-bar" hidden />
+              <div className="pointer-events-none absolute top-3 left-3 max-w-[85%] rounded-lg bg-black/75 px-3 py-2 text-lg font-semibold text-white">{sportName}</div>
+            </model-viewer>}
+            {state.phase === 'library' && <div className="flex min-h-48 items-center justify-center gap-2 text-sm"><LoaderCircle className="motion-safe:animate-spin" size={20} aria-hidden="true" />Đang tải trình xem 3D…</div>}
+            {state.phase === 'error' && <div role="alert" className="flex min-h-48 flex-col items-center justify-center gap-4 p-5 text-center"><TriangleAlert className="text-destructive" size={28} aria-hidden="true" /><p className="text-sm">{state.message}</p><Button variant="outline" onClick={retryLoad}><RotateCcw size={18} aria-hidden="true" />Thử lại</Button></div>}
+          </div>
+          {(state.phase === 'library' || state.phase === 'model') && <div className="mt-4 space-y-2" role="status"><p className="text-sm">{state.phase === 'library' ? 'Đang chuẩn bị trình xem…' : `Đang tải mô hình: ${state.progress}%`}</p><Progress value={state.progress} label="Tiến độ tải mô hình 3D" /></div>}
+          <Button className="mt-4 min-h-14 w-full text-base font-semibold" disabled={!ready || !arSupported || launching} aria-describedby={supportId} onClick={activateAr}><Box size={22} aria-hidden="true" />{launching ? 'Đang mở AR…' : 'Xem trong AR'}</Button>
+          <p className="mt-2 text-center text-sm text-muted-foreground">Chạm để đặt vật lên bàn</p>
+          <p id={supportId} role="status" className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            {state.phase === 'error' ? 'Tải lại mô hình để tiếp tục xem 3D và kiểm tra AR.'
+              : !secure ? 'AR cần kết nối HTTPS. Bạn vẫn có thể xem và xoay mô hình 3D tại đây.'
+              : ready && arSupported === false ? 'Thiết bị hoặc trình duyệt này không hỗ trợ AR. Bạn vẫn có thể xem và xoay mô hình 3D.'
+                : ready && arSupported ? 'Bấm Xem trong AR để đặt mô hình. Bạn có thể điều chỉnh kích thước bằng hai ngón tay.'
+                  : 'Đang kiểm tra khả năng hỗ trợ AR…'}
+          </p>
+          {arMessage && <p role="status" className="mt-3 text-sm leading-relaxed">{arMessage}</p>}
+        </>
+      )}
     </dialog>, document.body,
   )
 }
@@ -209,7 +239,7 @@ export function SportArButton({ label, isUncertain, confidence, otherDialogOpen 
     <div>
       <Button ref={triggerRef} variant="outline" className="min-h-12 w-full" disabled={!availability.enabled} aria-haspopup="dialog" aria-expanded={open}
         aria-describedby={availability.message ? noteId : undefined} onClick={openManually}>
-        <Box size={17} aria-hidden="true" />Xem AR
+        <Box size={17} aria-hidden="true" />{label === 'basketball' ? '🏀 Ném bóng rổ AR (Camera)' : 'Xem AR'}
       </Button>
       {availability.message && <p id={noteId} className="mt-2 text-xs leading-relaxed text-muted-foreground">{availability.message}</p>}
     </div>
