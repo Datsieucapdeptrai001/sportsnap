@@ -676,7 +676,7 @@ export const deleteLibraryImage = (imageId: number) =>
     { method: 'DELETE' },
   )
 
-export const triggerLibraryRetrain = (epochs = 3, activate = true) =>
+export const triggerLibraryRetrain = (epochs = 5, activate = true) =>
   libraryJson<{ job_id: string }>('/api/library/retrain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

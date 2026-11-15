@@ -58,7 +58,7 @@ class SetLabelRequest(BaseModel):
 
 
 class RetrainRequest(BaseModel):
-    epochs: int = Field(default=3, ge=1, le=10)
+    epochs: int = Field(default=5, ge=1, le=10)
     activate: bool = True
     in_place: bool = True
 
@@ -588,6 +588,7 @@ def _apply_version_to_app(request: Request, rec: ModelVersionRecord) -> None:
         request.app.state.model = model
         request.app.state.labels = labels
         request.app.state.preprocess = rec.preprocess
+        request.app.state.active_model_id = "resnet50_finetune"
         request.app.state.model_reason = None
         cache = getattr(request.app.state, "loaded_models", None)
         if isinstance(cache, dict):
