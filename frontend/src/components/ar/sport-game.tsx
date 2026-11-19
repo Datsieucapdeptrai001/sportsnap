@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, RotateCcw, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react'
 import {
   SHOOT_ATTEMPTS, SHOOT_FLIGHT_MS, TARGET_Y, TIMING_ATTEMPTS,
-  getSportGame, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus,
+  getSportGame, highJumpBarHeight, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus,
   targetX, timingGrade, timingPoints, zoneAfterStreak,
   type Point, type SportGameConfig, type TargetKind,
 } from '../../lib/interactive-ar/games'
@@ -404,6 +404,19 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
         ctx.strokeRect(x0, by, bw, bh)
         const frozen = rt.round.frozenUntil > 0 && now < rt.round.frozenUntil
         const pos = frozen ? rt.round.frozenPos : markerPos((now - rt.round.start) / 1000, cfg.sweepSpeed ?? 0.8)
+        if (name === 'high jump') {
+          const barY = height * 0.44
+          ctx.save()
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+          ctx.lineWidth = 3
+          ctx.beginPath(); ctx.moveTo(width * 0.22, barY + 36); ctx.lineTo(width * 0.22, barY - 14); ctx.stroke()
+          ctx.beginPath(); ctx.moveTo(width * 0.78, barY + 36); ctx.lineTo(width * 0.78, barY - 14); ctx.stroke()
+          ctx.strokeStyle = '#ef4444'
+          ctx.lineWidth = 3
+          ctx.beginPath(); ctx.moveTo(width * 0.2, barY); ctx.lineTo(width * 0.8, barY); ctx.stroke()
+          label(ctx, `Xà: ${highJumpBarHeight(rt.streak).toFixed(2)} m`, width / 2, barY - 14, 13, '#fde047')
+          ctx.restore()
+        }
         if (rt.phase === 'playing') emoji(ctx, cfg.prop === '🏃' || cfg.prop === '🤸' || cfg.prop === '⛸️' ? '🔻' : cfg.prop, x0 + pos * bw, by - bh * 0.9, Math.min(width * 0.09, 44))
         label(ctx, rt.phase === 'playing' ? 'CHẠM khi vào vùng xanh' : '', width / 2, by + bh * 2.2, 14, 'rgba(255,255,255,0.85)')
       } else {
@@ -457,11 +470,13 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
       window.removeEventListener('pointercancel', onCancel)
       window.removeEventListener('keydown', onKey)
     }
-  }, [cfg, emit, finish])
+  }, [cfg, emit, finish, name])
 
   const counter = cfg.mode === 'mash'
     ? { text: `⏱ ${hud.secondsLeft.toFixed(1)}s` }
-    : { text: `Lượt còn: ${hud.left}` }
+    : name === 'high jump'
+      ? { text: `Lượt còn: ${hud.left} · Xà: ${highJumpBarHeight(hud.streak).toFixed(2)} m` }
+      : { text: `Lượt còn: ${hud.left}` }
 
   return (
     <div

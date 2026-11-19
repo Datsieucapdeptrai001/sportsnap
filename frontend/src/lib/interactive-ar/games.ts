@@ -63,11 +63,11 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
   },
   golf: {
     mode: 'shoot', title: 'Đưa bóng vào lỗ', icon: '⛳', prop: '⚪', accent: '#166534',
-    hint: 'Vuốt đủ lực và đúng hướng để bóng vào lỗ', targetKind: 'hole', targetRadius: 0.1, targetSpeed: 0,
+    hint: 'Vuốt đủ lực và đúng hướng để bóng vào lỗ', targetKind: 'hole', targetRadius: 0.13, targetSpeed: 0,
   },
   hockey: {
     mode: 'shoot', title: 'Sút puck vào lưới', icon: '🏒', prop: '⚫', accent: '#0c4a6e',
-    hint: 'Vuốt lên để sút – khung thành đang trượt ngang', targetKind: 'goal', targetRadius: 0.2, targetSpeed: 0.35,
+    hint: 'Vuốt lên để sút – khung thành đang trượt ngang', targetKind: 'goal', targetRadius: 0.2, targetSpeed: 0.28,
   },
   'field hockey': {
     mode: 'shoot', title: 'Đánh bóng vào gôn', icon: '🏑', prop: '🟡', accent: '#14532d',
@@ -79,7 +79,7 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
   },
   polo: {
     mode: 'shoot', title: 'Đánh bóng mã cầu', icon: '🐎', prop: '🔴', accent: '#365314',
-    hint: 'Vuốt lên để đánh bóng qua cổng đang dịch chuyển', targetKind: 'goal', targetRadius: 0.2, targetSpeed: 0.4,
+    hint: 'Vuốt lên để đánh bóng qua cổng đang dịch chuyển', targetKind: 'goal', targetRadius: 0.2, targetSpeed: 0.32,
   },
   volleyball: {
     mode: 'shoot', title: 'Đập bóng chuyền', icon: '🏐', prop: '🏐', accent: '#1e3a8a',
@@ -100,40 +100,40 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
   },
   'uneven bars': {
     mode: 'timing', title: 'Buông tay trên xà', icon: '🤸', prop: '🤸', accent: '#4c1d95',
-    hint: 'Chạm khi vận động viên lên đỉnh xà để buông tay', zone: 0.18, sweepSpeed: 0.9,
+    hint: 'Chạm khi vận động viên lên đỉnh xà để buông tay', zone: 0.2, sweepSpeed: 0.85,
   },
   'figure skating women': {
     mode: 'timing', title: 'Hạ cánh cú xoay', icon: '⛸️', prop: '⛸️', accent: '#0e7490',
-    hint: 'Chạm đúng nhịp để hạ cánh sau cú xoay', zone: 0.2, sweepSpeed: 0.85,
+    hint: 'Chạm đúng nhịp để hạ cánh sau cú xoay', zone: 0.2, sweepSpeed: 0.8,
   },
   // ---- mash (7) ----
   swimming: {
     mode: 'mash', title: 'Đua bơi nước rút', icon: '🏊', prop: '🏊', rivalIcon: '🏊', accent: '#0369a1',
-    hint: 'Chạm liên tục để bơi về đích trước đối thủ', goal: 45, seconds: 10, rival: 4.5, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để bơi về đích trước đối thủ', goal: 42, seconds: 10, rival: 3.8, lanes: ['Bạn', 'Đối thủ'],
   },
   'canoe slamon': {
     mode: 'mash', title: 'Chèo thuyền về đích', icon: '🛶', prop: '🛶', rivalIcon: '🛶', accent: '#115e59',
-    hint: 'Chạm liên tục để chèo nhanh hơn đối thủ', goal: 40, seconds: 10, rival: 3.8, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để chèo nhanh hơn đối thủ', goal: 38, seconds: 10, rival: 3.5, lanes: ['Bạn', 'Đối thủ'],
   },
   'rollerblade racing': {
     mode: 'mash', title: 'Đua patin tốc độ', icon: '🛼', prop: '🛼', rivalIcon: '🛼', accent: '#9a3412',
-    hint: 'Chạm liên tục để trượt về đích trước', goal: 45, seconds: 10, rival: 4.6, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để trượt về đích trước', goal: 42, seconds: 10, rival: 3.9, lanes: ['Bạn', 'Đối thủ'],
   },
   'roller derby': {
     mode: 'mash', title: 'Vượt rào đối kháng', icon: '🛼', prop: '🛼', rivalIcon: '🛡️', accent: '#831843',
-    hint: 'Chạm liên tục để vượt qua hàng chặn', goal: 45, seconds: 10, rival: 4.2, lanes: ['Bạn', 'Hàng chặn'],
+    hint: 'Chạm liên tục để vượt qua hàng chặn', goal: 42, seconds: 10, rival: 3.8, lanes: ['Bạn', 'Hàng chặn'],
   },
   'formula 1 racing': {
     mode: 'mash', title: 'Đua xe Công thức 1', icon: '🏎️', prop: '🏎️', rivalIcon: '🏎️', accent: '#7f1d1d',
-    hint: 'Chạm liên tục để tăng tốc về vạch đích', goal: 55, seconds: 10, rival: 5.2, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để tăng tốc về vạch đích', goal: 48, seconds: 10, rival: 4.4, lanes: ['Bạn', 'Đối thủ'],
   },
   'olympic wrestling': {
     mode: 'mash', title: 'Đẩy lùi đối thủ', icon: '🤼', prop: '🤼', rivalIcon: '🤼', accent: '#78350f',
-    hint: 'Chạm liên tục để ghì và đẩy đối thủ ra khỏi thảm', goal: 40, seconds: 10, rival: 3.6, lanes: ['Sức bạn', 'Sức đối thủ'],
+    hint: 'Chạm liên tục để ghì và đẩy đối thủ ra khỏi thảm', goal: 38, seconds: 10, rival: 3.4, lanes: ['Sức bạn', 'Sức đối thủ'],
   },
   boxing: {
     mode: 'mash', title: 'Tung đòn hạ gục', icon: '🥊', prop: '🥊', rivalIcon: '🥊', accent: '#450a0a',
-    hint: 'Chạm liên tục để tung đòn hạ gục đối thủ', goal: 35, seconds: 10, rival: 3.2, lanes: ['Đòn của bạn', 'Đòn đối thủ'],
+    hint: 'Chạm liên tục để tung đòn hạ gục đối thủ', goal: 35, seconds: 10, rival: 3.1, lanes: ['Đòn của bạn', 'Đòn đối thủ'],
   },
 }
 
@@ -207,6 +207,11 @@ export function streakBonus(streak: number): number {
 }
 
 // -------------------------------------------------------------- timing mode
+
+/** High jump bar height in metres: starts at 1.80 m, +0.05 m per successful clearance in streak. */
+export function highJumpBarHeight(streak: number): number {
+  return Number((1.80 + Math.max(0, streak) * 0.05).toFixed(2))
+}
 
 /** Marker position 0..1 moving back and forth (triangle wave). */
 export function markerPos(elapsedSec: number, sweepSpeed: number): number {

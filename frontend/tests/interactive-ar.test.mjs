@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
-  BASKETBALL_LABEL, SPORT_GAMES, TARGET_Y, getSportGame, hasInteractiveGame, hasSportGame, interactiveTabLabel,
+  BASKETBALL_LABEL, SPORT_GAMES, TARGET_Y, getSportGame, hasInteractiveGame, hasSportGame, highJumpBarHeight, interactiveTabLabel,
   landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus, targetX, timingGrade, timingPoints, zoneAfterStreak,
 } from '../src/lib/interactive-ar/games.ts'
 import { sportNamesVi } from '../src/lib/sport-names.ts'
@@ -142,4 +142,12 @@ test('the dialog wires the interactive tab to the game config and code-splits th
   assert.match(dialog, /lazy\(\(\) => import\('\.\/ar\/sport-game'\)/)
   assert.match(dialog, /lazy\(\(\) => import\('\.\/ar\/basketball-game'\)/)
   assert.doesNotMatch(dialog, /^import \{ BasketballGame \}/m)
+})
+
+test('high jump bar starts at 1.80 m and climbs 0.05 m per successful clearance', () => {
+  assert.equal(highJumpBarHeight(0), 1.8)
+  assert.equal(highJumpBarHeight(1), 1.85)
+  assert.equal(highJumpBarHeight(2), 1.9)
+  assert.equal(highJumpBarHeight(4), 2.0)
+  assert.equal(highJumpBarHeight(-2), 1.8)
 })
