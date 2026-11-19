@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { Camera, RotateCcw, Volume2, VolumeX, Sparkles, Trophy, X } from 'lucide-react'
-import { calculateBasketballVelocity, isBasketballGoal } from '../../lib/interactive-ar/games'
+import {
+  BASKETBALL_GRAVITY,
+  BASKETBALL_RIM,
+  BASKETBALL_RIM_RADIUS,
+  BASKETBALL_START,
+  calculateBasketballVelocity,
+  isBasketballGoal,
+} from '../../lib/interactive-ar/games'
 import { soundEngine } from '../../lib/interactive-ar/sound-effects'
 import { Button } from '../ui/button'
 import { useCameraBackground } from './use-camera-background'
@@ -205,12 +212,12 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
     hoopGroup.add(innerBox)
 
     // 2. Rim
-    const rimRadius = 0.225
+    const rimRadius = BASKETBALL_RIM_RADIUS
     const rimGeo = new THREE.TorusGeometry(rimRadius, 0.016, 16, 32)
     const rimMat = new THREE.MeshStandardMaterial({ color: 0xff4500, roughness: 0.3, metalness: 0.6 })
     const rim = new THREE.Mesh(rimGeo, rimMat)
     rim.rotation.x = Math.PI / 2
-    rim.position.set(0, 2.15, -2.28)
+    rim.position.set(BASKETBALL_RIM.x, BASKETBALL_RIM.y, BASKETBALL_RIM.z)
     rim.castShadow = true
     hoopGroup.add(rim)
 
@@ -229,7 +236,7 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
       opacity: 0.65,
     })
     const net = new THREE.Mesh(netGeo, netMat)
-    net.position.set(0, 2.15, -2.28)
+    net.position.set(BASKETBALL_RIM.x, BASKETBALL_RIM.y, BASKETBALL_RIM.z)
     hoopGroup.add(net)
 
     // 4. Pole & Arm
@@ -295,7 +302,7 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
     scene.add(ball)
 
     // Ball initial rest position
-    const idleBallPos = new THREE.Vector3(0, 0.95, 2.1)
+    const idleBallPos = new THREE.Vector3(BASKETBALL_START.x, BASKETBALL_START.y, BASKETBALL_START.z)
     ball.position.copy(idleBallPos)
 
     // Confetti generator for celebratory goals
@@ -382,7 +389,7 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
     // Animation & Physics Loop
     let animId: number
     let lastTime = performance.now()
-    const gravity = -9.8
+    const gravity = BASKETBALL_GRAVITY
     const rimPos = rim.position
     const backboardZ = backboard.position.z + 0.03
 

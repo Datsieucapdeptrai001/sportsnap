@@ -164,23 +164,128 @@ export function interactiveTabLabel(label: string): string {
 
 // ----------------------------------------------------------- basketball (3D)
 
+export const BASKETBALL_START = { x: 0, y: 0.95, z: 2.1 } as const
+export const BASKETBALL_RIM = { x: 0, y: 2.15, z: -2.28 } as const
+export const BASKETBALL_RIM_RADIUS = 0.225
+export const BASKETBALL_GRAVITY = -9.8
+
+export interface BasketballVelocity {
+  forward: number
+  upward: number
+  lateral: number
+}
+
+export interface SimulateBasketballOptions {
+  dt?: number
+  maxSteps?: number
+  startPos?: { x: number; y: number; z: number }
+  rimPos?: { x: number; y: number; z: number }
+  rimRadius?: number
+}
+
+export interface BasketballSimulationResult {
+  goal: boolean
+  closestAtRimHeight: number
+}
+
 /**
- * Maps upward swipe distance and duration into 3D launch velocity.
+ * Pure simulation of basketball flight step-by-step (1/60s) under gravity.
+ * Checks for goal using isBasketballGoal.
+ */
+export function simulateBasketballShot(
+  velocity: BasketballVelocity | null,
+  options?: SimulateBasketballOptions
+): BasketballSimulationResult {
+  if (!velocity) return { goal: false, closestAtRimHeight: Infinity }
+  const dt = options?.dt ?? 1 / 60
+  const maxSteps = options?.maxSteps ?? 180
+  const start = options?.startPos ?? BASKETBALL_START
+  const rim = options?.rimPos ?? BASKETBALL_RIM
+  const radius = options?.rimRadius ?? BASKETBALL_RIM_RADIUS
+
+  const pos = { x: start.x, y: start.y, z: start.z }
+  const vel = { x: velocity.lateral, y: velocity.upward, z: velocity.forward }
+  let goal = false
+  let closestDist = Infinity
+
+  for (let step = 0; step < maxSteps; step++) {
+    vel.y += BASKETBALL_GRAVITY * dt
+    pos.x += vel.x * dt
+    pos.y += vel.y * dt
+    pos.z += vel.z * dt
+
+    if (vel.y < 0) {
+      const d = Math.hypot(pos.x - rim.x, pos.z - rim.z)
+      if (Math.abs(pos.y - rim.y) < 0.15 && d < closestDist) {
+        closestDist = d
+      }
+    }
+
+    if (isBasketballGoal(pos, vel.y, rim, radius)) {
+      goal = true
+      break
+    }
+    if (pos.y < 0) break
+  }
+
+  return { goal, closestAtRimHeight: closestDist }
+}
+
+const BASKETBALL_AIM_T = 0.90
+const BASKETBALL_S_REF = 1.74
+const BASKETBALL_ASSIST_WIN = 0.265
+const BASKETBALL_ASSIST_FACTOR = 0.05
+const BASKETBALL_LATERAL_WIN = 0.22
+const BASKETBALL_LATERAL_FACTOR = 0.15
+
+// Ideal trajectory velocities (computed once at module load)
+const IDEAL_VZ = (BASKETBALL_RIM.z - BASKETBALL_START.z) / BASKETBALL_AIM_T
+const IDEAL_VY =
+  (BASKETBALL_RIM.y -
+    BASKETBALL_START.y -
+    0.5 * BASKETBALL_GRAVITY * BASKETBALL_AIM_T * (BASKETBALL_AIM_T + 1 / 60)) /
+  BASKETBALL_AIM_T
+
+/**
+ * Maps upward swipe distance and duration into 3D launch velocity with aim assist.
  * Pure function so physics can be unit tested without Three.js.
  */
 export function calculateBasketballVelocity(
   dx: number,
   dy: number,
   dtMs: number
-): { forward: number; upward: number; lateral: number } | null {
+): BasketballVelocity | null {
   if (dy >= -20) return null
   const dt = Math.max(dtMs, 40)
   const swipeSpeedY = Math.abs(dy) / dt
-  const swipeSpeedX = dx / dt
 
-  const forwardVel = -Math.min(Math.max(swipeSpeedY * 3.6, 4.0), 6.5)
-  const upwardVel = Math.min(Math.max(swipeSpeedY * 3.1, 4.2), 6.8)
-  const lateralVel = Math.min(Math.max(swipeSpeedX * 2.2, -2.5), 2.5)
+  const p = swipeSpeedY / BASKETBALL_S_REF
+  const e = p - 1
+  let ePrime: number
+  if (Math.abs(e) <= BASKETBALL_ASSIST_WIN) {
+    ePrime = e * BASKETBALL_ASSIST_FACTOR
+  } else if (e > BASKETBALL_ASSIST_WIN) {
+    ePrime = e - BASKETBALL_ASSIST_WIN + BASKETBALL_ASSIST_WIN * BASKETBALL_ASSIST_FACTOR
+  } else {
+    ePrime = e + BASKETBALL_ASSIST_WIN - BASKETBALL_ASSIST_WIN * BASKETBALL_ASSIST_FACTOR
+  }
+
+  const scale = 1 + ePrime
+  const forwardVel = IDEAL_VZ * scale
+  const upwardVel = IDEAL_VY * scale
+
+  // Lateral angle assist
+  const angleRatio = dx / Math.abs(dy)
+  let lateralError: number
+  if (Math.abs(angleRatio) <= BASKETBALL_LATERAL_WIN) {
+    lateralError = angleRatio * BASKETBALL_LATERAL_FACTOR
+  } else if (angleRatio > BASKETBALL_LATERAL_WIN) {
+    lateralError = angleRatio - BASKETBALL_LATERAL_WIN + BASKETBALL_LATERAL_WIN * BASKETBALL_LATERAL_FACTOR
+  } else {
+    lateralError = angleRatio + BASKETBALL_LATERAL_WIN - BASKETBALL_LATERAL_WIN * BASKETBALL_LATERAL_FACTOR
+  }
+
+  const lateralVel = Math.max(-2.5, Math.min(2.5, lateralError * 2.0))
 
   return { forward: forwardVel, upward: upwardVel, lateral: lateralVel }
 }

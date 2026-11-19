@@ -3,8 +3,10 @@ import { readdirSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { cameraErrorMessage, shouldRetryCamera } from '../src/lib/interactive-ar/camera.ts'
 import {
-  BASKETBALL_LABEL, SPORT_GAMES, TARGET_Y, calculateBasketballVelocity, getSportGame, hasInteractiveGame, hasSportGame, highJumpBarHeight, interactiveTabLabel,
-  isBasketballGoal, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus, targetX, timingGrade, timingPoints, zoneAfterStreak,
+  BASKETBALL_GRAVITY, BASKETBALL_LABEL, BASKETBALL_RIM, BASKETBALL_RIM_RADIUS, BASKETBALL_START, SPORT_GAMES, TARGET_Y,
+  calculateBasketballVelocity, getSportGame, hasInteractiveGame, hasSportGame, highJumpBarHeight, interactiveTabLabel,
+  isBasketballGoal, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, simulateBasketballShot, streakBonus,
+  targetX, timingGrade, timingPoints, zoneAfterStreak,
 } from '../src/lib/interactive-ar/games.ts'
 import { sportNamesVi } from '../src/lib/sport-names.ts'
 
@@ -159,7 +161,7 @@ test('high jump bar starts at 1.80 m and climbs 0.05 m per successful clearance'
   assert.equal(highJumpBarHeight(-2), 1.8)
 })
 
-test('basketball: physics calculations and goal detection', () => {
+test('basketball: physics calculations, goal detection, and aim assist criteria', () => {
   assert.equal(calculateBasketballVelocity(0, 10, 100), null)
   assert.equal(calculateBasketballVelocity(0, -10, 100), null)
   const shoot = calculateBasketballVelocity(50, -200, 100)
@@ -173,6 +175,65 @@ test('basketball: physics calculations and goal detection', () => {
   assert.equal(isBasketballGoal({ x: 0, y: 2.15, z: -2.28 }, -2, rimPos, rimRadius), true)
   assert.equal(isBasketballGoal({ x: 0, y: 2.15, z: -2.28 }, 2, rimPos, rimRadius), false) // upward velocity is not a swish
   assert.equal(isBasketballGoal({ x: 1, y: 2.15, z: -2.28 }, -2, rimPos, rimRadius), false) // outside rim
+
+  // Verify exported constants match expected values
+  assert.deepEqual(BASKETBALL_START, { x: 0, y: 0.95, z: 2.1 })
+  assert.deepEqual(BASKETBALL_RIM, { x: 0, y: 2.15, z: -2.28 })
+  assert.equal(BASKETBALL_RIM_RADIUS, 0.225)
+  assert.equal(BASKETBALL_GRAVITY, -9.8)
+
+  // M3: scan s in [1.30, 2.10], step 0.01 (81 samples)
+  let inRangeCount = 0
+  let inRangeGoals = 0
+  for (let s = 130; s <= 210; s++) {
+    inRangeCount++
+    const speed = s / 100
+    const vel = calculateBasketballVelocity(0, -speed * 100, 100)
+    const sim = simulateBasketballShot(vel)
+    if (sim.goal) inRangeGoals++
+  }
+  const pct = inRangeGoals / inRangeCount
+  assert.ok(pct >= 0.80, `Expected at least 80% goals in [1.30, 2.10], got ${(pct * 100).toFixed(1)}% (${inRangeGoals}/${inRangeCount})`)
+
+  // s <= 0.90: no goals
+  for (let s = 25; s <= 90; s++) {
+    const speed = s / 100
+    const vel = calculateBasketballVelocity(0, -speed * 100, 100)
+    const sim = simulateBasketballShot(vel)
+    assert.equal(sim.goal, false, `Expected no goal at s=${speed}`)
+  }
+
+  // s >= 2.80: no goals
+  for (let s = 280; s <= 350; s++) {
+    const speed = s / 100
+    const vel = calculateBasketballVelocity(0, -speed * 100, 100)
+    const sim = simulateBasketballShot(vel)
+    assert.equal(sim.goal, false, `Expected no goal at s=${speed}`)
+  }
+
+  // Vuốt lệch: dx = ±0.15 * |dy| ở s = 1.7 vẫn ghi bàn; dx = ±0.60 * |dy| thì trượt
+  const dy17 = -170 // s = 1.7 at dt = 100
+  const velPos15 = calculateBasketballVelocity(0.15 * Math.abs(dy17), dy17, 100)
+  const velNeg15 = calculateBasketballVelocity(-0.15 * Math.abs(dy17), dy17, 100)
+  assert.equal(simulateBasketballShot(velPos15).goal, true, 'dx = +0.15 * |dy| at s=1.7 should score')
+  assert.equal(simulateBasketballShot(velNeg15).goal, true, 'dx = -0.15 * |dy| at s=1.7 should score')
+
+  const velPos60 = calculateBasketballVelocity(0.60 * Math.abs(dy17), dy17, 100)
+  const velNeg60 = calculateBasketballVelocity(-0.60 * Math.abs(dy17), dy17, 100)
+  assert.equal(simulateBasketballShot(velPos60).goal, false, 'dx = +0.60 * |dy| at s=1.7 should miss')
+  assert.equal(simulateBasketballShot(velNeg60).goal, false, 'dx = -0.60 * |dy| at s=1.7 should miss')
+
+  // Find exact scoring range for documentation
+  const scoringSpeeds = []
+  for (let s = 50; s <= 300; s++) {
+    const speed = s / 100
+    const vel = calculateBasketballVelocity(0, -speed * 100, 100)
+    if (simulateBasketballShot(vel).goal) scoringSpeeds.push(speed)
+  }
+  const minSpeed = scoringSpeeds[0]
+  const maxSpeed = scoringSpeeds[scoringSpeeds.length - 1]
+  console.log(`[basketball aim assist] scoring range: ${minSpeed} to ${maxSpeed} px/ms (${scoringSpeeds.length} speeds)`)
+  assert.ok(minSpeed <= 1.30 && maxSpeed >= 2.10)
 })
 
 test('camera retry decision: only transient hardware locking retries, permission denial does not', () => {
