@@ -184,6 +184,65 @@ HTML/overlay của trang: tên môn được bảo đảm ở dialog trước kh
 trong hai trình xem này. iOS dùng USDZ tạo lúc chạy từ GLB, có thể phải chờ lần đầu;
 không thêm/sửa asset. Xem [giới hạn DOM và các chế độ AR của model-viewer](https://modelviewer.dev/examples/augmentedreality/).
 
+### Trò chơi AR tương tác cho 20 môn (Interactive AR)
+
+Người chơi có thể tương tác trực tiếp với cả 20 môn thể thao qua tab **"🎮 Chơi & xem AR"** trong dialog AR.
+
+#### 1. Ba kiểu chơi chính
+- **Chế độ vuốt (`shoot` - 7 môn: football, golf, hockey, field hockey, archery, polo, volleyball):**
+  - Người chơi vuốt lên màn hình: hướng vuốt xác định góc ném/sút, tốc độ vuốt xác định lực/khoảng cách xa gần.
+  - 8 lượt thực hiện. Mỗi lần trúng đích được tính điểm (+2; riêng bắn cung tính theo vòng 10/7/4); từ chuỗi trúng liên tiếp thứ 3 trở đi nhận thêm điểm thưởng chuỗi (+1).
+- **Chế độ canh nhịp (`timing` - 5 môn: baseball, tennis, high jump, uneven bars, figure skating women):**
+  - Con trỏ chuyển động qua lại; người chơi chạm khi con trỏ đi vào vùng xanh.
+  - Phân cấp chuẩn xác: ngay giữa vùng = **HOÀN HẢO (+3)**, trong vùng = **TỐT (+1)**, ngoài vùng = **TRƯỢT**.
+  - Vùng xanh tự động thu hẹp 8% sau mỗi lần thành công liên tiếp (tối thiểu 8%).
+  - Môn **nhảy cao (high jump)** có xà hiển thị trực quan và nâng dần độ cao (bắt đầu từ 1.80 m, +0.05 m sau mỗi lần vượt xà thành công). Hỗ trợ phím Space / Enter trên bàn phím.
+- **Chế độ chạm liên tục (`mash` - 7 môn: swimming, canoe slamon, rollerblade racing, roller derby, formula 1 racing, olympic wrestling, boxing):**
+  - Đua tốc độ trong 10 giây (với 0.7 giây đếm lùi chuẩn bị). Người chơi chạm liên tục để đẩy thanh tiến độ về đích trước đối thủ.
+  - Về đích trước đối thủ nhận 100 điểm + 10 điểm cho mỗi giây còn lại. Thua nhận điểm theo phần trăm quãng đường hoàn thành (tối đa 50 điểm). Hỗ trợ phím Space / Enter.
+- **Bóng rổ 3D (`basketball`):**
+  - Trò chơi chuyên biệt bằng Three.js mô phỏng vật lý 3D: vuốt để ném bóng với lực phóng 3D và backspin, va chạm bảng rổ, vành rổ, lưới, nảy sàn và hiệu ứng pháo hoa ăn mừng khi vào rổ.
+  - Vòng đời Three.js bền vững: scene dựng 1 lần duy nhất, độ mờ sàn cập nhật qua ref khi bật/tắt camera mà không làm reset scene; dọn dẹp đầy đủ geometry/material/texture để tránh rò bộ nhớ.
+
+#### 2. Cách chỉnh độ khó trong `frontend/src/lib/interactive-ar/games.ts`
+Toàn bộ thông số game và luật chơi được định nghĩa thuần túy (pure data & pure functions) trong `frontend/src/lib/interactive-ar/games.ts`:
+- **Chế độ `shoot`:**
+  - `targetRadius`: bán kính vùng trúng (tỉ lệ theo chiều rộng màn hình, ví dụ `0.13` cho golf, `0.20` cho hockey).
+  - `targetSpeed`: tốc độ di chuyển ngang của mục tiêu (chu kỳ quét/giây, `0` là đứng yên).
+  - `rings`: bật tính điểm theo vòng tròn đồng tâm (cho bắn cung).
+- **Chế độ `timing`:**
+  - `zone`: độ rộng vùng xanh ban đầu (tỉ lệ 0..1 của thanh trượt, ví dụ `0.20` - `0.24`).
+  - `sweepSpeed`: tốc độ con trỏ quét qua lại (chu kỳ/giây, ví dụ `0.70` - `0.85`).
+- **Chế độ `mash`:**
+  - `goal`: tổng số lượt chạm cần để về đích (ví dụ `35` - `48`).
+  - `seconds`: thời gian tối đa (mặc định 10 giây).
+  - `rival`: tốc độ đối thủ (lượt chạm/giây, ví dụ `3.1` - `4.4`).
+  * Quy tắc cân bằng: tỉ lệ `goal / seconds <= 6` để người chơi bình thường có tỉ lệ thắng khoảng 40–60%.
+
+#### 3. Cách thêm game cho môn mới
+1. Mở `frontend/src/lib/interactive-ar/games.ts`, thêm cấu hình môn mới vào `SPORT_GAMES`:
+   ```ts
+   'new sport': {
+     mode: 'shoot', // hoặc 'timing' | 'mash'
+     title: 'Tên game tiếng Việt',
+     hint: 'Gợi ý hướng dẫn ngắn gọn',
+     icon: '🏸',
+     prop: '🏸',
+     accent: '#1e3a8a',
+     targetKind: 'goal',
+     targetRadius: 0.18,
+     targetSpeed: 0.25,
+   }
+   ```
+2. Thêm tên hiển thị tiếng Việt trong `frontend/src/lib/sport-names.ts` (nếu chưa có).
+3. Chạy `npm test` để xác nhận test `every one of the 20 classes has an interactive game` và các kiểm tra ràng buộc đều vượt qua.
+4. Giao diện tự động phân tách bundle bằng `lazy()` và hiển thị tab trò chơi tương ứng.
+
+#### 4. Quản lý camera và bộ nhớ
+- Hook `useCameraBackground` quản lý camera nền sau canvas/Three.js, tự động dừng mọi track khi unmount.
+- Cơ chế handoff giữa màn hình Quét và Dialog sử dụng độ trễ `CAMERA_AR_RELEASE_MS` (400 ms) kèm cơ chế tự động thử lại 1 lần nếu thiết bị phần cứng chưa kịp giải phóng.
+- Điểm kỷ lục được lưu riêng theo từng môn trong `localStorage` (`sportsnap.ar-best.<label>`).
+
 Chạy backend và Vite theo phần Run it phía trên. Máy tính cần `cloudflared` đã cài;
 mở terminal thứ ba và giữ lệnh này chạy:
 
