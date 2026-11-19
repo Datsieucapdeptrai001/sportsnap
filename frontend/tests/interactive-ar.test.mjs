@@ -38,6 +38,9 @@ test('game configs are complete for their mode and use Vietnamese text', () => {
       assert.ok(cfg.goal > 0 && cfg.seconds > 0 && cfg.rival > 0 && cfg.lanes?.length === 2, label)
       // A human can reasonably sustain ~6 taps/s, so the goal must be reachable in time.
       assert.ok(cfg.goal / cfg.seconds <= 6, `${label}: goal too high for the time limit`)
+      // Rival finishes around the time limit (0.95..1.05 * goal) so the rival can actually win.
+      const rivalWork = cfg.rival * cfg.seconds
+      assert.ok(rivalWork >= 0.95 * cfg.goal && rivalWork <= 1.05 * cfg.goal, `${label}: rival work ${rivalWork} not in [0.95, 1.05] * goal (${cfg.goal})`)
     }
   }
   assert.deepEqual(modes, { shoot: 7, timing: 5, mash: 7 })
@@ -124,14 +127,17 @@ test('timing grades and points', () => {
   assert.deepEqual(['perfect', 'good', 'miss'].map(timingPoints), [3, 1, 0])
 })
 
-test('mash: running, won, lost by rival, lost by time', () => {
+test('mash: running, won, lost by rival, fair time expiration rule', () => {
   assert.equal(mashSnapshot(10, 2, 40, 10, 4).state, 'running')
   assert.equal(mashSnapshot(40, 5, 40, 10, 4).state, 'won')
-  assert.equal(mashSnapshot(20, 10, 40, 11, 4).state, 'lost') // rival finished at 10 s
-  assert.equal(mashSnapshot(20, 10, 40, 10, 1).state, 'lost') // time ran out
+  assert.equal(mashSnapshot(20, 10, 40, 11, 4).state, 'lost') // rival reached 100%
+  // Time ran out: player ahead wins, rival ahead loses, tie goes to player
+  assert.equal(mashSnapshot(30, 10, 40, 10, 2.5).state, 'won') // player 30/40 > rival 25/40
+  assert.equal(mashSnapshot(15, 10, 40, 10, 2.5).state, 'lost') // player 15/40 < rival 25/40
+  assert.equal(mashSnapshot(25, 10, 40, 10, 2.5).state, 'won') // tie 25/40 === 25/40
   const won = mashSnapshot(40, 6, 40, 10, 2)
   assert.equal(mashScore(won), 100 + 40)
-  assert.equal(mashScore(mashSnapshot(20, 10, 40, 10, 1)), 25)
+  assert.equal(mashScore(mashSnapshot(15, 10, 40, 10, 2.5)), Math.round((15 / 40) * 50))
   // A tie on the same frame goes to the player.
   assert.equal(mashSnapshot(40, 10, 40, 10, 4).state, 'won')
 })

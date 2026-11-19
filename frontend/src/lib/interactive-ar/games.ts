@@ -109,31 +109,31 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
   // ---- mash (7) ----
   swimming: {
     mode: 'mash', title: 'Đua bơi nước rút', icon: '🏊', prop: '🏊', rivalIcon: '🏊', accent: '#0369a1',
-    hint: 'Chạm liên tục để bơi về đích trước đối thủ', goal: 42, seconds: 10, rival: 3.8, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để bơi về đích trước đối thủ', goal: 42, seconds: 10, rival: 4.2, lanes: ['Bạn', 'Đối thủ'],
   },
   'canoe slamon': {
     mode: 'mash', title: 'Chèo thuyền về đích', icon: '🛶', prop: '🛶', rivalIcon: '🛶', accent: '#115e59',
-    hint: 'Chạm liên tục để chèo nhanh hơn đối thủ', goal: 38, seconds: 10, rival: 3.5, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để chèo nhanh hơn đối thủ', goal: 38, seconds: 10, rival: 3.8, lanes: ['Bạn', 'Đối thủ'],
   },
   'rollerblade racing': {
     mode: 'mash', title: 'Đua patin tốc độ', icon: '🛼', prop: '🛼', rivalIcon: '🛼', accent: '#9a3412',
-    hint: 'Chạm liên tục để trượt về đích trước', goal: 42, seconds: 10, rival: 3.9, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để trượt về đích trước', goal: 42, seconds: 10, rival: 4.2, lanes: ['Bạn', 'Đối thủ'],
   },
   'roller derby': {
     mode: 'mash', title: 'Vượt rào đối kháng', icon: '🛼', prop: '🛼', rivalIcon: '🛡️', accent: '#831843',
-    hint: 'Chạm liên tục để vượt qua hàng chặn', goal: 42, seconds: 10, rival: 3.8, lanes: ['Bạn', 'Hàng chặn'],
+    hint: 'Chạm liên tục để vượt qua hàng chặn', goal: 42, seconds: 10, rival: 4.2, lanes: ['Bạn', 'Hàng chặn'],
   },
   'formula 1 racing': {
     mode: 'mash', title: 'Đua xe Công thức 1', icon: '🏎️', prop: '🏎️', rivalIcon: '🏎️', accent: '#7f1d1d',
-    hint: 'Chạm liên tục để tăng tốc về vạch đích', goal: 48, seconds: 10, rival: 4.4, lanes: ['Bạn', 'Đối thủ'],
+    hint: 'Chạm liên tục để tăng tốc về vạch đích', goal: 48, seconds: 10, rival: 4.8, lanes: ['Bạn', 'Đối thủ'],
   },
   'olympic wrestling': {
     mode: 'mash', title: 'Đẩy lùi đối thủ', icon: '🤼', prop: '🤼', rivalIcon: '🤼', accent: '#78350f',
-    hint: 'Chạm liên tục để ghì và đẩy đối thủ ra khỏi thảm', goal: 38, seconds: 10, rival: 3.4, lanes: ['Sức bạn', 'Sức đối thủ'],
+    hint: 'Chạm liên tục để ghì và đẩy đối thủ ra khỏi thảm', goal: 38, seconds: 10, rival: 3.8, lanes: ['Sức bạn', 'Sức đối thủ'],
   },
   boxing: {
     mode: 'mash', title: 'Tung đòn hạ gục', icon: '🥊', prop: '🥊', rivalIcon: '🥊', accent: '#450a0a',
-    hint: 'Chạm liên tục để tung đòn hạ gục đối thủ', goal: 35, seconds: 10, rival: 3.1, lanes: ['Đòn của bạn', 'Đòn đối thủ'],
+    hint: 'Chạm liên tục để tung đòn hạ gục đối thủ', goal: 35, seconds: 10, rival: 3.5, lanes: ['Đòn của bạn', 'Đòn đối thủ'],
   },
 }
 
@@ -298,8 +298,13 @@ export function mashSnapshot(taps: number, elapsedSec: number, goal: number, sec
   const rival = Math.min(1, (rivalPerSec * elapsedSec) / goal)
   const secondsLeft = Math.max(0, seconds - elapsedSec)
   let state: MashState = 'running'
-  if (you >= 1) state = 'won'
-  else if (rival >= 1 || secondsLeft <= 0) state = 'lost'
+  if (you >= 1) {
+    state = 'won'
+  } else if (rival >= 1) {
+    state = 'lost'
+  } else if (secondsLeft <= 0) {
+    state = you >= rival ? 'won' : 'lost'
+  }
   return { state, you, rival, secondsLeft }
 }
 

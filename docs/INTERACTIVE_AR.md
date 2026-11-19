@@ -80,8 +80,8 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
   'uneven bars': { zone: 0.20, sweepSpeed: 0.85, ... },
 
   // mash
-  'formula 1 racing': { goal: 48, seconds: 10, rival: 4.4, ... },
-  swimming: { goal: 42, seconds: 10, rival: 3.8, ... },
+  'formula 1 racing': { goal: 48, seconds: 10, rival: 4.8, ... },
+  swimming: { goal: 42, seconds: 10, rival: 4.2, ... },
 }
 ```
 
