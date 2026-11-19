@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type RefObject } from 'react'
+import { lazy, Suspense, useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ModelViewerElement } from '@google/model-viewer'
 import { Box, LoaderCircle, RotateCcw, TriangleAlert, X } from 'lucide-react'
@@ -6,9 +6,13 @@ import { AR_VIEWER_ATTRIBUTES, getArAvailability, modelLoadProgress, modelSource
 import { loadViewer } from '../lib/model-viewer'
 import { sportNameVi } from '../lib/sport-names'
 import { sports3d } from '../lib/sports3d'
-import { BasketballGame } from './ar/basketball-game'
+import { BASKETBALL_LABEL, hasInteractiveGame, interactiveTabLabel } from '../lib/interactive-ar/games'
 import { Button } from './ui/button'
 import { Progress } from './ui/progress'
+
+// Games are code-split so three.js and the canvas engine load only when a player opens one.
+const BasketballGame = lazy(() => import('./ar/basketball-game').then((module) => ({ default: module.BasketballGame })))
+const SportGame = lazy(() => import('./ar/sport-game').then((module) => ({ default: module.SportGame })))
 
 let retrySequence = 0
 
@@ -32,8 +36,8 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
   const [arSupported, setArSupported] = useState<boolean | null>(null)
   const [arMessage, setArMessage] = useState('')
   const [launching, setLaunching] = useState(false)
-  const isBasketball = label === 'basketball'
-  const [activeTab, setActiveTab] = useState<'model' | 'interactive'>(isBasketball ? 'interactive' : 'model')
+  const hasGame = hasInteractiveGame(label)
+  const [activeTab, setActiveTab] = useState<'model' | 'interactive'>(hasGame ? 'interactive' : 'model')
   const titleId = useId()
   const descriptionId = useId()
   const supportId = useId()
@@ -167,7 +171,7 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
         </div>
         <Button autoFocus variant="outline" className="size-11 shrink-0 p-0" aria-label="Đóng trình xem AR" onClick={onClose}><X size={20} aria-hidden="true" /></Button>
       </div>
-      {isBasketball && (
+      {hasGame && (
         <div className="mt-3 flex rounded-lg bg-muted p-1 text-xs sm:text-sm font-medium">
           <button
             type="button"
@@ -181,14 +185,16 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
             className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 transition-all text-center ${activeTab === 'interactive' ? 'bg-primary text-primary-foreground shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
             onClick={() => setActiveTab('interactive')}
           >
-            <span>🏀 Ném bóng rổ AR</span>
+            <span className="truncate">{interactiveTabLabel(label)}</span>
             <span className="rounded-full bg-amber-400 text-slate-950 font-bold text-[10px] px-1.5 py-0.5">Mới</span>
           </button>
         </div>
       )}
-      {activeTab === 'interactive' && isBasketball ? (
+      {activeTab === 'interactive' && hasGame ? (
         <div className="mt-4">
-          <BasketballGame onClose={onClose} />
+          <Suspense fallback={<div role="status" className="flex min-h-48 items-center justify-center gap-2 text-sm"><LoaderCircle className="motion-safe:animate-spin" size={20} aria-hidden="true" />Đang tải trò chơi…</div>}>
+            {label === BASKETBALL_LABEL ? <BasketballGame onClose={onClose} /> : <SportGame label={label} />}
+          </Suspense>
         </div>
       ) : (
         <>
@@ -239,7 +245,7 @@ export function SportArButton({ label, isUncertain, confidence, otherDialogOpen 
     <div>
       <Button ref={triggerRef} variant="outline" className="min-h-12 w-full" disabled={!availability.enabled} aria-haspopup="dialog" aria-expanded={open}
         aria-describedby={availability.message ? noteId : undefined} onClick={openManually}>
-        <Box size={17} aria-hidden="true" />{label === 'basketball' ? '🏀 Ném bóng rổ AR (Camera)' : 'Xem AR'}
+        <Box size={17} aria-hidden="true" />{label === BASKETBALL_LABEL ? '🏀 Ném bóng rổ AR (Camera)' : hasInteractiveGame(label) ? '🎮 Chơi & xem AR' : 'Xem AR'}
       </Button>
       {availability.message && <p id={noteId} className="mt-2 text-xs leading-relaxed text-muted-foreground">{availability.message}</p>}
     </div>
