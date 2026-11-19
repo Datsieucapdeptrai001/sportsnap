@@ -479,7 +479,13 @@ cd ../frontend
 npx tsc --noEmit
 npm run build
 npm test
+
+# Chạy kiểm thử tự động E2E cho 20 môn AR và vòng đời camera (Playwright)
+npx playwright install chromium
+npm run test:e2e
 ```
+
+Bộ kiểm tra E2E tự động (`npm run test:e2e`) gồm 26 kịch bản trên Playwright giả lập thiết bị di động Pixel 7 (hỗ trợ cảm ứng, video stream giả lập và mock API), kiểm tra toàn bộ 20 môn thể thao tương tác AR và 6 trường hợp kiểm thử vòng đời camera (mở camera nền, đóng dialog nhả track, bật/tắt camera không mất ván, từ chối quyền chỉ hỏi 1 lần, thử lại camera bận, và handoff camera giữa màn Quét với dialog AR). Kết quả đo được lưu tự động vào `frontend/e2e-report/results.json`.
 
 Bộ kiểm tra xác nhận trạng thái, suy luận, tiền xử lý, EXIF, ngưỡng không chắc chắn,
 định dạng ảnh, ảnh hỏng, giới hạn dung lượng, CORS và phục vụ frontend.

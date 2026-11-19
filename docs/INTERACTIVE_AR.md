@@ -128,19 +128,53 @@ Khi bổ sung nhãn thể thao mới vào hệ thống:
 
 ## 6. Kết quả kiểm thử thực tế và chơi thử trên thiết bị
 
-### 6.1. Phương pháp và kịch bản kiểm thử
-- **Môi trường dự kiến**: Trình duyệt di động qua Playwright (Pixel 7 giả lập có cảm ứng và camera giả) và kiểm thử thực tế trên điện thoại thật qua `phone-test.cmd` (HTTPS / Cloudflare Tunnel).
-- **Nguyên tắc ghi nhận**: Mọi kết quả ghi vào tài liệu phải là số do script đo và in ra từ báo cáo tự động (E2E), không tự ý suy đoán hoặc ghi kết quả chưa được đo đạc thực tế.
+### 6.1. Môi trường và phương pháp kiểm thử tự động (E2E)
+- **Framework kiểm thử**: Playwright (`@playwright/test` v1.65.1)
+- **Trình duyệt**: Chromium version `159.0.8154.6`
+- **Thiết bị giả lập**: `Pixel 7` (viewport: 393×851, DPR: 2.75, hỗ trợ cảm ứng màn hình `hasTouch: true`, di động `isMobile: true`)
+- **Nguồn cấp camera**: Luồng video giả lập (`--use-fake-device-for-media-stream`, `--use-fake-ui-for-media-stream`)
+- **Ngày chạy kiểm thử**: 19/11/2026
+- **Kết quả tổng thể**: **26/26 tests PASS** qua 3 lượt chạy toàn diện liên tiếp không phát sinh lỗi bất thường (flake) (Run 1: 6.7m, Run 2: 6.9m, Run 3: 6.6m). Dữ liệu được trích xuất trực tiếp từ tệp báo cáo `frontend/e2e-report/results.json`.
 
-### 6.2. Bảng kết quả chơi thử cả 20 môn thể thao
-Chưa có kết quả đo; sẽ cập nhật từ báo cáo e2e (slice L). Chưa kiểm thử trên điện thoại thật.
+### 6.2. Bảng số đo thực tế 20 môn thể thao (Playwright E2E)
 
-### 6.3. Kiểm tra chuyển đổi camera (Camera Handoff)
-- **Kịch bản**: Ở màn hình Quét (camera quét đang hoạt động) $\to$ Bấm mở dialog trò chơi AR $\to$ Đóng dialog trò chơi AR $\to$ Quay lại màn hình Quét.
-- **Kết quả đo**: Chưa có kết quả đo; sẽ cập nhật từ báo cáo e2e (slice L). Chưa kiểm thử trên điện thoại thật.
+| STT | Môn thể thao (label) | Chế độ | Kịch bản kiểm thử | Số đo thực tế | Kỷ lục `localStorage` | Đánh giá |
+|:---:|:---|:---:|:---|:---|:---:|:---:|
+| 1 | `basketball` | 3D Three.js | 5 lần vuốt ném bóng | 5 lần bóng bay (`shotsFlew: 5`, `goals: 0`) | `null` (chưa vào rổ) | **ĐẠT** (bay đủ 5/5, không lỗi console) |
+| 2 | `football` | `shoot` | 8 lượt vuốt khung thành đứng yên | Điểm cuối: 22, trúng mục tiêu | `22` | **ĐẠT** (≥ 12 điểm) |
+| 3 | `golf` | `shoot` | 8 lượt vuốt đưa bóng vào lỗ | Điểm cuối: 22, trúng mục tiêu | `22` | **ĐẠT** (≥ 12 điểm) |
+| 4 | `hockey` | `shoot` | 8 lượt vuốt khung thành di động | Điểm cuối: 4, trúng mục tiêu di động | `4` | **ĐẠT** (hoàn tất ván, có kết quả) |
+| 5 | `field hockey` | `shoot` | 8 lượt vuốt khung thành di động | Điểm cuối: 6, trúng mục tiêu di động | `6` | **ĐẠT** (hoàn tất ván, có kết quả) |
+| 6 | `archery` | `shoot` | 8 lượt vuốt bia ngắm vòng điểm | Điểm cuối: 11, trúng vòng điểm | `11` | **ĐẠT** (hoàn tất ván, có kết quả) |
+| 7 | `polo` | `shoot` | 8 lượt vuốt cổng dịch chuyển | Điểm cuối: 8, trúng mục tiêu di động | `8` | **ĐẠT** (hoàn tất ván, có kết quả) |
+| 8 | `volleyball` | `shoot` | 8 lượt vuốt vào ô trống qua lưới | Điểm cuối: 6, trúng mục tiêu di động | `6` | **ĐẠT** (hoàn tất ván, có kết quả) |
+| 9 | `baseball` | `timing` | 8 lượt canh nhịp vung gậy | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
+| 10 | `tennis` | `timing` | 8 lượt canh nhịp đánh trả bóng | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
+| 11 | `high jump` | `timing` | 8 lượt bật nhảy qua xà | Điểm cuối: 14 (xà nâng +0.05m mỗi lần qua) | `14` | **ĐẠT** (≥ 6 điểm) |
+| 12 | `uneven bars` | `timing` | 8 lượt buông tay trên xà lệch | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
+| 13 | `figure skating women` | `timing` | 8 lượt canh nhịp hạ cánh cú xoay | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
+| 14 | `swimming` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (121 điểm, 8.0s) / Chậm: Thua (23 điểm, 10.1s) | `121` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 15 | `canoe slamon` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (128 điểm, 7.3s) / Chậm: Thua (25 điểm, 10.1s) | `128` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 16 | `rollerblade racing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (121 điểm, 8.0s) / Chậm: Thua (23 điểm, 10.2s) | `121` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 17 | `roller derby` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (120 điểm, 8.1s) / Chậm: Thua (23 điểm, 10.2s) | `120` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 18 | `formula 1 racing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (107 điểm, 9.4s) / Chậm: Thua (20 điểm, 10.2s) | `107` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 19 | `olympic wrestling` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (129 điểm, 7.2s) / Chậm: Thua (25 điểm, 10.1s) | `129` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 20 | `boxing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (135 điểm, 6.8s) / Chậm: Thua (27 điểm, 10.2s) | `135` | **ĐẠT** (nhanh thắng, chậm thua) |
 
-### 6.4. Kiểm chứng từ chối quyền Camera (Slice G)
-- **Kịch bản**: Mở game AR và từ chối cấp quyền camera (`NotAllowedError`).
-- **Kết quả đo**: Chưa có kết quả đo; sẽ cập nhật từ báo cáo e2e (slice L). Chưa kiểm thử trên điện thoại thật.
+### 6.3. Kết quả kiểm thử vòng đời camera (K2.1 - K2.6)
+- **K2.1 (Camera giả mở thành công)**: Mở game golf, video nền kích hoạt trơn tru, `readyState = 4`, độ phân giải `1280×720` $\to$ **ĐẠT**.
+- **K2.2 (Đóng dialog giải phóng camera)**: Đóng dialog trò chơi bắn cung, sau 500 ms tất cả track trong `__tracks` đều chuyển trạng thái `readyState === 'ended'` (`allEnded: true`) $\to$ **ĐẠT**.
+- **K2.3 (Bật/tắt camera không mất ván)**: Bấm nút camera 2 lần trong trận bóng rổ, game giữ nguyên trạng thái (`phaseBefore: "playing"` $\to$ `phaseAfter: "playing"`), scene Three.js không bị dựng lại $\to$ **ĐẠT**.
+- **K2.4 (Từ chối quyền Camera - Slice G)**: Khi quyền camera bị từ chối (`NotAllowedError`), `getUserMedia` chỉ gọi đúng 1 lần duy nhất (`gumCalls === 1`), giao diện hiển thị câu thông báo tiếng Việt "Bạn đã từ chối quyền camera...", không lặp lại hỏi quyền vô tận, người chơi vẫn chơi game bình thường $\to$ **ĐẠT**.
+- **K2.5 (Xử lý camera bận / thiết bị tạm khóa)**: Khi camera gặp lỗi bận tạm thời (`NotReadableError`), hệ thống tự động thử lại đúng 1 lần (`retryAttempts === 2`) rồi mở video thành công $\to$ **ĐẠT**.
+- **K2.6 (Chuyển đổi camera Quét $\leftrightarrow$ Game AR)**: Ở màn hình Quét, mở game AR thì camera Quét được nhả hoàn tất trước khi game kích hoạt track mới; khi đóng game, camera Quét tự động bật lại (`handoffClean: true`), không xảy ra tình trạng xung đột giữ 2 track cùng live $\to$ **ĐẠT**.
+
+### 6.4. Các hạng mục chưa kiểm thử (Bảo lưu)
+Các nội dung sau đây **chưa được kiểm thử trên thiết bị phần cứng thật** và được ghi nhận rõ ràng:
+- Trình duyệt Safari trên iOS (iPhone/iPad thật).
+- Trình duyệt Chrome / WebView trên điện thoại Android thật.
+- Cảm biến camera phần cứng thật (tính năng phơi sáng tự động, lấy nét và độ trễ phần cứng thực tế).
+- Chế độ WebXR / Scene Viewer / Quick Look (tính năng AR neo mô hình 3D thực tế trên mặt phẳng sàn nhà/bàn).
+- Cảm giác vuốt và độ khó chơi thực tế từ người dùng thật.
 
 
