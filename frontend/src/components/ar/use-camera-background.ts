@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { CAMERA_AR_RELEASE_MS } from '../../lib/ar'
 
 function releaseStream(stream: MediaStream | null, video: HTMLVideoElement | null): void {
   stream?.getTracks().forEach((track) => track.stop())
@@ -12,6 +13,8 @@ function releaseStream(stream: MediaStream | null, video: HTMLVideoElement | nul
  * Rear-camera video behind an interactive AR game.
  * - Starts automatically; falls back silently to the virtual background when the camera
  *   is unavailable, denied or the page is not a secure context.
+ * - Delays startup by CAMERA_AR_RELEASE_MS to prevent camera device collision when handed off
+ *   from another camera-using view (e.g. camera scanner).
  * - Always stops the tracks it opened (also when `play()` rejects or the component
  *   unmounts while the permission prompt is still pending).
  */
@@ -25,34 +28,45 @@ export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>
   const aliveRef = useRef(true)
 
   const start = useCallback(async () => {
-    if (unsupported || streamRef.current || pendingRef.current) return
-    pendingRef.current = true
-    let stream: MediaStream | null = null
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      })
-      const video = videoRef.current
-      if (!aliveRef.current || !video) {
-        releaseStream(stream, null)
-        return
+    async function requestCamera(isRetry: boolean): Promise<void> {
+      if (unsupported || streamRef.current || pendingRef.current) return
+      pendingRef.current = true
+      let stream: MediaStream | null = null
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        })
+        const video = videoRef.current
+        if (!aliveRef.current || !video) {
+          releaseStream(stream, null)
+          return
+        }
+        streamRef.current = stream
+        video.srcObject = stream
+        await video.play()
+        setActive(true)
+        setError(null)
+      } catch {
+        releaseStream(stream, videoRef.current)
+        streamRef.current = null
+        if (aliveRef.current) {
+          if (!isRetry) {
+            // If the hardware was still busy releasing from scanner, retry once after CAMERA_AR_RELEASE_MS
+            pendingRef.current = false
+            window.setTimeout(() => {
+              if (aliveRef.current && !streamRef.current) void requestCamera(true)
+            }, CAMERA_AR_RELEASE_MS)
+            return
+          }
+          setActive(false)
+          setError('Không mở được camera. Bạn vẫn chơi được ở chế độ nền ảo.')
+        }
+      } finally {
+        pendingRef.current = false
       }
-      streamRef.current = stream
-      video.srcObject = stream
-      await video.play()
-      setActive(true)
-      setError(null)
-    } catch {
-      releaseStream(stream, videoRef.current)
-      streamRef.current = null
-      if (aliveRef.current) {
-        setActive(false)
-        setError('Không mở được camera. Bạn vẫn chơi được ở chế độ nền ảo.')
-      }
-    } finally {
-      pendingRef.current = false
     }
+    await requestCamera(false)
   }, [unsupported, videoRef])
 
   const stop = useCallback(() => {
@@ -69,8 +83,8 @@ export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>
 
   useEffect(() => {
     aliveRef.current = true
-    // Deferred so opening the camera never sets state synchronously inside the effect body.
-    const timer = window.setTimeout(() => { void start() }, 0)
+    // Wait for the previous camera owner (e.g. camera-scanner) to finish releasing its tracks
+    const timer = window.setTimeout(() => { void start() }, CAMERA_AR_RELEASE_MS)
     const video = videoRef.current
     return () => {
       window.clearTimeout(timer)
