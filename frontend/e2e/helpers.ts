@@ -49,6 +49,7 @@ export interface ArGameSnapshot {
 }
 
 export interface E2eReportEntry {
+  runId?: string
   sport: string
   scenario: string
   measured: Record<string, unknown>
@@ -301,8 +302,8 @@ export async function tapMashSlow(page: Page, durationMs = 11000): Promise<void>
   }
 }
 
-export async function shootBasketball(page: Page): Promise<void> {
-  await page.evaluate(async () => {
+export async function shootBasketball(page: Page, targetSpeed = 1.70): Promise<void> {
+  await page.evaluate(async ({ speed }) => {
     const container = document.querySelector('dialog[open] canvas')?.parentElement
     if (!container) return
 
@@ -310,7 +311,10 @@ export async function shootBasketball(page: Page): Promise<void> {
     const startX = rect.left + rect.width / 2
     const startY = rect.bottom - 60
 
-    const t0 = performance.now()
+    let tDown = performance.now()
+    const onDown = () => { tDown = performance.now() }
+    window.addEventListener('pointerdown', onDown, { capture: true, once: true })
+
     container.dispatchEvent(new PointerEvent('pointerdown', {
       clientX: startX,
       clientY: startY,
@@ -320,9 +324,9 @@ export async function shootBasketball(page: Page): Promise<void> {
 
     await new Promise((resolve) => setTimeout(resolve, 80))
 
-    // Dynamically calculate dy so swipeSpeedY is exactly 1.50 px/ms regardless of timer jitter
-    const elapsed = Math.max(performance.now() - t0, 40)
-    const dy = -1.50 * elapsed
+    // Dynamically calculate dy so swipeSpeedY is exactly speed px/ms regardless of timer jitter
+    const elapsed = Math.max(performance.now() - tDown, 40)
+    const dy = -speed * elapsed
 
     window.dispatchEvent(new PointerEvent('pointerup', {
       clientX: startX,
@@ -330,7 +334,7 @@ export async function shootBasketball(page: Page): Promise<void> {
       pointerId: 1,
       bubbles: true,
     }))
-  })
+  }, { speed: targetSpeed })
 
   // Wait for initial flight
   await page.waitForTimeout(500)
@@ -346,7 +350,11 @@ export async function recordReportEntry(entry: E2eReportEntry): Promise<void> {
     } catch {
       entries = []
     }
-    entries.push(entry)
+    const withRunId: E2eReportEntry = {
+      runId: entry.runId || process.env.SPORTSNAP_E2E_RUN_ID || new Date().toISOString(),
+      ...entry,
+    }
+    entries.push(withRunId)
     await fs.writeFile(REPORT_FILE, JSON.stringify(entries, null, 2), 'utf8')
   } catch (err) {
     console.warn('Could not record report entry:', err)

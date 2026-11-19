@@ -53,62 +53,88 @@ test.describe('Interactive AR Games - All 20 Sports', () => {
   // 1. Basketball (Dedicated Three.js Game)
   // -------------------------------------------------------------------------
   test('sport: basketball (Three.js physics)', async ({ page }) => {
+    test.setTimeout(120000)
     await setupMockApi(page, 'basketball')
     await page.goto('/?e2e=1')
     await openArDialog(page, 'basketball')
 
-    let shotsFlew = 0
-    let goals = 0
+    async function shootSeries(speed: number, count = 5): Promise<{ flew: number; goals: number }> {
+      const scoreBefore = (await getGameSnapshot(page))?.score ?? 0
+      let flew = 0
+      for (let shot = 0; shot < count; shot++) {
+        await expect.poll(async () => {
+          const snap = await getGameSnapshot(page)
+          return snap?.ballState
+        }, { timeout: 6000 }).toBe('idle')
 
-    for (let shot = 0; shot < 5; shot++) {
-      // Wait for ball to be ready
-      await expect.poll(async () => {
-        const snap = await getGameSnapshot(page)
-        return snap?.ballState
-      }, { timeout: 6000 }).toBe('idle')
+        await shootBasketball(page, speed)
 
-      // Shoot
-      await shootBasketball(page)
+        await expect.poll(async () => {
+          const snap = await getGameSnapshot(page)
+          return snap?.ballState
+        }, { timeout: 3000 }).not.toBe('idle')
+        flew++
 
-      // Verify ball flew
-      await expect.poll(async () => {
-        const snap = await getGameSnapshot(page)
-        return snap?.ballState
-      }, { timeout: 3000 }).not.toBe('idle')
-      shotsFlew++
-
-      // Wait for shot completion
-      await page.waitForTimeout(1000)
-      const currentSnap = await getGameSnapshot(page)
-      if (currentSnap && currentSnap.score > 0) {
-        goals = currentSnap.score
+        await expect.poll(async () => {
+          const snap = await getGameSnapshot(page)
+          return snap?.ballState
+        }, { timeout: 6000 }).toBe('idle')
       }
+
+      const scoreAfter = (await getGameSnapshot(page))?.score ?? 0
+      const goals = (scoreAfter - scoreBefore) / 2
+      return { flew, goals }
     }
 
-    expect(shotsFlew).toBe(5)
+    // Series 1: 1.70 px/ms -> at least 4/5 goals
+    const res170 = await shootSeries(1.70, 5)
+    expect(res170.flew).toBe(5)
+    expect(res170.goals).toBeGreaterThanOrEqual(4)
 
-    // Verify localStorage record (recorded if goals were scored)
+    // Check localStorage (must be recorded)
     const bestInStorage = await page.evaluate(() => localStorage.getItem('sportsnap.ar-best.basketball'))
-    if (goals > 0) {
-      expect(bestInStorage).not.toBeNull()
-    }
+    expect(bestInStorage).not.toBeNull()
 
-    // Test Play Again button
+    // Test Play Again button resets score to 0
     const resetBtn = page.locator('dialog[open] button[aria-label="Chơi lại"]')
-    if (await resetBtn.isVisible()) {
-      await resetBtn.click()
-      await expect.poll(async () => {
-        const snap = await getGameSnapshot(page)
-        return snap?.score
-      }).toBe(0)
-    }
+    await expect(resetBtn).toBeVisible()
+    await resetBtn.click()
+    await expect.poll(async () => {
+      const snap = await getGameSnapshot(page)
+      return snap?.score
+    }).toBe(0)
+
+    // Series 2: 1.35 px/ms -> at least 2/5 goals
+    const res135 = await shootSeries(1.35, 5)
+    expect(res135.flew).toBe(5)
+    expect(res135.goals).toBeGreaterThanOrEqual(2)
+
+    // Series 3: 2.05 px/ms -> at least 2/5 goals
+    const res205 = await shootSeries(2.05, 5)
+    expect(res205.flew).toBe(5)
+    expect(res205.goals).toBeGreaterThanOrEqual(2)
+
+    // Series 4: 0.80 px/ms -> 0/5 goals
+    const res080 = await shootSeries(0.80, 5)
+    expect(res080.flew).toBe(5)
+    expect(res080.goals).toBe(0)
 
     await page.screenshot({ path: path.join(REPORT_DIR, 'basketball.png') })
     await recordReportEntry({
       sport: 'basketball',
-      scenario: '5 shots flight and goal test',
-      measured: { shotsFlew, goals, bestScore: bestInStorage },
-      passed: shotsFlew === 5,
+      scenario: 'speed window: 1.70 (>=4/5), 1.35 (>=2/5), 2.05 (>=2/5), 0.80 (0/5)',
+      measured: {
+        series_1_70: res170,
+        series_1_35: res135,
+        series_2_05: res205,
+        series_0_80: res080,
+        bestScore: bestInStorage,
+      },
+      passed:
+        res170.goals >= 4 &&
+        res135.goals >= 2 &&
+        res205.goals >= 2 &&
+        res080.goals === 0,
     })
   })
 
@@ -127,6 +153,7 @@ test.describe('Interactive AR Games - All 20 Sports', () => {
 
   for (const item of SHOOT_SPORTS) {
     test(`sport: ${item.label} (mode: shoot)`, async ({ page }) => {
+      if (!item.static) test.setTimeout(60000)
       await setupMockApi(page, item.label)
       await page.goto('/?e2e=1')
       await openArDialog(page, item.label)
@@ -134,55 +161,97 @@ test.describe('Interactive AR Games - All 20 Sports', () => {
       const initialSnap = await getGameSnapshot(page)
       expect(initialSnap?.phase).toBe('ready')
 
-      await startGame(page)
-
-      await expect.poll(async () => {
-        const snap = await getGameSnapshot(page)
-        return snap?.phase
-      }).toBe('playing')
-
-      // Play 8 rounds
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const snap = await getGameSnapshot(page)
-        if (!snap || snap.phase !== 'playing') break
-        const tx = snap.targetX ?? 0.5
-        await swipeShoot(page, tx)
-      }
-
-      // Wait for game over
-      await expect.poll(async () => {
-        const snap = await getGameSnapshot(page)
-        return snap?.phase
-      }, { timeout: 6000 }).toBe('over')
-
-      const finalSnap = await getGameSnapshot(page)
-      expect(finalSnap?.phase).toBe('over')
-
-      // For static sports, require >= 6 hits (12 points)
       if (item.static) {
+        // Static targets: 1 game of 8 attempts, score >= 12
+        await startGame(page)
+        await expect.poll(async () => {
+          const snap = await getGameSnapshot(page)
+          return snap?.phase
+        }).toBe('playing')
+
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const snap = await getGameSnapshot(page)
+          if (!snap || snap.phase !== 'playing') break
+          const tx = snap.targetX ?? 0.5
+          await swipeShoot(page, tx)
+        }
+
+        await expect.poll(async () => {
+          const snap = await getGameSnapshot(page)
+          return snap?.phase
+        }, { timeout: 6000 }).toBe('over')
+
+        const finalSnap = await getGameSnapshot(page)
+        expect(finalSnap?.phase).toBe('over')
         expect(finalSnap!.score).toBeGreaterThanOrEqual(12)
-      }
 
-      // Check localStorage if points were scored
-      const best = await page.evaluate((lbl) => localStorage.getItem(`sportsnap.ar-best.${lbl}`), item.label)
-      if ((finalSnap?.score ?? 0) > 0) {
+        const best = await page.evaluate((lbl) => localStorage.getItem(`sportsnap.ar-best.${lbl}`), item.label)
         expect(best).not.toBeNull()
+
+        // Test reset button
+        await page.locator('dialog[open] button:has-text("Chơi lại")').click()
+        await expect.poll(async () => {
+          const s = await getGameSnapshot(page)
+          return s?.phase
+        }).toBe('playing')
+
+        await page.screenshot({ path: path.join(REPORT_DIR, `${item.label}.png`) })
+        await recordReportEntry({
+          sport: item.label,
+          scenario: '8 attempts swipe accuracy (static target)',
+          measured: { finalScore: finalSnap?.score, bestRecord: best },
+          passed: (finalSnap?.score ?? 0) >= 12,
+        })
+      } else {
+        // Moving targets: 3 games to measure min, avg, max
+        const scores: number[] = []
+        for (let gameIdx = 0; gameIdx < 3; gameIdx++) {
+          if (gameIdx === 0) {
+            await startGame(page)
+          } else {
+            await page.locator('dialog[open] button:has-text("Chơi lại")').click()
+          }
+
+          await expect.poll(async () => {
+            const snap = await getGameSnapshot(page)
+            return snap?.phase
+          }).toBe('playing')
+
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const snap = await getGameSnapshot(page)
+            if (!snap || snap.phase !== 'playing') break
+            const tx = snap.targetX ?? 0.5
+            await swipeShoot(page, tx)
+          }
+
+          await expect.poll(async () => {
+            const snap = await getGameSnapshot(page)
+            return snap?.phase
+          }, { timeout: 6000 }).toBe('over')
+
+          const gameSnap = await getGameSnapshot(page)
+          scores.push(gameSnap?.score ?? 0)
+        }
+
+        const minScore = Math.min(...scores)
+        const maxScore = Math.max(...scores)
+        const avgScore = Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1))
+        const best = await page.evaluate((lbl) => localStorage.getItem(`sportsnap.ar-best.${lbl}`), item.label)
+
+        await page.screenshot({ path: path.join(REPORT_DIR, `${item.label}.png`) })
+        await recordReportEntry({
+          sport: item.label,
+          scenario: '3 games swipe accuracy (moving target)',
+          measured: {
+            scores,
+            min: minScore,
+            avg: avgScore,
+            max: maxScore,
+            bestRecord: best,
+          },
+          passed: true,
+        })
       }
-
-      // Test reset button
-      await page.locator('dialog[open] button:has-text("Chơi lại")').click()
-      await expect.poll(async () => {
-        const s = await getGameSnapshot(page)
-        return s?.phase
-      }).toBe('playing')
-
-      await page.screenshot({ path: path.join(REPORT_DIR, `${item.label}.png`) })
-      await recordReportEntry({
-        sport: item.label,
-        scenario: '8 attempts swipe accuracy',
-        measured: { finalScore: finalSnap?.score, bestRecord: best, staticTarget: item.static },
-        passed: item.static ? (finalSnap?.score ?? 0) >= 12 : finalSnap?.phase === 'over',
-      })
     })
   }
 

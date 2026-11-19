@@ -366,6 +366,7 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
 
       const velocity = calculateBasketballVelocity(dx, dy, dt)
       if (velocity) {
+        ball.position.copy(idleBallPos)
         stateRef.current.ballVelocity.set(velocity.lateral, velocity.upward, velocity.forward)
         stateRef.current.ballSpin.set(-8, 0, (Math.random() - 0.5) * 4)
         stateRef.current.ballState = 'flying'
@@ -410,93 +411,103 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
         const vel = stateRef.current.ballVelocity
         const spin = stateRef.current.ballSpin
 
-        // Apply gravity
-        vel.y += gravity * dt
+        // Fixed substepping for numerical stability and goal detection regardless of frame rate
+        const subDt = 1 / 120
+        let remaining = dt
+        while (remaining > 1e-6) {
+          const stepDt = Math.min(remaining, subDt)
+          remaining -= stepDt
 
-        // Update position
-        ball.position.addScaledVector(vel, dt)
-        ball.rotation.x += spin.x * dt
-        ball.rotation.y += spin.y * dt
-        ball.rotation.z += spin.z * dt
+          // Apply gravity
+          vel.y += gravity * stepDt
 
-        // 1. Backboard collision
-        if (
-          ball.position.z <= backboardZ + ballRadius &&
-          ball.position.z >= backboardZ - 0.1 &&
-          Math.abs(ball.position.x) <= 0.8 &&
-          ball.position.y >= 1.95 &&
-          ball.position.y <= 2.95 &&
-          vel.z < 0
-        ) {
-          vel.z = -vel.z * 0.65
-          vel.y *= 0.8
-          vel.x += (Math.random() - 0.5) * 0.4
-          if (stateRef.current.soundEnabled) soundEngine.playBounce()
-          soundEngine.triggerHaptic('medium')
-        }
+          // Update position
+          ball.position.addScaledVector(vel, stepDt)
+          ball.rotation.x += spin.x * stepDt
+          ball.rotation.y += spin.y * stepDt
+          ball.rotation.z += spin.z * stepDt
 
-        // 2. Goal / Rim Check
-        const distToRimCenter = Math.hypot(ball.position.x - rimPos.x, ball.position.z - rimPos.z)
-        const verticalDist = ball.position.y - rimPos.y
-
-        if (
-          stateRef.current.ballState === 'flying' &&
-          isBasketballGoal(ball.position, vel.y, rimPos, rimRadius)
-        ) {
-          stateRef.current.ballState = 'scored'
-          vel.y *= 0.4
-          vel.x *= 0.5
-          vel.z *= 0.5
-
-          // Score and Streak
-          const newScore = stateRef.current.score + 2
-          const newStreak = stateRef.current.streak + 1
-          setScore(newScore)
-          setStreak(newStreak)
-          if (newScore > stateRef.current.highScore) {
-            setHighScore(newScore)
-            writeBasketballBest(newScore)
-          }
-
-          setFeedback(`VÀO RỔ! +2 ĐIỂM 🎉 (${newStreak > 1 ? `Chuỗi: ${newStreak} quả!` : 'Cú ném đẹp mắt!'})`)
-
-          if (stateRef.current.soundEnabled) {
-            soundEngine.playSwish()
-            soundEngine.playCheer()
-          }
-          soundEngine.triggerHaptic('success')
-          spawnConfetti(rimPos)
-          scheduleBallReset(2200)
-        } else if (
-          Math.abs(distToRimCenter - rimRadius) < 0.08 &&
-          Math.abs(verticalDist) < 0.09
-        ) {
-          // Rim edge collision
-          vel.y = Math.abs(vel.y) * 0.55
-          const normalX = (ball.position.x - rimPos.x) / (distToRimCenter || 1)
-          const normalZ = (ball.position.z - rimPos.z) / (distToRimCenter || 1)
-          vel.x += normalX * 1.5
-          vel.z += normalZ * 1.5
-          if (stateRef.current.soundEnabled) soundEngine.playRimHit()
-          soundEngine.triggerHaptic('light')
-        }
-
-        // Floor bounce / Out of bounds
-        if (ball.position.y <= ballRadius) {
-          ball.position.y = ballRadius
-          if (Math.abs(vel.y) > 0.8) {
-            vel.y = -vel.y * 0.55
-            vel.x *= 0.7
-            vel.z *= 0.7
+          // 1. Backboard collision
+          if (
+            ball.position.z <= backboardZ + ballRadius &&
+            ball.position.z >= backboardZ - 0.1 &&
+            Math.abs(ball.position.x) <= 0.8 &&
+            ball.position.y >= 1.95 &&
+            ball.position.y <= 2.95 &&
+            vel.z < 0
+          ) {
+            vel.z = -vel.z * 0.65
+            vel.y *= 0.8
+            vel.x += (Math.random() - 0.5) * 0.4
             if (stateRef.current.soundEnabled) soundEngine.playBounce()
-          } else {
-            vel.set(0, 0, 0)
+            soundEngine.triggerHaptic('medium')
           }
-          if (stateRef.current.ballState === 'flying') {
-            stateRef.current.ballState = 'missed'
-            setStreak(0)
-            setFeedback('Trượt rồi! Đừng nản, thử lại nào!')
-            scheduleBallReset(1500)
+
+          // 2. Goal / Rim Check
+          const distToRimCenter = Math.hypot(ball.position.x - rimPos.x, ball.position.z - rimPos.z)
+          const verticalDist = ball.position.y - rimPos.y
+
+          if (
+            stateRef.current.ballState === 'flying' &&
+            isBasketballGoal(ball.position, vel.y, rimPos, rimRadius)
+          ) {
+            stateRef.current.ballState = 'scored'
+            vel.y *= 0.4
+            vel.x *= 0.5
+            vel.z *= 0.5
+
+            // Score and Streak
+            const newScore = stateRef.current.score + 2
+            const newStreak = stateRef.current.streak + 1
+            setScore(newScore)
+            setStreak(newStreak)
+            if (newScore > stateRef.current.highScore) {
+              setHighScore(newScore)
+              writeBasketballBest(newScore)
+            }
+
+            setFeedback(`VÀO RỔ! +2 ĐIỂM 🎉 (${newStreak > 1 ? `Chuỗi: ${newStreak} quả!` : 'Cú ném đẹp mắt!'})`)
+
+            if (stateRef.current.soundEnabled) {
+              soundEngine.playSwish()
+              soundEngine.playCheer()
+            }
+            soundEngine.triggerHaptic('success')
+            spawnConfetti(rimPos)
+            scheduleBallReset(2200)
+            break
+          } else if (
+            Math.abs(distToRimCenter - rimRadius) < 0.08 &&
+            Math.abs(verticalDist) < 0.09
+          ) {
+            // Rim edge collision
+            vel.y = Math.abs(vel.y) * 0.55
+            const normalX = (ball.position.x - rimPos.x) / (distToRimCenter || 1)
+            const normalZ = (ball.position.z - rimPos.z) / (distToRimCenter || 1)
+            vel.x += normalX * 1.5
+            vel.z += normalZ * 1.5
+            if (stateRef.current.soundEnabled) soundEngine.playRimHit()
+            soundEngine.triggerHaptic('light')
+          }
+
+          // Floor bounce / Out of bounds
+          if (ball.position.y <= ballRadius) {
+            ball.position.y = ballRadius
+            if (Math.abs(vel.y) > 0.8) {
+              vel.y = -vel.y * 0.55
+              vel.x *= 0.7
+              vel.z *= 0.7
+              if (stateRef.current.soundEnabled) soundEngine.playBounce()
+            } else {
+              vel.set(0, 0, 0)
+            }
+            if (stateRef.current.ballState === 'flying') {
+              stateRef.current.ballState = 'missed'
+              setStreak(0)
+              setFeedback('Trượt rồi! Đừng nản, thử lại nào!')
+              scheduleBallReset(1500)
+              break
+            }
           }
         }
       }
