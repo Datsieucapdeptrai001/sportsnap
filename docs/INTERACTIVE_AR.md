@@ -48,6 +48,23 @@ Toàn bộ 20 môn thể thao trong SportSnap đều hỗ trợ trải nghiệm 
   - Thắng (chạm đủ mục tiêu trước đối thủ và trước hết giờ): Nhận 100 điểm + 10 điểm cho mỗi giây còn lại.
   - Thua: Nhận điểm dựa trên phần trăm tiến độ đã hoàn thành (tối đa 50 điểm).
 
+### 2.4. Trò chơi 3D Three.js riêng biệt (`basketball`)
+Dành riêng cho bóng rổ mô phỏng vật lý 3D:
+- **Hằng số vật lý chuẩn hóa**:
+  - Tọa độ xuất phát bóng: `BASKETBALL_START = { x: 0, y: 0.95, z: 2.1 }`
+  - Vị trí tâm vành rổ: `BASKETBALL_RIM = { x: 0, y: 2.15, z: -2.28 }`
+  - Bán kính vành rổ: `BASKETBALL_RIM_RADIUS = 0.225` m
+  - Gia tốc trọng trường: `BASKETBALL_GRAVITY = -9.8` m/s²
+- **Cơ chế hỗ trợ ngắm (Aim Assist)**:
+  - Tính toán quỹ đạo lý tưởng qua tâm vành với thời gian bay cố định $T = 0.90$ s:
+    - $v_z = (\text{rim.z} - \text{start.z}) / T$
+    - $v_y = (\text{rim.y} - \text{start.y} - 0.5 \cdot g \cdot T \cdot (T + 1/60)) / T$
+  - Lực vuốt: $p = \text{swipeSpeedY} / S_{REF}$ với $S_{REF} = 1.70$ px/ms.
+  - Sai lệch $e = p - 1$. Trong cửa sổ $|e| \le 0.265$, sai số được nén mạnh bằng hệ số $0.01$ ($e' = e \cdot 0.01$) để kéo quỹ đạo về gần quỹ đạo chuẩn vào rổ.
+  - Hỗ trợ góc ngang: độ lệch góc $\Delta x / |\Delta y|$ trong cửa sổ $\pm 0.22$ được nén theo hệ số $0.15$.
+  - Khoảng tốc độ vuốt ghi bàn thực tế: **1.21 đến 2.18 px/ms (98 tốc độ)** (đo bởi unit test M3).
+  - Vuốt quá yếu ($s \le 0.90$ px/ms) hoặc quá mạnh ($s \ge 2.80$ px/ms) hoặc lệch góc lớn ($|\Delta x| \ge 0.60 |\Delta y|$) đều trượt hoàn toàn.
+
 ---
 
 ## 3. Quản lý vòng đời và Handoff Camera
@@ -89,11 +106,16 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
 - **Để game ném (`shoot`) dễ hơn**: Tăng `targetRadius` (ví dụ `0.18` $\to$ `0.22`), giảm `targetSpeed`.
 - **Để game canh nhịp (`timing`) dễ hơn**: Tăng `zone` (ví dụ `0.20` $\to$ `0.24`), giảm `sweepSpeed`.
 - **Để game chạm liên tục (`mash`) dễ hơn**: Giảm `goal` hoặc giảm `rival`.
+- **Để game bóng rổ 3D (`basketball`) nới rộng cửa sổ vào rổ**:
+  - Hằng số ngắm: `BASKETBALL_S_REF = 1.70` px/ms, `BASKETBALL_AIM_T = 0.90` s.
+  - Cửa sổ hỗ trợ lực vuốt: `BASKETBALL_ASSIST_WIN = 0.265`, `BASKETBALL_ASSIST_FACTOR = 0.01`.
+  - Cửa sổ hỗ trợ góc ngang: `BASKETBALL_LATERAL_WIN = 0.22`, `BASKETBALL_LATERAL_FACTOR = 0.15`.
 - **Ràng buộc kiểm thử bắt buộc (tests pass)**:
   - `goal / seconds <= 6` (tốc độ chạm người chơi tối đa có thể duy trì).
   - `targetSpeed <= 0.6`.
   - `zone >= 0.15`.
   - Mọi mục tiêu đều phải có vận tốc vuốt với tới được (`TARGET_Y = 0.3`).
+  - Bóng rổ 3D: quét tốc độ $s \in [1.30, 2.10]$ px/ms phải đạt $\ge 80\%$ bàn thắng trong mô phỏng `simulateBasketballShot()`. Với $s \le 0.90$ hoặc $s \ge 2.80$ px/ms phải trượt 100%. Lệch ngang $\pm 0.15 |\Delta y|$ vào rổ, $\pm 0.60 |\Delta y|$ trượt.
 
 ---
 
@@ -133,33 +155,43 @@ Khi bổ sung nhãn thể thao mới vào hệ thống:
 - **Trình duyệt**: Chromium version `159.0.8154.6`
 - **Thiết bị giả lập**: `Pixel 7` (viewport: 393×851, DPR: 2.75, hỗ trợ cảm ứng màn hình `hasTouch: true`, di động `isMobile: true`)
 - **Nguồn cấp camera**: Luồng video giả lập (`--use-fake-device-for-media-stream`, `--use-fake-ui-for-media-stream`)
-- **Ngày chạy kiểm thử**: 19/11/2026
-- **Kết quả tổng thể**: **26/26 tests PASS** qua 3 lượt chạy toàn diện liên tiếp không phát sinh lỗi bất thường (flake) (Run 1: 6.7m, Run 2: 6.9m, Run 3: 6.6m). Dữ liệu được trích xuất trực tiếp từ tệp báo cáo `frontend/e2e-report/results.json`.
+- **Ngày chạy kiểm thử**: 20/11/2026
+- **Kết quả tổng thể**: **26/26 tests PASS** qua 3 lượt chạy toàn diện liên tiếp không phát sinh lỗi bất thường (flake) (Run 1: 9.3m, Run 2: 9.2m, Run 3: 9.2m). Dữ liệu được trích xuất trực tiếp từ tệp báo cáo `frontend/e2e-report/results.json` với `runId: "2026-11-19T18:18:16.038Z"`.
 
 ### 6.2. Bảng số đo thực tế 20 môn thể thao (Playwright E2E)
 
 | STT | Môn thể thao (label) | Chế độ | Kịch bản kiểm thử | Số đo thực tế | Kỷ lục `localStorage` | Đánh giá |
 |:---:|:---|:---:|:---|:---|:---:|:---:|
-| 1 | `basketball` | 3D Three.js | 5 lần vuốt ném bóng | 5 lần bóng bay (`shotsFlew: 5`, `goals: 0`) | `null` (chưa vào rổ) | **ĐẠT** (bay đủ 5/5, không lỗi console) |
+| 1 | `basketball` | 3D Three.js | 4 nhóm tốc độ vuốt: 1.70 px/ms, 1.35 px/ms, 2.05 px/ms (mỗi nhóm 5 quả), 0.80 px/ms (5 quả) | 1.70: 5/5 vào rổ; 1.35: 5/5 vào rổ; 2.05: 5/5 vào rổ; 0.80: 0/5 vào rổ. Reset điểm về 0 thành công khi bấm "Chơi lại". | `10` | **ĐẠT** (đáp ứng điều kiện ≥4/5, ≥2/5, ≥2/5 và 0/5) |
 | 2 | `football` | `shoot` | 8 lượt vuốt khung thành đứng yên | Điểm cuối: 22, trúng mục tiêu | `22` | **ĐẠT** (≥ 12 điểm) |
 | 3 | `golf` | `shoot` | 8 lượt vuốt đưa bóng vào lỗ | Điểm cuối: 22, trúng mục tiêu | `22` | **ĐẠT** (≥ 12 điểm) |
-| 4 | `hockey` | `shoot` | 8 lượt vuốt khung thành di động | Điểm cuối: 4, trúng mục tiêu di động | `4` | **ĐẠT** (hoàn tất ván, có kết quả) |
-| 5 | `field hockey` | `shoot` | 8 lượt vuốt khung thành di động | Điểm cuối: 6, trúng mục tiêu di động | `6` | **ĐẠT** (hoàn tất ván, có kết quả) |
-| 6 | `archery` | `shoot` | 8 lượt vuốt bia ngắm vòng điểm | Điểm cuối: 11, trúng vòng điểm | `11` | **ĐẠT** (hoàn tất ván, có kết quả) |
-| 7 | `polo` | `shoot` | 8 lượt vuốt cổng dịch chuyển | Điểm cuối: 8, trúng mục tiêu di động | `8` | **ĐẠT** (hoàn tất ván, có kết quả) |
-| 8 | `volleyball` | `shoot` | 8 lượt vuốt vào ô trống qua lưới | Điểm cuối: 6, trúng mục tiêu di động | `6` | **ĐẠT** (hoàn tất ván, có kết quả) |
+| 4 | `hockey` | `shoot` | 3 ván vuốt khung thành di động | Điểm 3 ván: [4, 2, 6], min: 2, avg: 4.0, max: 6 | `6` | **ĐẠT** (hoàn tất 3 ván, có số liệu) |
+| 5 | `field hockey` | `shoot` | 3 ván vuốt khung thành di động | Điểm 3 ván: [2, 4, 4], min: 2, avg: 3.3, max: 4 | `4` | **ĐẠT** (hoàn tất 3 ván, có số liệu) |
+| 6 | `archery` | `shoot` | 3 ván vuốt bia ngắm vòng điểm | Điểm 3 ván: [21, 15, 18], min: 15, avg: 18.0, max: 21 | `21` | **ĐẠT** (hoàn tất 3 ván, có số liệu) |
+| 7 | `polo` | `shoot` | 3 ván vuốt cổng dịch chuyển | Điểm 3 ván: [4, 4, 4], min: 4, avg: 4.0, max: 4 | `4` | **ĐẠT** (hoàn tất 3 ván, có số liệu) |
+| 8 | `volleyball` | `shoot` | 3 ván vuốt vào ô trống qua lưới | Điểm 3 ván: [6, 2, 6], min: 2, avg: 4.7, max: 6 | `6` | **ĐẠT** (hoàn tất 3 ván, có số liệu) |
 | 9 | `baseball` | `timing` | 8 lượt canh nhịp vung gậy | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
 | 10 | `tennis` | `timing` | 8 lượt canh nhịp đánh trả bóng | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
-| 11 | `high jump` | `timing` | 8 lượt bật nhảy qua xà | Điểm cuối: 14 (xà nâng +0.05m mỗi lần qua) | `14` | **ĐẠT** (≥ 6 điểm) |
+| 11 | `high jump` | `timing` | 8 lượt bật nhảy qua xà | Điểm cuối: 16 (xà nâng +0.05m mỗi lần qua) | `16` | **ĐẠT** (≥ 6 điểm) |
 | 12 | `uneven bars` | `timing` | 8 lượt buông tay trên xà lệch | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
 | 13 | `figure skating women` | `timing` | 8 lượt canh nhịp hạ cánh cú xoay | Điểm cuối: 14 | `14` | **ĐẠT** (≥ 6 điểm) |
-| 14 | `swimming` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (121 điểm, 8.0s) / Chậm: Thua (23 điểm, 10.1s) | `121` | **ĐẠT** (nhanh thắng, chậm thua) |
-| 15 | `canoe slamon` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (128 điểm, 7.3s) / Chậm: Thua (25 điểm, 10.1s) | `128` | **ĐẠT** (nhanh thắng, chậm thua) |
-| 16 | `rollerblade racing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (121 điểm, 8.0s) / Chậm: Thua (23 điểm, 10.2s) | `121` | **ĐẠT** (nhanh thắng, chậm thua) |
-| 17 | `roller derby` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (120 điểm, 8.1s) / Chậm: Thua (23 điểm, 10.2s) | `120` | **ĐẠT** (nhanh thắng, chậm thua) |
-| 18 | `formula 1 racing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (107 điểm, 9.4s) / Chậm: Thua (20 điểm, 10.2s) | `107` | **ĐẠT** (nhanh thắng, chậm thua) |
-| 19 | `olympic wrestling` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (129 điểm, 7.2s) / Chậm: Thua (25 điểm, 10.1s) | `129` | **ĐẠT** (nhanh thắng, chậm thua) |
-| 20 | `boxing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (135 điểm, 6.8s) / Chậm: Thua (27 điểm, 10.2s) | `135` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 14 | `swimming` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (117 điểm, 8.4s) / Chậm: Thua (23 điểm, 10.2s) | `117` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 15 | `canoe slamon` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (128 điểm, 7.3s) / Chậm: Thua (25 điểm, 10.3s) | `128` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 16 | `rollerblade racing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (115 điểm, 8.6s) / Chậm: Thua (21 điểm, 10.2s) | `115` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 17 | `roller derby` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (119 điểm, 8.2s) / Chậm: Thua (23 điểm, 10.4s) | `119` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 18 | `formula 1 racing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (108 điểm, 9.3s) / Chậm: Thua (20 điểm, 10.3s) | `108` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 19 | `olympic wrestling` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (130 điểm, 7.1s) / Chậm: Thua (25 điểm, 10.1s) | `130` | **ĐẠT** (nhanh thắng, chậm thua) |
+| 20 | `boxing` | `mash` | Chạm nhanh (6 tap/s) vs Chạm chậm (2 tap/s) | Nhanh: Thắng (134 điểm, 6.7s) / Chậm: Thua (27 điểm, 10.1s) | `134` | **ĐẠT** (nhanh thắng, chậm thua) |
+
+### 6.2.1. Thống kê 3 ván kiểm thử cho 5 môn mục tiêu di chuyển (Moving Targets)
+
+| Môn thể thao | Điểm 3 ván (`scores`) | Điểm thấp nhất (`min`) | Điểm trung bình (`avg`) | Điểm cao nhất (`max`) | Kỷ lục lưu |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| `hockey` | `[4, 2, 6]` | 2 | 4.0 | 6 | `6` |
+| `field hockey` | `[2, 4, 4]` | 2 | 3.3 | 4 | `4` |
+| `archery` | `[21, 15, 18]` | 15 | 18.0 | 21 | `21` |
+| `polo` | `[4, 4, 4]` | 4 | 4.0 | 4 | `4` |
+| `volleyball` | `[6, 2, 6]` | 2 | 4.7 | 6 | `6` |
 
 ### 6.3. Kết quả kiểm thử vòng đời camera (K2.1 - K2.6)
 - **K2.1 (Camera giả mở thành công)**: Mở game golf, video nền kích hoạt trơn tru, `readyState = 4`, độ phân giải `1280×720` $\to$ **ĐẠT**.
