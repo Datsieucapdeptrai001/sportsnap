@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { cameraErrorMessage, shouldRetryCamera } from '../src/lib/interactive-ar/camera.ts'
 import {
   BASKETBALL_LABEL, SPORT_GAMES, TARGET_Y, calculateBasketballVelocity, getSportGame, hasInteractiveGame, hasSportGame, highJumpBarHeight, interactiveTabLabel,
   isBasketballGoal, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus, targetX, timingGrade, timingPoints, zoneAfterStreak,
@@ -172,4 +173,47 @@ test('basketball: physics calculations and goal detection', () => {
   assert.equal(isBasketballGoal({ x: 0, y: 2.15, z: -2.28 }, -2, rimPos, rimRadius), true)
   assert.equal(isBasketballGoal({ x: 0, y: 2.15, z: -2.28 }, 2, rimPos, rimRadius), false) // upward velocity is not a swish
   assert.equal(isBasketballGoal({ x: 1, y: 2.15, z: -2.28 }, -2, rimPos, rimRadius), false) // outside rim
+})
+
+test('camera retry decision: only transient hardware locking retries, permission denial does not', () => {
+  // Transient failures: retry once
+  assert.equal(shouldRetryCamera('NotReadableError'), true)
+  assert.equal(shouldRetryCamera('AbortError'), true)
+
+  // Permanent failures: never retry
+  assert.equal(shouldRetryCamera('NotAllowedError'), false)
+  assert.equal(shouldRetryCamera('PermissionDeniedError'), false)
+  assert.equal(shouldRetryCamera('NotFoundError'), false)
+  assert.equal(shouldRetryCamera('DevicesNotFoundError'), false)
+  assert.equal(shouldRetryCamera('SecurityError'), false)
+  assert.equal(shouldRetryCamera('OverconstrainedError'), false)
+  assert.equal(shouldRetryCamera('TypeError'), false)
+  assert.equal(shouldRetryCamera(''), false)
+})
+
+test('camera error messages: clear Vietnamese messages mapped to error types', () => {
+  assert.equal(
+    cameraErrorMessage('NotAllowedError'),
+    'Bạn đã từ chối quyền camera. Vẫn chơi được ở chế độ nền ảo.',
+  )
+  assert.equal(
+    cameraErrorMessage('PermissionDeniedError'),
+    'Bạn đã từ chối quyền camera. Vẫn chơi được ở chế độ nền ảo.',
+  )
+  assert.equal(
+    cameraErrorMessage('NotFoundError'),
+    'Không tìm thấy camera trên thiết bị.',
+  )
+  assert.equal(
+    cameraErrorMessage('DevicesNotFoundError'),
+    'Không tìm thấy camera trên thiết bị.',
+  )
+  assert.equal(
+    cameraErrorMessage('NotReadableError'),
+    'Không mở được camera. Bạn vẫn chơi được ở chế độ nền ảo.',
+  )
+  assert.equal(
+    cameraErrorMessage('OtherRandomError'),
+    'Không mở được camera. Bạn vẫn chơi được ở chế độ nền ảo.',
+  )
 })

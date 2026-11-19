@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { CAMERA_AR_RELEASE_MS } from '../../lib/ar'
+import { cameraErrorMessage, shouldRetryCamera } from '../../lib/interactive-ar/camera'
 
 function releaseStream(stream: MediaStream | null, video: HTMLVideoElement | null): void {
   stream?.getTracks().forEach((track) => track.stop())
@@ -47,12 +48,14 @@ export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>
         await video.play()
         setActive(true)
         setError(null)
-      } catch {
+      } catch (err) {
         releaseStream(stream, videoRef.current)
         streamRef.current = null
         if (aliveRef.current) {
-          if (!isRetry) {
-            // If the hardware was still busy releasing from scanner, retry once after CAMERA_AR_RELEASE_MS
+          const errorName = err instanceof Error ? err.name : ''
+          if (!isRetry && shouldRetryCamera(errorName)) {
+            // Only retry for transient camera locking (e.g. scanner still releasing tracks).
+            // Permanent errors (NotAllowedError, NotFoundError, etc.) fail immediately without retrying.
             pendingRef.current = false
             window.setTimeout(() => {
               if (aliveRef.current && !streamRef.current) void requestCamera(true)
@@ -60,7 +63,7 @@ export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>
             return
           }
           setActive(false)
-          setError('Không mở được camera. Bạn vẫn chơi được ở chế độ nền ảo.')
+          setError(cameraErrorMessage(errorName))
         }
       } finally {
         pendingRef.current = false

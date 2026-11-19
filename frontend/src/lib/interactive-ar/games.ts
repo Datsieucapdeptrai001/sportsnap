@@ -13,6 +13,8 @@
 export type GameMode = 'shoot' | 'timing' | 'mash'
 export type TargetKind = 'goal' | 'uprights' | 'bullseye' | 'hole' | 'court'
 
+export { cameraErrorMessage, shouldRetryCamera } from './camera.ts'
+
 export interface SportGameConfig {
   mode: GameMode
   /** Short Vietnamese game name, also used on the tab / button. */
