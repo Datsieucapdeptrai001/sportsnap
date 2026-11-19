@@ -207,6 +207,47 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
   }
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      if (typeof window !== 'undefined' && window.location.search.includes('e2e=1')) {
+        ;(window as unknown as { __SPORTSNAP_AR__?: () => unknown }).__SPORTSNAP_AR__ = () => {
+          const rt = rtRef.current
+          const now = performance.now()
+          const base = {
+            label: name,
+            mode: cfg.mode,
+            phase: rt.phase,
+            score: rt.score,
+            streak: rt.streak,
+            left: rt.left,
+            result: rt.result,
+            best: readBest(name),
+          }
+          if (cfg.mode === 'timing') {
+            const pos = rt.round.frozenUntil > now ? rt.round.frozenPos : markerPos((now - rt.round.start) / 1000, cfg.sweepSpeed ?? 0.8)
+            return {
+              ...base,
+              markerPos: pos,
+              zoneCenter: rt.round.center,
+              zoneWidth: rt.round.zone,
+            }
+          }
+          if (cfg.mode === 'shoot') {
+            return {
+              ...base,
+              targetX: targetX(now / 1000, cfg.targetSpeed ?? 0),
+              targetY: TARGET_Y,
+            }
+          }
+          return base
+        }
+        return () => {
+          delete (window as unknown as Record<string, unknown>).__SPORTSNAP_AR__
+        }
+      }
+    }
+  }, [cfg, name])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
@@ -243,7 +284,7 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
       const rt = rtRef.current
       const now = performance.now()
       if (rt.phase !== 'playing') return
-      canvas.setPointerCapture?.(event.pointerId)
+      try { canvas.setPointerCapture?.(event.pointerId) } catch { /* ignore capture error */ }
       if (cfg.mode === 'shoot') {
         if (!rt.shot && rt.left > 0 && !rt.overAt) rt.swipe = { x: event.clientX, y: event.clientY, t: now }
       } else if (cfg.mode === 'timing') tapTiming(now)

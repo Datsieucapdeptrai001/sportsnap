@@ -68,3 +68,13 @@ Tài liệu này ghi nhận mọi quyết định kiến trúc và giả định
 ## 6. Ghi chú cho Phase 3 (Fine-tune ResNet50 trên CPU)
 
 - Do hệ thống dùng `ResNet50_finetune_best.keras` thay cho MobileNetV2, bước retrain ở Phase 3 sẽ mở khóa **~50 lớp cuối của backbone `resnet50`** (nhóm `conv5_block*`, khớp với cấu hình huấn luyện trong `SportSnap_02_ThiNghiem_BoSung_Muc12.ipynb`), đóng băng toàn bộ lớp `BatchNormalization` và dùng `resnet50.preprocess_input`.
+
+---
+
+## 7. Sử dụng Playwright cho E2E Testing (Interactive AR)
+
+- **Quyết định**: Cài đặt `@playwright/test` và Chromium chỉ ở dạng `devDependencies` trong `frontend/` để phục vụ tự động hoá kiểm thử E2E tương tác AR (giả lập Mobile Pixel 7, cảm ứng touch/pointer, và camera giả).
+- **Lý do & Giới hạn**:
+  - `AGENTS.md` yêu cầu không thêm framework ngoài SPEC. Chủ dự án đã phê duyệt Playwright riêng cho mục đích test tự động kiểm chứng 20 môn thể thao tương tác và vòng đời camera mà không cần thiết bị điện thoại vật lý.
+  - Tuyệt đối không đưa Playwright vào ứng dụng sản phẩm hoặc bundle production. Script test chạy độc lập qua `npm run test:e2e`, giữ nguyên `npm test` gọn nhẹ bằng `node --test`.
+

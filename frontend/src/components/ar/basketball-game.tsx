@@ -97,6 +97,27 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
     }
   }, [camera.active])
 
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      if (typeof window !== 'undefined' && window.location.search.includes('e2e=1')) {
+        ;(window as unknown as { __SPORTSNAP_AR__?: () => unknown }).__SPORTSNAP_AR__ = () => ({
+          label: 'basketball',
+          mode: 'basketball',
+          phase: 'playing',
+          score: stateRef.current.score,
+          streak: stateRef.current.streak,
+          left: null,
+          result: null,
+          best: stateRef.current.highScore,
+          ballState: stateRef.current.ballState,
+        })
+        return () => {
+          delete (window as unknown as Record<string, unknown>).__SPORTSNAP_AR__
+        }
+      }
+    }
+  }, [])
+
   // Three.js main game loop and scene setup (runs ONCE on mount)
   useEffect(() => {
     const container = containerRef.current
@@ -322,7 +343,7 @@ export function BasketballGame({ onClose }: BasketballGameProps) {
     // Unified Pointer Events for Shooting
     function onPointerDown(e: PointerEvent) {
       if (stateRef.current.ballState !== 'idle') return
-      container?.setPointerCapture?.(e.pointerId)
+      try { container?.setPointerCapture?.(e.pointerId) } catch { /* ignore capture error */ }
       stateRef.current.isAiming = true
       stateRef.current.startPos = { x: e.clientX, y: e.clientY, time: performance.now() }
       setFeedback('Thả tay để ném!')

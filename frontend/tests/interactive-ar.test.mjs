@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { cameraErrorMessage, shouldRetryCamera } from '../src/lib/interactive-ar/camera.ts'
 import {
@@ -217,3 +217,14 @@ test('camera error messages: clear Vietnamese messages mapped to error types', (
     'Không mở được camera. Bạn vẫn chơi được ở chế độ nền ảo.',
   )
 })
+
+test('production build does not leak __SPORTSNAP_AR__ test hook into bundle', () => {
+  const distDir = new URL('../dist/assets', import.meta.url)
+  const files = readdirSync(distDir).filter((file) => file.endsWith('.js'))
+  assert.ok(files.length > 0, 'dist assets exist')
+  for (const file of files) {
+    const content = readFileSync(new URL(`../dist/assets/${file}`, import.meta.url), 'utf8')
+    assert.ok(!content.includes('__SPORTSNAP_AR__'), `Found __SPORTSNAP_AR__ in ${file}`)
+  }
+})
+
