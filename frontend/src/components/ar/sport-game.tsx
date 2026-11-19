@@ -180,6 +180,7 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
     const rt = rtRef.current
     rt.phase = 'over'
     rt.result = result
+    rt.score = finalScore
     rt.overAt = null
     const previousBest = readBest(name)
     const best = Math.max(previousBest, finalScore)

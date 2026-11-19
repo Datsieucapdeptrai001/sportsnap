@@ -126,6 +126,7 @@ export async function setupMockApi(page: Page, targetLabel = 'basketball'): Prom
   })
 
   await page.route('**/api/predict**', (route) => {
+    const others = ['golf', 'tennis', 'football', 'basketball'].filter((l) => l !== currentLabel)
     void route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -137,14 +138,15 @@ export async function setupMockApi(page: Page, targetLabel = 'basketball'): Prom
         latency_ms: 8,
         top3: [
           { label: currentLabel, confidence: 0.99 },
-          { label: 'golf', confidence: 0.005 },
-          { label: 'tennis', confidence: 0.005 },
+          { label: others[0], confidence: 0.005 },
+          { label: others[1], confidence: 0.005 },
         ],
       }),
     })
   })
 
   await page.route('**/api/scan', (route) => {
+    const others = ['golf', 'tennis', 'football', 'basketball'].filter((l) => l !== currentLabel)
     void route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -156,7 +158,11 @@ export async function setupMockApi(page: Page, targetLabel = 'basketball'): Prom
         latency_ms: 10,
         agreement: 1,
         per_frame: [{ label: currentLabel, confidence: 0.99 }],
-        top3: [{ label: currentLabel, confidence: 0.99 }],
+        top3: [
+          { label: currentLabel, confidence: 0.99 },
+          { label: others[0], confidence: 0.005 },
+          { label: others[1], confidence: 0.005 },
+        ],
       }),
     })
   })
@@ -167,6 +173,12 @@ export async function setupMockApi(page: Page, targetLabel = 'basketball'): Prom
 }
 
 export async function openArDialog(page: Page, label: string): Promise<void> {
+  // Switch to gallery mode so CameraScanner stops holding camera
+  const galleryBtn = page.locator('div[role="group"][aria-label="Chế độ nhận diện"] button:has-text("Thư viện")')
+  if (await galleryBtn.isVisible()) {
+    await galleryBtn.click()
+  }
+
   const fileInput = page.locator('#scan-image')
   await fileInput.setInputFiles({
     name: `${label}.jpg`,
@@ -200,7 +212,7 @@ export async function getGameSnapshot(page: Page): Promise<ArGameSnapshot | null
 }
 
 export async function swipeShoot(page: Page, targetX: number): Promise<void> {
-  await page.evaluate(({ tx }) => {
+  await page.evaluate(async ({ tx }) => {
     const canvas = document.querySelector('dialog[open] canvas') as HTMLCanvasElement
     if (!canvas) return
 
@@ -223,24 +235,49 @@ export async function swipeShoot(page: Page, targetX: number): Promise<void> {
       cancelable: true,
     }))
 
-    setTimeout(() => {
-      window.dispatchEvent(new PointerEvent('pointerup', {
-        clientX: startX + dx,
-        clientY: startY + dy,
-        pointerId: 1,
-        bubbles: true,
-        cancelable: true,
-      }))
-    }, dt)
+    await new Promise((resolve) => setTimeout(resolve, dt))
+
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      clientX: startX + dx,
+      clientY: startY + dy,
+      pointerId: 1,
+      bubbles: true,
+      cancelable: true,
+    }))
   }, { tx: targetX })
 
-  // Allow flight animation to finish (SHOOT_FLIGHT_MS = 650)
-  await page.waitForTimeout(700)
+  // Allow flight animation to finish (SHOOT_FLIGHT_MS = 650 + margin)
+  await page.waitForTimeout(800)
 }
 
 export async function tapTiming(page: Page): Promise<void> {
   await page.keyboard.press('Space')
   await page.waitForTimeout(200)
+}
+
+export async function waitForTimingHit(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    return new Promise<void>((resolve) => {
+      const start = performance.now()
+      function check(now: number) {
+        const getSnap = (window as unknown as { __SPORTSNAP_AR__?: () => { phase: string; markerPos: number; zoneCenter: number; zoneWidth: number } }).__SPORTSNAP_AR__
+        const snap = getSnap?.()
+        if (!snap || snap.phase !== 'playing' || (now - start > 6000)) {
+          resolve()
+          return
+        }
+        if (Math.abs(snap.markerPos - snap.zoneCenter) <= snap.zoneWidth * 0.3) {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }))
+          resolve()
+          return
+        }
+        requestAnimationFrame(check)
+      }
+      requestAnimationFrame(check)
+    })
+  })
+  // Allow frozen delay (700ms) to complete before next round
+  await page.waitForTimeout(750)
 }
 
 export async function tapMashFast(page: Page, totalTaps: number): Promise<void> {
@@ -265,16 +302,15 @@ export async function tapMashSlow(page: Page, durationMs = 11000): Promise<void>
 }
 
 export async function shootBasketball(page: Page): Promise<void> {
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const container = document.querySelector('dialog[open] canvas')?.parentElement
     if (!container) return
 
     const rect = container.getBoundingClientRect()
     const startX = rect.left + rect.width / 2
     const startY = rect.bottom - 60
-    const dy = -160
-    const dt = 80
 
+    const t0 = performance.now()
     container.dispatchEvent(new PointerEvent('pointerdown', {
       clientX: startX,
       clientY: startY,
@@ -282,18 +318,22 @@ export async function shootBasketball(page: Page): Promise<void> {
       bubbles: true,
     }))
 
-    setTimeout(() => {
-      window.dispatchEvent(new PointerEvent('pointerup', {
-        clientX: startX,
-        clientY: startY + dy,
-        pointerId: 1,
-        bubbles: true,
-      }))
-    }, dt)
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    // Dynamically calculate dy so swipeSpeedY is exactly 1.50 px/ms regardless of timer jitter
+    const elapsed = Math.max(performance.now() - t0, 40)
+    const dy = -1.50 * elapsed
+
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      clientX: startX,
+      clientY: startY + dy,
+      pointerId: 1,
+      bubbles: true,
+    }))
   })
 
-  // Wait for ball to fly
-  await page.waitForTimeout(1200)
+  // Wait for initial flight
+  await page.waitForTimeout(500)
 }
 
 export async function recordReportEntry(entry: E2eReportEntry): Promise<void> {

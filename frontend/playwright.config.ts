@@ -21,7 +21,7 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-chromium',
-      grepInvert: /permission|từ chối quyền/i,
+      testIgnore: /.*permission\.spec\.ts/,
       use: {
         ...devices['Pixel 7'],
         permissions: ['camera'],
@@ -35,7 +35,7 @@ export default defineConfig({
     },
     {
       name: 'mobile-permission',
-      grep: /permission|từ chối quyền/i,
+      testMatch: /.*permission\.spec\.ts/,
       use: {
         ...devices['Pixel 7'],
         permissions: [],
