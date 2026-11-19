@@ -1,23 +1,60 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
-import { Camera, RotateCcw, Volume2, VolumeX, Sparkles, Trophy } from 'lucide-react'
+import { Camera, RotateCcw, Volume2, VolumeX, Sparkles, Trophy, X } from 'lucide-react'
+import { calculateBasketballVelocity, isBasketballGoal } from '../../lib/interactive-ar/games'
 import { soundEngine } from '../../lib/interactive-ar/sound-effects'
 import { Button } from '../ui/button'
+import { useCameraBackground } from './use-camera-background'
 
-interface BasketballGameProps {
+export interface BasketballGameProps {
   onClose?: () => void
 }
 
-export function BasketballGame({ }: BasketballGameProps) {
+const BEST_KEY = 'sportsnap.ar-best.basketball'
+
+function readBasketballBest(): number {
+  try {
+    const value = Number(globalThis.localStorage?.getItem(BEST_KEY))
+    return Number.isFinite(value) && value > 0 ? value : 0
+  } catch {
+    return 0
+  }
+}
+
+function writeBasketballBest(value: number): void {
+  try {
+    globalThis.localStorage?.setItem(BEST_KEY, String(value))
+  } catch {
+    // Ignore storage errors in restricted contexts
+  }
+}
+
+function disposeMesh(mesh: THREE.Mesh): void {
+  mesh.geometry?.dispose()
+  if (Array.isArray(mesh.material)) {
+    for (const mat of mesh.material) {
+      if ('map' in mat && mat.map instanceof THREE.Texture) mat.map.dispose()
+      mat.dispose()
+    }
+  } else if (mesh.material instanceof THREE.Material) {
+    if ('map' in mesh.material && mesh.material.map instanceof THREE.Texture) {
+      mesh.material.map.dispose()
+    }
+    mesh.material.dispose()
+  }
+}
+
+export function BasketballGame({ onClose }: BasketballGameProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const floorMatRef = useRef<THREE.MeshStandardMaterial | null>(null)
+  const camera = useCameraBackground(videoRef)
+
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
-  const [highScore, setHighScore] = useState(0)
+  const [highScore, setHighScore] = useState(readBasketballBest)
   const [feedback, setFeedback] = useState<string | null>('Vuốt lên để ném bóng vào rổ!')
   const [soundEnabled, setSoundEnabled] = useState(true)
-  const [cameraActive, setCameraActive] = useState(false)
-  const [cameraError, setCameraError] = useState<string | null>(null)
 
   // Game references
   const stateRef = useRef<{
@@ -34,7 +71,7 @@ export function BasketballGame({ }: BasketballGameProps) {
   }>({
     score: 0,
     streak: 0,
-    highScore: 0,
+    highScore: readBasketballBest(),
     soundEnabled: true,
     isAiming: false,
     startPos: { x: 0, y: 0, time: 0 },
@@ -52,91 +89,28 @@ export function BasketballGame({ }: BasketballGameProps) {
     stateRef.current.soundEnabled = soundEnabled
   }, [score, streak, highScore, soundEnabled])
 
-  // Auto-start Camera AR on mount
+  // Update floor opacity smoothly without rebuilding the scene
   useEffect(() => {
-    let mounted = true
-    async function startCameraAutomatically() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        })
-        if (mounted && videoRef.current) {
-          videoRef.current.srcObject = stream
-          await videoRef.current.play()
-          setCameraActive(true)
-          setCameraError(null)
-          setFeedback('📷 Đã mở Camera AR thực tế! Vuốt lên để ném bóng!')
-        } else {
-          stream.getTracks().forEach((track) => track.stop())
-        }
-      } catch (err) {
-        if (mounted) {
-          console.info('[Basketball AR] Camera auto-start skipped/denied, playing in 3D mode:', err)
-          setCameraActive(false)
-          setCameraError('Chế độ 3D ảo. Bấm biểu tượng Camera để bật camera thực tế.')
-        }
-      }
+    if (floorMatRef.current) {
+      floorMatRef.current.opacity = camera.active ? 0.25 : 0.85
+      floorMatRef.current.needsUpdate = true
     }
-    void startCameraAutomatically()
-    return () => {
-      mounted = false
-    }
-  }, [])
+  }, [camera.active])
 
-  // Camera toggle handler
-  async function toggleCamera() {
-    if (cameraActive) {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream
-        stream.getTracks().forEach((track) => track.stop())
-        videoRef.current.srcObject = null
-      }
-      setCameraActive(false)
-      setCameraError(null)
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false,
-        })
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          await videoRef.current.play()
-          setCameraActive(true)
-          setCameraError(null)
-          setFeedback('📷 Đã mở Camera AR thực tế!')
-        }
-      } catch {
-        setCameraError('Không thể mở camera. Bạn vẫn chơi được ở chế độ 3D.')
-        setCameraActive(false)
-      }
-    }
-  }
-
-  // Cleanup camera on unmount
-  useEffect(() => {
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream
-        stream.getTracks().forEach((track) => track.stop())
-      }
-    }
-  }, [])
-
-  // Three.js main game loop and scene setup
+  // Three.js main game loop and scene setup (runs ONCE on mount)
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
+    const state = stateRef.current
 
     const width = container.clientWidth
     const height = container.clientHeight
 
     // Scene, Camera, Renderer
     const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100)
-    camera.position.set(0, 1.45, 3.4)
-    camera.lookAt(0, 1.7, -2.4)
+    const threeCamera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100)
+    threeCamera.position.set(0, 1.45, 3.4)
+    threeCamera.lookAt(0, 1.7, -2.4)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
     renderer.setSize(width, height)
@@ -160,15 +134,16 @@ export function BasketballGame({ }: BasketballGameProps) {
     rimLight.position.set(0, 2.3, -2.2)
     scene.add(rimLight)
 
-    // Court Floor (Semi-transparent grid when camera is on, nice wood otherwise)
+    // Court Floor (Semi-transparent grid when camera is on, nice court color otherwise)
     const floorGeo = new THREE.PlaneGeometry(12, 16)
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x18202c,
       roughness: 0.6,
       metalness: 0.1,
       transparent: true,
-      opacity: cameraActive ? 0.25 : 0.85,
+      opacity: 0.85,
     })
+    floorMatRef.current = floorMat
     const floor = new THREE.Mesh(floorGeo, floorMat)
     floor.rotation.x = -Math.PI / 2
     floor.position.y = 0
@@ -222,7 +197,7 @@ export function BasketballGame({ }: BasketballGameProps) {
     const netPoints = []
     for (let i = 0; i <= 8; i++) {
       const radius = 0.22 - (i / 8) * 0.09
-      const y = - (i / 8) * 0.42
+      const y = -(i / 8) * 0.42
       netPoints.push(new THREE.Vector2(radius, y))
     }
     const netGeo = new THREE.LatheGeometry(netPoints, 16)
@@ -257,11 +232,9 @@ export function BasketballGame({ }: BasketballGameProps) {
       canvas.height = 256
       const ctx = canvas.getContext('2d')
       if (ctx) {
-        // Base orange leather
         ctx.fillStyle = '#dc5815'
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-        // Subtle pebbles
         ctx.fillStyle = '#b7440b'
         for (let i = 0; i < 4000; i++) {
           const x = Math.random() * canvas.width
@@ -269,19 +242,15 @@ export function BasketballGame({ }: BasketballGameProps) {
           ctx.fillRect(x, y, 2, 2)
         }
 
-        // Black seam lines
         ctx.strokeStyle = '#1a1a1a'
         ctx.lineWidth = 8
         ctx.beginPath()
-        // Horizontal line
         ctx.moveTo(0, 128)
         ctx.lineTo(512, 128)
-        // Vertical lines
         ctx.moveTo(128, 0)
         ctx.lineTo(128, 256)
         ctx.moveTo(384, 0)
         ctx.lineTo(384, 256)
-        // Elliptical curves
         ctx.arc(256, 128, 90, 0, Math.PI * 2)
         ctx.stroke()
       }
@@ -294,8 +263,9 @@ export function BasketballGame({ }: BasketballGameProps) {
     // Basketball Mesh
     const ballRadius = 0.12
     const ballGeo = new THREE.SphereGeometry(ballRadius, 32, 32)
+    const ballTexture = createBasketballTexture()
     const ballMat = new THREE.MeshStandardMaterial({
-      map: createBasketballTexture(),
+      map: ballTexture,
       roughness: 0.55,
       metalness: 0.05,
     })
@@ -310,7 +280,7 @@ export function BasketballGame({ }: BasketballGameProps) {
     // Confetti generator for celebratory goals
     function spawnConfetti(origin: THREE.Vector3) {
       const colors = [0xffd700, 0xff4500, 0x00ff88, 0x00d4ff, 0xff0077, 0xffffff]
-      const count = 60
+      const count = 50
       for (let i = 0; i < count; i++) {
         const cGeo = new THREE.PlaneGeometry(0.04, 0.03)
         const cMat = new THREE.MeshBasicMaterial({
@@ -349,54 +319,27 @@ export function BasketballGame({ }: BasketballGameProps) {
       }, delay)
     }
 
-    // Touch / Pointer Events for Shooting
-    function getPointerPos(e: MouseEvent | TouchEvent) {
-      if ('touches' in e && e.touches.length > 0) {
-        return { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      }
-      const me = e as MouseEvent
-      return { x: me.clientX, y: me.clientY }
-    }
-
-    function onPointerDown(e: MouseEvent | TouchEvent) {
+    // Unified Pointer Events for Shooting
+    function onPointerDown(e: PointerEvent) {
       if (stateRef.current.ballState !== 'idle') return
-      const pos = getPointerPos(e)
+      container?.setPointerCapture?.(e.pointerId)
       stateRef.current.isAiming = true
-      stateRef.current.startPos = { x: pos.x, y: pos.y, time: performance.now() }
+      stateRef.current.startPos = { x: e.clientX, y: e.clientY, time: performance.now() }
       setFeedback('Thả tay để ném!')
     }
 
-    function onPointerUp(e: MouseEvent | TouchEvent) {
+    function onPointerUp(e: PointerEvent) {
       if (!stateRef.current.isAiming || stateRef.current.ballState !== 'idle') return
       stateRef.current.isAiming = false
 
-      let endX = stateRef.current.startPos.x
-      let endY = stateRef.current.startPos.y
-      if ('changedTouches' in e && e.changedTouches.length > 0) {
-        endX = e.changedTouches[0].clientX
-        endY = e.changedTouches[0].clientY
-      } else {
-        const me = e as MouseEvent
-        endX = me.clientX
-        endY = me.clientY
-      }
+      const dx = e.clientX - stateRef.current.startPos.x
+      const dy = e.clientY - stateRef.current.startPos.y
+      const dt = performance.now() - stateRef.current.startPos.time
 
-      const dx = endX - stateRef.current.startPos.x
-      const dy = endY - stateRef.current.startPos.y
-      const dt = Math.max(performance.now() - stateRef.current.startPos.time, 40)
-
-      // Only shoot if upward swipe
-      if (dy < -20) {
-        const swipeSpeedY = Math.abs(dy) / dt // px/ms
-        const swipeSpeedX = dx / dt
-
-        // Map swipe speed into physical 3D launch velocity
-        const forwardVel = -Math.min(Math.max(swipeSpeedY * 3.6, 4.0), 6.5)
-        const upwardVel = Math.min(Math.max(swipeSpeedY * 3.1, 4.2), 6.8)
-        const lateralVel = Math.min(Math.max(swipeSpeedX * 2.2, -2.5), 2.5)
-
-        stateRef.current.ballVelocity.set(lateralVel, upwardVel, forwardVel)
-        stateRef.current.ballSpin.set(-8, 0, (Math.random() - 0.5) * 4) // realistic backspin
+      const velocity = calculateBasketballVelocity(dx, dy, dt)
+      if (velocity) {
+        stateRef.current.ballVelocity.set(velocity.lateral, velocity.upward, velocity.forward)
+        stateRef.current.ballSpin.set(-8, 0, (Math.random() - 0.5) * 4)
         stateRef.current.ballState = 'flying'
 
         if (stateRef.current.soundEnabled) soundEngine.playBounce()
@@ -407,10 +350,13 @@ export function BasketballGame({ }: BasketballGameProps) {
       }
     }
 
-    container.addEventListener('mousedown', onPointerDown)
-    window.addEventListener('mouseup', onPointerUp)
-    container.addEventListener('touchstart', onPointerDown, { passive: true })
-    window.addEventListener('touchend', onPointerUp, { passive: true })
+    function onPointerCancel() {
+      stateRef.current.isAiming = false
+    }
+
+    container.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
 
     // Animation & Physics Loop
     let animId: number
@@ -454,7 +400,7 @@ export function BasketballGame({ }: BasketballGameProps) {
           ball.position.y <= 2.95 &&
           vel.z < 0
         ) {
-          vel.z = -vel.z * 0.65 // bounce forward
+          vel.z = -vel.z * 0.65
           vel.y *= 0.8
           vel.x += (Math.random() - 0.5) * 0.4
           if (stateRef.current.soundEnabled) soundEngine.playBounce()
@@ -465,16 +411,12 @@ export function BasketballGame({ }: BasketballGameProps) {
         const distToRimCenter = Math.hypot(ball.position.x - rimPos.x, ball.position.z - rimPos.z)
         const verticalDist = ball.position.y - rimPos.y
 
-        // Check if ball passed downward through the rim (SWISH / GOAL)
         if (
           stateRef.current.ballState === 'flying' &&
-          distToRimCenter <= rimRadius * 0.82 &&
-          verticalDist <= 0.06 &&
-          verticalDist >= -0.15 &&
-          vel.y < 0
+          isBasketballGoal(ball.position, vel.y, rimPos, rimRadius)
         ) {
           stateRef.current.ballState = 'scored'
-          vel.y *= 0.4 // net drag slowing down ball
+          vel.y *= 0.4
           vel.x *= 0.5
           vel.z *= 0.5
 
@@ -485,6 +427,7 @@ export function BasketballGame({ }: BasketballGameProps) {
           setStreak(newStreak)
           if (newScore > stateRef.current.highScore) {
             setHighScore(newScore)
+            writeBasketballBest(newScore)
           }
 
           setFeedback(`VÀO RỔ! +2 ĐIỂM 🎉 (${newStreak > 1 ? `Chuỗi: ${newStreak} quả!` : 'Cú ném đẹp mắt!'})`)
@@ -496,13 +439,12 @@ export function BasketballGame({ }: BasketballGameProps) {
           soundEngine.triggerHaptic('success')
           spawnConfetti(rimPos)
           scheduleBallReset(2200)
-        }
-        // 3. Rim edge collision
-        else if (
+        } else if (
           Math.abs(distToRimCenter - rimRadius) < 0.08 &&
           Math.abs(verticalDist) < 0.09
         ) {
-          vel.y = Math.abs(vel.y) * 0.55 // bounce up
+          // Rim edge collision
+          vel.y = Math.abs(vel.y) * 0.55
           const normalX = (ball.position.x - rimPos.x) / (distToRimCenter || 1)
           const normalZ = (ball.position.z - rimPos.z) / (distToRimCenter || 1)
           vel.x += normalX * 1.5
@@ -511,7 +453,7 @@ export function BasketballGame({ }: BasketballGameProps) {
           soundEngine.triggerHaptic('light')
         }
 
-        // 4. Floor bounce / Out of bounds
+        // Floor bounce / Out of bounds
         if (ball.position.y <= ballRadius) {
           ball.position.y = ballRadius
           if (Math.abs(vel.y) > 0.8) {
@@ -541,11 +483,12 @@ export function BasketballGame({ }: BasketballGameProps) {
         p.mesh.rotation.z += p.rot.z * dt
         if (p.mesh.position.y < 0) {
           scene.remove(p.mesh)
+          disposeMesh(p.mesh)
           stateRef.current.confetti.splice(i, 1)
         }
       }
 
-      renderer.render(scene, camera)
+      renderer.render(scene, threeCamera)
     }
 
     animate()
@@ -555,8 +498,8 @@ export function BasketballGame({ }: BasketballGameProps) {
       if (!container) return
       const w = container.clientWidth
       const h = container.clientHeight
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
+      threeCamera.aspect = w / h
+      threeCamera.updateProjectionMatrix()
       renderer.setSize(w, h)
     }
     window.addEventListener('resize', onResize)
@@ -564,17 +507,27 @@ export function BasketballGame({ }: BasketballGameProps) {
     return () => {
       cancelAnimationFrame(animId)
       window.removeEventListener('resize', onResize)
-      container.removeEventListener('mousedown', onPointerDown)
-      window.removeEventListener('mouseup', onPointerUp)
-      container.removeEventListener('touchstart', onPointerDown)
-      window.removeEventListener('touchend', onPointerUp)
+      container.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
       if (resetTimer) window.clearTimeout(resetTimer)
+
+      // Thorough cleanup to prevent WebGL memory leaks
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) disposeMesh(obj)
+      })
+      for (const item of state.confetti) {
+        disposeMesh(item.mesh)
+      }
+      state.confetti = []
+
+      floorMatRef.current = null
       renderer.dispose()
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement)
       }
     }
-  }, [cameraActive])
+  }, [])
 
   function resetGame() {
     setScore(0)
@@ -590,11 +543,11 @@ export function BasketballGame({ }: BasketballGameProps) {
         playsInline
         muted
         autoPlay
-        className={`absolute inset-0 size-full object-cover transition-opacity duration-300 ${cameraActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`absolute inset-0 size-full object-cover transition-opacity duration-300 ${camera.active ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
       />
 
       {/* Camera Live Indicator */}
-      {cameraActive && (
+      {camera.active && (
         <div className="pointer-events-none absolute top-14 left-3 z-10 flex items-center gap-1.5 rounded-full bg-emerald-500/90 backdrop-blur-sm px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-lg animate-in fade-in">
           <span className="size-2 rounded-full bg-white animate-pulse" />
           <span>Camera AR Phòng Thật</span>
@@ -635,9 +588,9 @@ export function BasketballGame({ }: BasketballGameProps) {
           {/* Camera AR Toggle */}
           <Button
             variant="ghost"
-            className={`size-8 p-0 rounded-full min-h-0 transition-colors ${cameraActive ? 'bg-primary text-primary-foreground' : 'bg-white/10 hover:bg-white/20 text-white'}`}
-            onClick={toggleCamera}
-            aria-label={cameraActive ? 'Tắt camera thực tế' : 'Bật camera thực tế'}
+            className={`size-8 p-0 rounded-full min-h-0 transition-colors ${camera.active ? 'bg-primary text-primary-foreground' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+            onClick={camera.toggle}
+            aria-label={camera.active ? 'Tắt camera thực tế' : 'Bật camera thực tế'}
             title="Bật/Tắt Camera AR thực tế"
           >
             <Camera size={16} />
@@ -653,6 +606,19 @@ export function BasketballGame({ }: BasketballGameProps) {
           >
             <RotateCcw size={16} />
           </Button>
+
+          {/* Optional close button */}
+          {onClose && (
+            <Button
+              variant="ghost"
+              className="size-8 p-0 rounded-full bg-white/10 hover:bg-white/20 text-white min-h-0"
+              onClick={onClose}
+              aria-label="Đóng"
+              title="Đóng trò chơi"
+            >
+              <X size={16} />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -669,9 +635,10 @@ export function BasketballGame({ }: BasketballGameProps) {
       <div className="pointer-events-none absolute bottom-3 inset-x-0 z-10 flex flex-col items-center justify-center text-center">
         <div className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-[11px] text-white/80 backdrop-blur-sm">
           <span>👆 Vuốt từ quả bóng thẳng lên rổ để ném</span>
+          {highScore > 0 && <span className="text-amber-300">· Kỷ lục: {highScore}</span>}
         </div>
-        {cameraError && (
-          <p className="mt-1 text-[10px] text-rose-300">{cameraError}</p>
+        {camera.error && (
+          <p className="mt-1 text-[10px] text-rose-300">{camera.error}</p>
         )}
       </div>
     </div>

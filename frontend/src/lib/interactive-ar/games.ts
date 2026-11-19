@@ -160,6 +160,49 @@ export function interactiveTabLabel(label: string): string {
   return game ? `${game.icon} ${game.title}` : ''
 }
 
+// ----------------------------------------------------------- basketball (3D)
+
+/**
+ * Maps upward swipe distance and duration into 3D launch velocity.
+ * Pure function so physics can be unit tested without Three.js.
+ */
+export function calculateBasketballVelocity(
+  dx: number,
+  dy: number,
+  dtMs: number
+): { forward: number; upward: number; lateral: number } | null {
+  if (dy >= -20) return null
+  const dt = Math.max(dtMs, 40)
+  const swipeSpeedY = Math.abs(dy) / dt
+  const swipeSpeedX = dx / dt
+
+  const forwardVel = -Math.min(Math.max(swipeSpeedY * 3.6, 4.0), 6.5)
+  const upwardVel = Math.min(Math.max(swipeSpeedY * 3.1, 4.2), 6.8)
+  const lateralVel = Math.min(Math.max(swipeSpeedX * 2.2, -2.5), 2.5)
+
+  return { forward: forwardVel, upward: upwardVel, lateral: lateralVel }
+}
+
+/**
+ * Checks if the basketball entered the hoop from above.
+ * Pure function for testing goal detection.
+ */
+export function isBasketballGoal(
+  ballPos: { x: number; y: number; z: number },
+  velY: number,
+  rimPos: { x: number; y: number; z: number },
+  rimRadius: number
+): boolean {
+  const distToRimCenter = Math.hypot(ballPos.x - rimPos.x, ballPos.z - rimPos.z)
+  const verticalDist = ballPos.y - rimPos.y
+  return (
+    distToRimCenter <= rimRadius * 0.82 &&
+    verticalDist <= 0.06 &&
+    verticalDist >= -0.15 &&
+    velY < 0
+  )
+}
+
 // ---------------------------------------------------------------- shoot mode
 
 export interface Point { x: number; y: number }

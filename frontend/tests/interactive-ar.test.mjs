@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
-  BASKETBALL_LABEL, SPORT_GAMES, TARGET_Y, getSportGame, hasInteractiveGame, hasSportGame, highJumpBarHeight, interactiveTabLabel,
-  landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus, targetX, timingGrade, timingPoints, zoneAfterStreak,
+  BASKETBALL_LABEL, SPORT_GAMES, TARGET_Y, calculateBasketballVelocity, getSportGame, hasInteractiveGame, hasSportGame, highJumpBarHeight, interactiveTabLabel,
+  isBasketballGoal, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus, targetX, timingGrade, timingPoints, zoneAfterStreak,
 } from '../src/lib/interactive-ar/games.ts'
 import { sportNamesVi } from '../src/lib/sport-names.ts'
 
@@ -150,4 +150,20 @@ test('high jump bar starts at 1.80 m and climbs 0.05 m per successful clearance'
   assert.equal(highJumpBarHeight(2), 1.9)
   assert.equal(highJumpBarHeight(4), 2.0)
   assert.equal(highJumpBarHeight(-2), 1.8)
+})
+
+test('basketball: physics calculations and goal detection', () => {
+  assert.equal(calculateBasketballVelocity(0, 10, 100), null)
+  assert.equal(calculateBasketballVelocity(0, -10, 100), null)
+  const shoot = calculateBasketballVelocity(50, -200, 100)
+  assert.ok(shoot)
+  assert.ok(shoot.forward < 0)
+  assert.ok(shoot.upward > 0)
+  assert.ok(shoot.lateral > 0)
+
+  const rimPos = { x: 0, y: 2.15, z: -2.28 }
+  const rimRadius = 0.225
+  assert.equal(isBasketballGoal({ x: 0, y: 2.15, z: -2.28 }, -2, rimPos, rimRadius), true)
+  assert.equal(isBasketballGoal({ x: 0, y: 2.15, z: -2.28 }, 2, rimPos, rimRadius), false) // upward velocity is not a swish
+  assert.equal(isBasketballGoal({ x: 1, y: 2.15, z: -2.28 }, -2, rimPos, rimRadius), false) // outside rim
 })
