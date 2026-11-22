@@ -46,7 +46,7 @@ MODEL_MANIFESTS: tuple[ModelManifest, ...] = (
     ModelManifest(
         id="legacy_mobilenet_v2",
         display_name="MobileNetV2 (SportSnap · 20 môn chuẩn)",
-        description="Mô hình chính thức của đề tài SportSnap (20 môn chuẩn theo báo cáo, tối ưu cho CPU)",
+        description="Mô hình chính thức của đề tài SportSnap (MobileNetV2 Kaggle v3 · Val 98.67%, Test 96.6%, tối ưu CPU)",
         model_rel_path="backend/models/best_model.keras",
         labels_rel_path="backend/models/labels.json",
         preprocess="mobilenet_v2",

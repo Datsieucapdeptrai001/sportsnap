@@ -9,6 +9,7 @@ import type { ArAsset } from './ar'
  * load at runtime falls back to the trophy, then the podium, so a 404 never breaks the page.
  */
 export const SPORT_MODEL_FILES: Readonly<Record<string, string>> = {
+  'american football': '/models/american_football.glb',
   archery: '/models/archery.glb',
   baseball: '/models/baseball.glb',
   basketball: '/models/basketball.glb',
@@ -16,7 +17,6 @@ export const SPORT_MODEL_FILES: Readonly<Record<string, string>> = {
   'canoe slamon': '/models/canoe_slamon.glb',
   'field hockey': '/models/field_hockey.glb',
   'figure skating women': '/models/figure_skating_women.glb',
-  football: '/models/football.glb',
   'formula 1 racing': '/models/formula_1_racing.glb',
   golf: '/models/golf.glb',
   'high jump': '/models/high_jump.glb',
@@ -40,7 +40,7 @@ const MODEL_PATH = /^\/models\/[a-z0-9_]+\.glb$/
 
 /** Label aliases mapping alternate dataset spellings to committed model keys. */
 export const SPORT_MODEL_ALIASES: Readonly<Record<string, string>> = {
-  'american football': 'football',
+  football: 'american football',
 }
 
 export function resolveSportModelKey(label: string): string {

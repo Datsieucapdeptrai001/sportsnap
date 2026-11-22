@@ -37,8 +37,9 @@ test('fallback GLB and sample photos are committed files', () => {
   for (const sample of SAMPLE_PHOTOS) assert.ok(existsSync(new URL(`../public${sample.src}`, import.meta.url)), sample.src)
 })
 
-test('american football alias resolves to football.glb rather than a missing file', () => {
-  assert.equal(pickSportModel({ label: 'american football', is_uncertain: false }).src, '/models/football.glb')
+test('american football maps directly and legacy football alias resolves to american_football.glb', () => {
+  assert.equal(pickSportModel({ label: 'american football', is_uncertain: false }).src, '/models/american_football.glb')
+  assert.equal(pickSportModel({ label: 'football', is_uncertain: false }).src, '/models/american_football.glb')
 })
 
 test('client-side type check accepts only JPG, PNG and WebP', () => {

@@ -8,8 +8,8 @@ const modelsDir = new URL('../public/models/', import.meta.url)
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', modelsDir), 'utf8'))
 const assetsDoc = readFileSync(new URL('../../docs/ASSETS.md', import.meta.url), 'utf8')
 
-test('the inventory contains all 25 builders and covers all unchanged training labels when available', () => {
-  assert.equal(Object.keys(manifest.models).length, 25)
+test('the inventory contains all 26 builders and covers all unchanged training labels when available', () => {
+  assert.equal(Object.keys(manifest.models).length, 26)
   assert.equal(manifest.units, 'meters')
   assert.equal(manifest.up_axis, 'Y')
   assert.equal(manifest.origin, 'bottom-center')

@@ -1,5 +1,6 @@
 // Display names only; exact API/training labels remain unchanged.
 export const sportNamesVi: Readonly<Record<string, string>> = {
+  'american football': 'Bóng bầu dục Mỹ',
   archery: 'Bắn cung',
   baseball: 'Bóng chày',
   basketball: 'Bóng rổ',
@@ -27,14 +28,8 @@ export const sportNamesVi: Readonly<Record<string, string>> = {
   volleyball: 'Bóng chuyền',
 }
 
-const sportNameAliasesVi: Readonly<Record<string, string>> = {
-  'american football': 'Bóng bầu dục Mỹ',
-}
-
 export function sportNameVi(label: string): string {
-  if (Object.hasOwn(sportNamesVi, label)) return sportNamesVi[label]
-  if (Object.hasOwn(sportNameAliasesVi, label)) return sportNameAliasesVi[label]
-  return label
+  return Object.hasOwn(sportNamesVi, label) ? sportNamesVi[label] : label
 }
 
 export function splitSportLabel(label: string): { display: string; raw: string | null } {

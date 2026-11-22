@@ -291,11 +291,13 @@ test('production build does not leak __SPORTSNAP_AR__ test hook into bundle', ()
   }
 })
 
-test('american football alias resolves to football game and soccer uses 3D penalty label', () => {
+test('american football and legacy football alias resolve to the football game and soccer uses 3D penalty label', () => {
   assert.equal(hasInteractiveGame('american football'), true)
   assert.equal(hasSportGame('american football'), true)
   assert.equal(getSportGame('american football')?.title, 'Sút bóng bầu dục')
   assert.equal(interactiveTabLabel('american football'), '🏈 Sút bóng bầu dục')
+  assert.equal(hasInteractiveGame('football'), true)
+  assert.equal(getSportGame('football')?.title, 'Sút bóng bầu dục')
   assert.equal(interactiveTabLabel(SOCCER_LABEL), '⚽ Sút phạt đền 3D AR')
 })
 

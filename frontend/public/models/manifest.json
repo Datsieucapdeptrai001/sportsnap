@@ -5,6 +5,17 @@
   "up_axis": "Y",
   "origin": "bottom-center",
   "models": {
+    "american football": {
+      "file": "american_football.glb",
+      "bytes": 216968,
+      "triangles": 7248,
+      "sha256": "d73b19864f088b7abc14dd7b7e451adec1b2cd821edef6a43dc83e786325e1ef",
+      "dimensions_m": [
+        0.281998,
+        0.173998,
+        0.1728
+      ]
+    },
     "archery": {
       "file": "archery.glb",
       "bytes": 110644,
@@ -86,17 +97,6 @@
         0.33
       ],
       "scale": "display"
-    },
-    "football": {
-      "file": "football.glb",
-      "bytes": 216952,
-      "triangles": 7248,
-      "sha256": "90acd5abd2765dafeebea47eaca9192146b2d911ce2e93f181159f2734f31f6a",
-      "dimensions_m": [
-        0.281998,
-        0.173998,
-        0.1728
-      ]
     },
     "formula 1 racing": {
       "file": "formula_1_racing.glb",
@@ -248,6 +248,17 @@
         0.3
       ],
       "scale": "display"
+    },
+    "football": {
+      "file": "football.glb",
+      "bytes": 216952,
+      "triangles": 7248,
+      "sha256": "90acd5abd2765dafeebea47eaca9192146b2d911ce2e93f181159f2734f31f6a",
+      "dimensions_m": [
+        0.281998,
+        0.173998,
+        0.1728
+      ]
     },
     "nascar racing": {
       "file": "nascar_racing.glb",

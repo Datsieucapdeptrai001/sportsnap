@@ -25,6 +25,7 @@ Giới hạn mỗi file: 2.000.000 byte và 30.000 tam giác, đo từ chính GL
 
 | nhãn | file | nguồn và tác giả |
 | --- | --- | --- |
+| american football | `frontend/public/models/american_football.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | archery | `frontend/public/models/archery.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | baseball | `frontend/public/models/baseball.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | basketball | `frontend/public/models/basketball.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |

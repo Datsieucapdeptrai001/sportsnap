@@ -328,7 +328,7 @@ function InsightsContent({ data, extended }: { data: Insights; extended: Extende
       {extended && <ExtendedKaggleSection ext={extended} />}
 
       <Card>
-        <h2 className="text-lg font-semibold">So sánh mô hình (bộ chỉ số gốc trên `experiments.json`)</h2>
+        <h2 className="text-lg font-semibold">So sánh mô hình (tổng hợp chuẩn từ summary.csv)</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Accuracy từ {data.sources.comparison}. Mô hình được chọn theo validation: <strong className="text-foreground">{data.selected_model}</strong>.</p>
         {data.models.length ? (
           <>

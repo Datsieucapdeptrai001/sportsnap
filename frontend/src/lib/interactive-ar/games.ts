@@ -59,7 +59,7 @@ export const SHOOT_FLIGHT_MS = 650
 
 export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
   // ---- shoot (8) ----
-  football: {
+  'american football': {
     mode: 'shoot', title: 'Sút bóng bầu dục', icon: '🏈', prop: '🏈', accent: '#14532d',
     hint: 'Vuốt lên để sút bóng qua khung chữ H', targetKind: 'uprights', targetRadius: 0.17, targetSpeed: 0,
   },
@@ -143,7 +143,7 @@ export const BASKETBALL_LABEL = 'basketball'
 export const SOCCER_LABEL = 'soccer'
 
 const GAME_LABEL_ALIASES: Readonly<Record<string, string>> = {
-  'american football': 'football',
+  football: 'american football',
 }
 
 export function normalizeGameLabel(label: string): string {

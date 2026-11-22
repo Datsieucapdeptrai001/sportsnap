@@ -917,6 +917,7 @@ def soccer() -> None:
 
 
 BUILDERS: dict[str, Callable[[], None]] = {
+    'american football': football,
     'archery': archery, 'baseball': baseball, 'basketball': basketball, 'boxing': boxing,
     'canoe slamon': canoe_slamon, 'field hockey': field_hockey,
     'figure skating pairs': figure_skating_pairs,

@@ -23,12 +23,7 @@ const candidates: Record<string, Sport3DAssets> = Object.fromEntries(
 const availableAssets = import.meta.glob('/public/models/*.glb', { query: '?url', import: 'default' })
 
 const mappedEntries = Object.entries(candidates).filter(([, assets]) => `/public${assets.glb}` in availableAssets)
-const mappedRecord: Record<string, Sport3DAssets> = Object.fromEntries(mappedEntries)
-if (mappedRecord.football) {
-  mappedRecord['american football'] = mappedRecord.football
-}
-
-export const sports3d: Readonly<Partial<Record<string, Sport3DAssets>>> = mappedRecord
+export const sports3d: Readonly<Partial<Record<string, Sport3DAssets>>> = Object.fromEntries(mappedEntries)
 
 export function getSport3DMeta(label: string): Sport3DMeta | null {
   const key = resolveSportModelKey(label)
