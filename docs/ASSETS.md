@@ -45,6 +45,7 @@ Giới hạn mỗi file: 2.000.000 byte và 30.000 tam giác, đo từ chính GL
 | roller derby | `frontend/public/models/roller_derby.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | rollerblade racing | `frontend/public/models/rollerblade_racing.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | rugby | `frontend/public/models/rugby.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
+| soccer | `frontend/public/models/soccer.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | swimming | `frontend/public/models/swimming.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | tennis | `frontend/public/models/tennis.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |
 | uneven bars | `frontend/public/models/uneven_bars.glb` | tự tạo bằng Blender script (tools/blender/make_sport_models.py), tác giả nhóm SportSnap, không dùng asset bên thứ ba |

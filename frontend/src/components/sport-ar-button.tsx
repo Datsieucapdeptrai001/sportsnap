@@ -1,17 +1,18 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import type { ModelViewerElement } from '@google/model-viewer'
-import { Box, LoaderCircle, RotateCcw, TriangleAlert, X } from 'lucide-react'
+import { Box, LoaderCircle, Pause, Play, RotateCcw, TriangleAlert, X } from 'lucide-react'
 import { AR_VIEWER_ATTRIBUTES, getArAvailability, modelLoadProgress, modelSource, type ArAsset } from '../lib/ar'
 import { loadViewer } from '../lib/model-viewer'
 import { sportNameVi } from '../lib/sport-names'
 import { sports3d } from '../lib/sports3d'
-import { BASKETBALL_LABEL, hasInteractiveGame, interactiveTabLabel } from '../lib/interactive-ar/games'
+import { BASKETBALL_LABEL, SOCCER_LABEL, hasInteractiveGame, interactiveTabLabel } from '../lib/interactive-ar/games'
 import { Button } from './ui/button'
 import { Progress } from './ui/progress'
 
 // Games are code-split so three.js and the canvas engine load only when a player opens one.
 const BasketballGame = lazy(() => import('./ar/basketball-game').then((module) => ({ default: module.BasketballGame })))
+const SoccerGame = lazy(() => import('./ar/soccer-game').then((module) => ({ default: module.SoccerGame })))
 const SportGame = lazy(() => import('./ar/sport-game').then((module) => ({ default: module.SportGame })))
 
 let retrySequence = 0
@@ -36,6 +37,7 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
   const [arSupported, setArSupported] = useState<boolean | null>(null)
   const [arMessage, setArMessage] = useState('')
   const [launching, setLaunching] = useState(false)
+  const [spinning, setSpinning] = useState(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches)
   const hasGame = hasInteractiveGame(label)
   const [activeTab, setActiveTab] = useState<'model' | 'interactive'>(hasGame ? 'interactive' : 'model')
   const titleId = useId()
@@ -43,13 +45,13 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
   const supportId = useId()
   const secure = window.isSecureContext
   const ready = state.phase === 'ready'
-  const viewerActive = libraryReady && state.phase !== 'error'
+  const isModelTab = activeTab === 'model'
+  const viewerActive = isModelTab && libraryReady && state.phase !== 'error'
 
   useEffect(() => { arReturnRef.current = onArReturn }, [onArReturn])
 
   useEffect(() => {
     const dialog = dialogRef.current
-    // Safari may not focus a button on touch, so keep the explicit opener too.
     const previousFocus = returnFocusRef.current ?? document.activeElement
     const previousOverflow = document.body.style.overflow
     dialog?.showModal()
@@ -62,7 +64,9 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
     }
   }, [returnFocusRef])
 
+  // Only load @google/model-viewer when the 3D/AR tab is actually active (prevents 60s timeout during games).
   useEffect(() => {
+    if (!isModelTab || libraryReady) return
     let cancelled = false
     const timeout = window.setTimeout(() => {
       cancelled = true
@@ -79,7 +83,7 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
       if (!cancelled) setState({ phase: 'error', message: 'Không tải được trình xem 3D. Kiểm tra kết nối mạng rồi thử lại.' })
     })
     return () => { cancelled = true; window.clearTimeout(timeout) }
-  }, [attempt])
+  }, [attempt, isModelTab, libraryReady])
 
   useEffect(() => {
     const viewer = viewerRef.current
@@ -116,7 +120,6 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
     viewer.addEventListener('progress', onProgress)
     viewer.addEventListener('error', onError)
     viewer.addEventListener('ar-status', onArStatus)
-    // Capability selection is asynchronous and has no dedicated ready event.
     const capabilityTimer = window.setInterval(updateSupport, 500)
     if (viewer.loaded) onLoad()
     return () => {
@@ -129,12 +132,17 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
   }, [viewerActive, attempt, secure])
 
   useEffect(() => {
-    if (state.phase !== 'model') return
+    if (!isModelTab || state.phase !== 'model') return
     const timeout = window.setTimeout(() => {
       setState({ phase: 'error', message: 'Tải mô hình quá lâu. Kiểm tra kết nối mạng và bấm Thử lại.' })
     }, 60_000)
     return () => window.clearTimeout(timeout)
-  }, [state.phase])
+  }, [isModelTab, state.phase])
+
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (viewer) viewer.autoRotate = spinning
+  }, [spinning, ready])
 
   function retryLoad() {
     setLibraryReady(false)
@@ -145,12 +153,23 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
     setAttempt(++retrySequence)
   }
 
+  function resetOrbit() {
+    const viewer = viewerRef.current as (ModelViewerElement & {
+      cameraOrbit?: string
+      cameraTarget?: string
+      resetTurntableRotation?: () => void
+    }) | null
+    if (!viewer) return
+    viewer.cameraOrbit = 'auto auto auto'
+    viewer.cameraTarget = 'auto auto auto'
+    viewer.resetTurntableRotation?.()
+  }
+
   function activateAr() {
     const viewer = viewerRef.current
     if (!viewer || !ready || !secure || !viewer.canActivateAR) return
     setLaunching(true)
     setArMessage('Đang mở AR… Nếu trình duyệt yêu cầu, hãy cho phép truy cập camera.')
-    // Keep activation in the user gesture for Scene Viewer and Quick Look.
     void viewer.activateAR().catch(() => {
       setArMessage('Không thể mở AR. Kiểm tra quyền camera hoặc thử lại trên trình duyệt hỗ trợ AR.')
     }).finally(() => setLaunching(false))
@@ -172,42 +191,73 @@ export function SportArDialog({ label, confidence, asset, returnFocusRef, onClos
         <Button autoFocus variant="outline" className="size-11 shrink-0 p-0" aria-label="Đóng trình xem AR" onClick={onClose}><X size={20} aria-hidden="true" /></Button>
       </div>
       {hasGame && (
-        <div className="mt-3 flex rounded-lg bg-muted p-1 text-xs sm:text-sm font-medium">
+        <div className="mt-3 flex rounded-lg bg-muted p-1 text-xs font-medium sm:text-sm">
           <button
             type="button"
-            className={`flex-1 rounded-md py-1.5 transition-all text-center ${activeTab === 'model' ? 'bg-card text-foreground shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`flex-1 rounded-md py-1.5 text-center transition-all ${activeTab === 'model' ? 'bg-card font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             onClick={() => setActiveTab('model')}
           >
             Mô hình 3D & AR
           </button>
           <button
             type="button"
-            className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 transition-all text-center ${activeTab === 'interactive' ? 'bg-primary text-primary-foreground shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-center transition-all ${activeTab === 'interactive' ? 'bg-primary font-semibold text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             onClick={() => setActiveTab('interactive')}
           >
             <span className="truncate">{interactiveTabLabel(label)}</span>
-            <span className="rounded-full bg-amber-400 text-slate-950 font-bold text-[10px] px-1.5 py-0.5">Mới</span>
+            <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-950">
+              {label === BASKETBALL_LABEL || label === SOCCER_LABEL ? '3D' : 'AR'}
+            </span>
           </button>
         </div>
       )}
       {activeTab === 'interactive' && hasGame ? (
         <div className="mt-4">
           <Suspense fallback={<div role="status" className="flex min-h-48 items-center justify-center gap-2 text-sm"><LoaderCircle className="motion-safe:animate-spin" size={20} aria-hidden="true" />Đang tải trò chơi…</div>}>
-            {label === BASKETBALL_LABEL ? <BasketballGame onClose={onClose} /> : <SportGame label={label} />}
+            {label === BASKETBALL_LABEL ? <BasketballGame onClose={onClose} /> : label === SOCCER_LABEL ? <SoccerGame onClose={onClose} /> : <SportGame label={label} />}
           </Suspense>
         </div>
       ) : (
         <>
           <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">Kéo để xoay mô hình 3D, véo để phóng to hoặc thu nhỏ. Khi mở AR, hướng camera về mặt bàn hoặc sàn.</p>
           <div className="relative mt-4 min-h-48 overflow-hidden rounded-xl border border-border bg-lane" aria-busy={state.phase === 'library' || state.phase === 'model'}>
-            {libraryReady && state.phase !== 'error' && <model-viewer key={attempt} ref={viewerRef}
-              src={modelSource(asset.glb, attempt)} alt={`Mô hình 3D đại diện môn ${sportName}`} {...AR_VIEWER_ATTRIBUTES}
-              ios-src={asset.usdz} auto-rotate={!window.matchMedia('(prefers-reduced-motion: reduce)').matches}
-              className="block h-[min(52svh,26rem)] min-h-48 w-full" style={{ touchAction: 'pan-y' }}>
-              <span slot="ar-button" hidden />
-              <span slot="progress-bar" hidden />
-              <div className="pointer-events-none absolute top-3 left-3 max-w-[85%] rounded-lg bg-black/75 px-3 py-2 text-lg font-semibold text-white">{sportName}</div>
-            </model-viewer>}
+            {libraryReady && state.phase !== 'error' && (
+              <model-viewer
+                key={attempt}
+                ref={viewerRef}
+                src={modelSource(asset.glb, attempt)}
+                alt={`Mô hình 3D đại diện môn ${sportName}`}
+                {...AR_VIEWER_ATTRIBUTES}
+                ios-src={asset.usdz}
+                auto-rotate={spinning}
+                className="block h-[min(52svh,26rem)] min-h-48 w-full"
+                style={{ touchAction: 'pan-y' }}
+              >
+                <span slot="ar-button" hidden />
+                <span slot="progress-bar" hidden />
+                <div className="pointer-events-none absolute top-3 left-3 max-w-[85%] rounded-lg bg-black/75 px-3 py-2 text-lg font-semibold text-white">{sportName}</div>
+              </model-viewer>
+            )}
+            {ready && (
+              <div className="absolute right-3 bottom-3 flex items-center gap-1 rounded-full border border-white/15 bg-black/65 p-1 text-white backdrop-blur">
+                <button
+                  type="button"
+                  onClick={() => setSpinning((v) => !v)}
+                  aria-label={spinning ? 'Tạm dừng xoay' : 'Xoay tự động'}
+                  className="inline-flex size-8 items-center justify-center rounded-full hover:bg-white/15"
+                >
+                  {spinning ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetOrbit}
+                  aria-label="Đặt lại góc nhìn"
+                  className="inline-flex size-8 items-center justify-center rounded-full hover:bg-white/15"
+                >
+                  <RotateCcw size={14} aria-hidden="true" />
+                </button>
+              </div>
+            )}
             {state.phase === 'library' && <div className="flex min-h-48 items-center justify-center gap-2 text-sm"><LoaderCircle className="motion-safe:animate-spin" size={20} aria-hidden="true" />Đang tải trình xem 3D…</div>}
             {state.phase === 'error' && <div role="alert" className="flex min-h-48 flex-col items-center justify-center gap-4 p-5 text-center"><TriangleAlert className="text-destructive" size={28} aria-hidden="true" /><p className="text-sm">{state.message}</p><Button variant="outline" onClick={retryLoad}><RotateCcw size={18} aria-hidden="true" />Thử lại</Button></div>}
           </div>
@@ -241,11 +291,19 @@ export function SportArButton({ label, isUncertain, confidence, otherDialogOpen 
     if (onOpen) { onOpen(); return }
     setOpen(true)
   }
+  const buttonText = label === BASKETBALL_LABEL
+    ? '🏀 Ném bóng rổ 3D AR'
+    : label === SOCCER_LABEL
+      ? '⚽ Sút phạt đền 3D AR'
+      : hasInteractiveGame(label)
+        ? '🎮 Chơi & xem AR'
+        : 'Xem AR'
+
   return <>
     <div>
       <Button ref={triggerRef} variant="outline" className="min-h-12 w-full" disabled={!availability.enabled} aria-haspopup="dialog" aria-expanded={open}
         aria-describedby={availability.message ? noteId : undefined} onClick={openManually}>
-        <Box size={17} aria-hidden="true" />{label === BASKETBALL_LABEL ? '🏀 Ném bóng rổ AR (Camera)' : hasInteractiveGame(label) ? '🎮 Chơi & xem AR' : 'Xem AR'}
+        <Box size={17} aria-hidden="true" />{buttonText}
       </Button>
       {availability.message && <p id={noteId} className="mt-2 text-xs leading-relaxed text-muted-foreground">{availability.message}</p>}
     </div>

@@ -213,6 +213,93 @@ export interface Insights {
   sources: Record<string, string>; notes: string[]
 }
 
+export interface ExtendedMainModel {
+  name: string
+  val_acc: number | null
+  val_loss: number | null
+  best_epoch: number | null
+  head_test_acc: number | null
+  test_acc: number
+  test_tta_acc: number | null
+  test_macro_f1: number | null
+  size_mb: number | null
+  cpu_ms: number | null
+}
+
+export interface KFoldSummary {
+  n_total: number
+  folds: number[]
+  mean: number
+  std: number
+  oof_macro_f1: number
+}
+
+export interface MultiSeedMetric {
+  model: string
+  acc_mean: number
+  acc_std: number
+  f1_mean: number
+  f1_std: number
+  runs: number[][]
+}
+
+export interface ExtendedTestMetric {
+  n: number
+  acc: number
+  macro_f1: number
+  wilson_95_ci: [number, number]
+}
+
+export interface PhashCheckMetric {
+  near_pairs_le_5: number
+  bad_test_removed: number
+  clean_test_n: number
+  clean_acc: number
+  clean_macro_f1: number
+}
+
+export interface ExternalEvalMetric {
+  model: string
+  n: number
+  top1: number
+  top1_correct: number
+  top5: number
+  top5_correct: number
+  per_class: Record<string, string>
+}
+
+export interface AblationSummaryMetric {
+  model: string
+  n: number
+  acc_orig: number
+  acc_bg_only: number
+  acc_person_only: number
+  gradcam_in_person_mean: number
+}
+
+export interface AblationClassRow {
+  label: string
+  orig_ok: number
+  bg_ok: number
+  person_ok: number
+  gradcam_in_person: number
+}
+
+export interface ExtendedInsights {
+  dataset: string
+  class_names: string[]
+  models: ExtendedMainModel[]
+  ensemble_test_acc: number | null
+  kfold: KFoldSummary | null
+  multi_seed: MultiSeedMetric[]
+  extended_test_20pct: ExtendedTestMetric | null
+  phash_check: PhashCheckMetric | null
+  external_eval: ExternalEvalMetric[]
+  ablation_deeplabv3: AblationSummaryMetric | null
+  ablation_per_class: AblationClassRow[]
+  gradcam_comparison_image: string | null
+}
+
 export async function getInsights(signal?: AbortSignal): Promise<Insights> {
   try {
     const response = await fetch('/api/insights', {
@@ -224,6 +311,21 @@ export async function getInsights(signal?: AbortSignal): Promise<Insights> {
   } catch (error) {
     if (signal?.aborted) throw error
     throw new Error('Không thể tải dữ liệu thí nghiệm. Kiểm tra kết nối và thử lại.', { cause: error })
+  }
+}
+
+export async function getExtendedInsights(signal?: AbortSignal): Promise<ExtendedInsights | null> {
+  try {
+    const response = await fetch('/api/insights/extended', {
+      headers: { ...authHeaders() },
+      signal,
+    })
+    if (response.status === 404) return null
+    if (!response.ok) return null
+    return await response.json() as ExtendedInsights
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return null
   }
 }
 

@@ -79,7 +79,7 @@ MODEL_MANIFESTS: tuple[ModelManifest, ...] = (
     ModelManifest(
         id="resnet50_finetune",
         display_name="ResNet50 Fine-tune (20 môn mới)",
-        description="Tinh chỉnh ResNet50 chuẩn (276.9 MB / 264.1 MiB) với tiền xử lý resnet50",
+        description="Tinh chỉnh ResNet50 (233.0 MB · Test 97.8%) với tiền xử lý resnet50",
         model_rel_path="models/ResNet50_finetune_best.keras",
         labels_rel_path="models/labels.json",
         preprocess="resnet50",

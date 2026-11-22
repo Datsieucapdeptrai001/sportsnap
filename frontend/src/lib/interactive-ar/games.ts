@@ -58,7 +58,7 @@ export const TIMING_ATTEMPTS = 8
 export const SHOOT_FLIGHT_MS = 650
 
 export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
-  // ---- shoot (7) ----
+  // ---- shoot (8) ----
   football: {
     mode: 'shoot', title: 'Sút bóng bầu dục', icon: '🏈', prop: '🏈', accent: '#14532d',
     hint: 'Vuốt lên để sút bóng qua khung chữ H', targetKind: 'uprights', targetRadius: 0.17, targetSpeed: 0,
@@ -87,6 +87,10 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
     mode: 'shoot', title: 'Đập bóng chuyền', icon: '🏐', prop: '🏐', accent: '#1e3a8a',
     hint: 'Vuốt lên để đánh bóng qua lưới vào ô trống', targetKind: 'court', targetRadius: 0.2, targetSpeed: 0.3,
   },
+  soccer: {
+    mode: 'shoot', title: 'Sút bóng vào lưới', icon: '⚽', prop: '⚽', accent: '#14532d',
+    hint: 'Vuốt lên để sút bóng vào khung thành di động', targetKind: 'goal', targetRadius: 0.2, targetSpeed: 0.28,
+  },
   // ---- timing (5) ----
   baseball: {
     mode: 'timing', title: 'Vung gậy bóng chày', icon: '⚾', prop: '⚾', accent: '#7f1d1d',
@@ -108,7 +112,7 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
     mode: 'timing', title: 'Hạ cánh cú xoay', icon: '⛸️', prop: '⛸️', accent: '#0e7490',
     hint: 'Chạm đúng nhịp để hạ cánh sau cú xoay', zone: 0.2, sweepSpeed: 0.8,
   },
-  // ---- mash (7) ----
+  // ---- mash (6) ----
   swimming: {
     mode: 'mash', title: 'Đua bơi nước rút', icon: '🏊', prop: '🏊', rivalIcon: '🏊', accent: '#0369a1',
     hint: 'Chạm liên tục để bơi về đích trước đối thủ', goal: 42, seconds: 10, rival: 4.2, lanes: ['Bạn', 'Đối thủ'],
@@ -116,10 +120,6 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
   'canoe slamon': {
     mode: 'mash', title: 'Chèo thuyền về đích', icon: '🛶', prop: '🛶', rivalIcon: '🛶', accent: '#115e59',
     hint: 'Chạm liên tục để chèo nhanh hơn đối thủ', goal: 38, seconds: 10, rival: 3.8, lanes: ['Bạn', 'Đối thủ'],
-  },
-  'rollerblade racing': {
-    mode: 'mash', title: 'Đua patin tốc độ', icon: '🛼', prop: '🛼', rivalIcon: '🛼', accent: '#9a3412',
-    hint: 'Chạm liên tục để trượt về đích trước', goal: 42, seconds: 10, rival: 4.2, lanes: ['Bạn', 'Đối thủ'],
   },
   'roller derby': {
     mode: 'mash', title: 'Vượt rào đối kháng', icon: '🛼', prop: '🛼', rivalIcon: '🛡️', accent: '#831843',
@@ -140,25 +140,39 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
 }
 
 export const BASKETBALL_LABEL = 'basketball'
+export const SOCCER_LABEL = 'soccer'
+
+const GAME_LABEL_ALIASES: Readonly<Record<string, string>> = {
+  'american football': 'football',
+}
+
+export function normalizeGameLabel(label: string): string {
+  return Object.hasOwn(GAME_LABEL_ALIASES, label) ? GAME_LABEL_ALIASES[label] : label
+}
 
 /** True for the 19 generic games (excludes the dedicated basketball game). */
 export function hasSportGame(label: string): boolean {
-  return Object.hasOwn(SPORT_GAMES, label)
+  const key = normalizeGameLabel(label)
+  return Object.hasOwn(SPORT_GAMES, key)
 }
 
 /** True when any interactive game exists for the label (basketball included). */
 export function hasInteractiveGame(label: string): boolean {
-  return label === BASKETBALL_LABEL || hasSportGame(label)
+  const key = normalizeGameLabel(label)
+  return key === BASKETBALL_LABEL || hasSportGame(key)
 }
 
 export function getSportGame(label: string): SportGameConfig | null {
-  return hasSportGame(label) ? SPORT_GAMES[label] : null
+  const key = normalizeGameLabel(label)
+  return hasSportGame(key) ? SPORT_GAMES[key] : null
 }
 
 /** Label for the "interactive" tab / button. */
 export function interactiveTabLabel(label: string): string {
-  if (label === BASKETBALL_LABEL) return '🏀 Ném bóng rổ AR'
-  const game = getSportGame(label)
+  const key = normalizeGameLabel(label)
+  if (key === BASKETBALL_LABEL) return '🏀 Ném bóng rổ AR'
+  if (key === SOCCER_LABEL) return '⚽ Sút phạt đền 3D AR'
+  const game = getSportGame(key)
   return game ? `${game.icon} ${game.title}` : ''
 }
 
@@ -234,7 +248,7 @@ export function simulateBasketballShot(
 const BASKETBALL_AIM_T = 0.90
 const BASKETBALL_S_REF = 1.70
 const BASKETBALL_ASSIST_WIN = 0.265
-const BASKETBALL_ASSIST_FACTOR = 0.01
+const BASKETBALL_ASSIST_FACTOR = 0.05
 const BASKETBALL_LATERAL_WIN = 0.22
 const BASKETBALL_LATERAL_FACTOR = 0.15
 
@@ -418,4 +432,82 @@ export function mashSnapshot(taps: number, elapsedSec: number, goal: number, sec
 /** Final score for a won race: base 100 plus 10 per second left. Losing scores the progress made. */
 export function mashScore(snapshot: MashSnapshot): number {
   return snapshot.state === 'won' ? 100 + Math.round(snapshot.secondsLeft * 10) : Math.round(snapshot.you * 50)
+}
+
+// -------------------------------------------------- shoot trajectory & keeper
+
+/** Sampled parabolic aim dots from launch point (0.5, 0.88) to the swipe landing point. */
+export function aimArcPoints(dx: number, dy: number, dtMs: number, steps = 7): Point[] {
+  const landing = landingFromSwipe(dx, dy, dtMs)
+  if (!landing || steps < 2) return []
+  const points: Point[] = []
+  for (let i = 1; i <= steps; i += 1) {
+    const u = i / steps
+    points.push({
+      x: 0.5 + (landing.x - 0.5) * u,
+      y: 0.88 + (landing.y - 0.88) * u - Math.sin(Math.PI * u) * 0.1,
+    })
+  }
+  return points
+}
+
+/** Goalkeeper horizontal position (0..1) patrolling inside a goal target. */
+export function keeperX(tSec: number, goalCenterX: number, goalRadius: number, speed = 0.55): number {
+  const sway = Math.sin(tSec * speed * Math.PI * 2) * goalRadius * 0.62
+  return Math.max(0.08, Math.min(0.92, goalCenterX + sway))
+}
+
+/** True when a shoot landing is blocked by the patrolling goalkeeper. */
+export function isBlockedByKeeper(landing: Point, keeperPosX: number, targetY: number, goalRadius: number): boolean {
+  const dx = Math.abs(landing.x - keeperPosX)
+  const dy = Math.abs(landing.y - targetY)
+  return dx <= goalRadius * 0.28 && dy <= goalRadius * 0.45
+}
+
+// ------------------------------------------------------- 3D soccer penalty AR
+
+export const SOCCER_START = { x: 0, y: 0.22, z: 3.4 } as const
+export const SOCCER_GOAL_Z = -4.2
+export const SOCCER_GOAL_HALF_W = 1.65
+export const SOCCER_GOAL_HEIGHT = 1.48
+export const SOCCER_GRAVITY = -9.8
+
+export interface SoccerShotVelocity {
+  vx: number
+  vy: number
+  vz: number
+  spinY: number
+}
+
+/** Maps an upward swipe into a 3D penalty kick velocity with gentle assist into the goal plane. */
+export function calculateSoccerVelocity(dx: number, dy: number, dtMs: number): SoccerShotVelocity | null {
+  if (!(dy < -MIN_UPWARD_SWIPE_PX)) return null
+  const dt = Math.max(dtMs, 45)
+  const speed = Math.hypot(dx, dy) / dt // px/ms
+  const power = Math.max(0.35, Math.min(1.35, speed / 1.45))
+  const flightT = 0.72 / Math.max(0.65, Math.min(1.25, power))
+  const vz = (SOCCER_GOAL_Z - SOCCER_START.z) / flightT
+  const lean = Math.max(-1.15, Math.min(1.15, dx / Math.max(Math.abs(dy), 1)))
+  const targetX = lean * (SOCCER_GOAL_HALF_W * 0.96)
+  const vx = (targetX - SOCCER_START.x) / flightT
+  // Higher swipe power lifts the ball closer to the upper corner; softer keeps it low.
+  const targetY = Math.max(0.24, Math.min(SOCCER_GOAL_HEIGHT * 1.05, 0.25 + (power - 0.35) * 1.15))
+  const vy = (targetY - SOCCER_START.y - 0.5 * SOCCER_GRAVITY * flightT * flightT) / flightT
+  const spinY = -lean * 4.5
+  return { vx, vy, vz, spinY }
+}
+
+/** True when a 3D soccer ball crossing the goal line is inside the posts and under the crossbar. */
+export function isSoccerInGoal(ballPos: { x: number; y: number; z: number }): boolean {
+  return (
+    ballPos.z <= SOCCER_GOAL_Z &&
+    Math.abs(ballPos.x) <= SOCCER_GOAL_HALF_W - 0.14 &&
+    ballPos.y >= 0.1 &&
+    ballPos.y <= SOCCER_GOAL_HEIGHT - 0.14
+  )
+}
+
+/** Goalkeeper horizontal world X coordinate in meters for the 3D penalty goal. */
+export function soccerKeeperWorldX(tSec: number, speed = 1.45): number {
+  return Math.sin(tSec * speed) * (SOCCER_GOAL_HALF_W * 0.62)
 }

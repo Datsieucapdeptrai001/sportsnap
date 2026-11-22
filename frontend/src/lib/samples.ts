@@ -9,6 +9,7 @@ export interface SamplePhoto {
 }
 
 export const SAMPLE_PHOTOS: readonly SamplePhoto[] = [
+  { id: 'soccer', caption: 'Bóng đá', src: '/samples/soccer.jpg', credit: 'Wikimedia Commons: Nicaragua vs Costa Rica final women football' },
   { id: 'basketball', caption: 'Bóng rổ', src: '/samples/basketball.jpg', credit: 'Wikimedia Commons: Chicago Bulls - New Jersey Nets match on March 28, 1991' },
   { id: 'formula-1', caption: 'Đua xe', src: '/samples/formula-1.jpg', credit: 'Wikimedia Commons: 2010 Malaysian GP opening lap' },
   { id: 'swimming', caption: 'Bơi lội', src: '/samples/swimming.jpg', credit: 'Wikimedia Commons: Aliena Start 50S WM 2017' },

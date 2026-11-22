@@ -13,7 +13,7 @@ from PIL import Image, ImageOps
 
 from app.core.errors import APIError
 from app.schemas import Explanation
-from app.services.inference import predict_image, preprocess_image
+from app.services.inference import predict_preprocessed_batch, preprocess_image
 
 
 @dataclass
@@ -93,8 +93,8 @@ def explain_image(
     import tensorflow as tf
 
     started = perf_counter_ns()
-    prediction = predict_image(data, model, labels, threshold, preprocess=preprocess)
     batch = preprocess_image(data, preprocess=preprocess)
+    prediction = predict_preprocessed_batch(batch, model, labels, threshold, started_ns=started)
     conv_model, classifier_model = build_gradcam_graph(model)
     target_index = labels.index(prediction.label)
     with tf.GradientTape() as tape:
@@ -115,7 +115,11 @@ def explain_image(
     # Display resizing only: preserve orientation/aspect; PNG base64 stays <1 MB
     # even for noisy RGB images (448*448*3 plus PNG/base64 overhead).
     original.thumbnail((448, 448), Image.Resampling.LANCZOS)
-    resized = np.asarray(Image.fromarray(heatmap).resize(original.size, Image.Resampling.BILINEAR))
+    resized = np.clip(
+        np.asarray(Image.fromarray(heatmap).resize(original.size, Image.Resampling.BICUBIC)),
+        0.0,
+        1.0,
+    )
     # Threshold background noise to avoid washing out the original photo with a blue tint.
     # Pixels with heatmap < 0.10 keep 100% original photo. Higher activations smoothly ramp up to vivid alpha 0.82.
     threshold_val = 0.10

@@ -1,5 +1,8 @@
 # Kế hoạch giao Antigravity — Đợt 4: sửa độ khó bóng rổ + làm chặt test
 
+> **Ghi chú (2026-11-20):** thiết kế gợi ý ở mục M2 bên dưới (`WIN 0.25`, `FAC 0.3`) **không đạt** tiêu chí M3 (chỉ 27/81 mẫu). Thông số thực tế đang dùng nằm trong `frontend/src/lib/interactive-ar/games.ts`: `T = 0.90`, `WIN = 0.265`, `FACTOR = 0.05`. Xem `docs/INTERACTIVE_AR.md`.
+
+
 > Đọc `AGENTS.md`, `SPEC.md`, `docs/INTERACTIVE_AR.md` trước. Làm **từng slice một**, mỗi slice 1 commit `slice N: <summary>`.
 > UI tiếng Việt; code, comment, commit message tiếng Anh. Không đụng `backend/models/*`, `labels.json`, `datasets/*`, `AGENTS.md`, `scripts/fetch_clean_external.py`.
 > Nền hiện tại: HEAD `de50cb1` (slice L). `npm test` 216/216, `npm run test:e2e` 26/26.

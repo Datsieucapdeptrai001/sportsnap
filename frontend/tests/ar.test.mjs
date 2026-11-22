@@ -7,7 +7,7 @@ import { splitSportLabel, sportNamesVi, sportNameVi } from '../src/lib/sport-nam
 const manifest = JSON.parse(readFileSync(new URL('../public/models/manifest.json', import.meta.url), 'utf8'))
 const assets = Object.fromEntries(Object.entries(manifest.models).map(([label, model]) => [label, { glb: `/models/${model.file}` }]))
 
-test('Vietnamese display names cover all 24 manifest and training labels', () => {
+test('Vietnamese display names cover all 25 manifest and training labels', () => {
   const labels = JSON.parse(readFileSync(new URL('../../backend/models/labels.json', import.meta.url), 'utf8'))
   assert.equal(labels.length, 20)
   for (const label of labels) assert.ok(Object.hasOwn(sportNamesVi, label), label)

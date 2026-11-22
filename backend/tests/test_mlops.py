@@ -56,6 +56,8 @@ def test_retrain_from_human_corrections_and_rollback(tmp_path: Path) -> None:
         index_dir=data_dir / "index",
         thumbs_dir=data_dir / "thumbs",
         registry_dir=data_dir / "models_registry",
+        source_model_path=tmp_path / "models" / "ResNet50_finetune_best.keras",
+        source_labels_path=tmp_path / "models" / "labels.json",
         train_dir=tmp_path / "missing_train",
         valid_dir=tmp_path / "missing_valid",
         test_dir=tmp_path / "missing_test",

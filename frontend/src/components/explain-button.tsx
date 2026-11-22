@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom'
 import { Focus, LoaderCircle, X } from 'lucide-react'
 import { explainImage } from '../lib/api'
 import { loadExplanation, type ExplanationState } from '../lib/explain'
+import { SportLabel } from './sport-label'
 import { Button } from './ui/button'
+import { Progress } from './ui/progress'
 
 function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
   image: Blob; onClose: () => void; returnFocusRef: RefObject<HTMLButtonElement | null>; camera: boolean
@@ -68,7 +70,30 @@ function ExplainDialog({ image, onClose, returnFocusRef, camera }: {
     </div>
     {imageFailed && <p role="alert" className="mt-3 text-sm text-destructive">Không thể hiển thị ảnh. Hãy đóng rồi mở lại bản đồ chú ý.</p>}
     {state.status === 'success' && <div className="mt-5 space-y-4">
-      <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-lg font-semibold">{state.result.label}</span><span className="font-semibold tabular-nums">{(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span>{state.result.is_uncertain && <span className="rounded-full border border-warning-line bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">Không chắc chắn</span>}</p>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <span className="text-lg font-semibold"><SportLabel label={state.result.label} /></span>
+          <span className="font-semibold tabular-nums">{(state.result.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span>
+          {state.result.is_uncertain && <span className="rounded-full border border-warning-line bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">Không chắc chắn</span>}
+        </p>
+        <span className="text-xs text-muted-foreground tabular-nums">Thời gian giải thích: {state.result.latency_ms} ms</span>
+      </div>
+      {state.result.top3?.length > 0 && (
+        <div className="rounded-xl border border-border bg-muted/30 p-3">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Top 3 dự đoán của mô hình</p>
+          <ul className="space-y-2">
+            {state.result.top3.map((item) => (
+              <li key={item.label} className="space-y-1">
+                <div className="flex items-baseline justify-between gap-2 text-xs">
+                  <span className="font-medium"><SportLabel label={item.label} /></span>
+                  <span className="tabular-nums text-muted-foreground">{(item.confidence * 100).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%</span>
+                </div>
+                <Progress value={Math.round(item.confidence * 100)} label={`${item.label} ${(item.confidence * 100).toFixed(1)}%`} className="h-1.5" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div><label htmlFor={sliderId} className="flex justify-between text-sm"><span>Độ hiển thị lớp phủ</span><span className="tabular-nums">{opacity}%</span></label><input id={sliderId} type="range" min="0" max="100" value={opacity} onChange={(event) => setOpacity(Number(event.target.value))} className="min-h-11 w-full accent-[var(--primary)]" /></div>
     </div>}
   </dialog>, document.body)

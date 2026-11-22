@@ -24,7 +24,7 @@ export const SPORT_MODEL_FILES: Readonly<Record<string, string>> = {
   'olympic wrestling': '/models/olympic_wrestling.glb',
   polo: '/models/polo.glb',
   'roller derby': '/models/roller_derby.glb',
-  'rollerblade racing': '/models/rollerblade_racing.glb',
+  soccer: '/models/soccer.glb',
   swimming: '/models/swimming.glb',
   tennis: '/models/tennis.glb',
   'uneven bars': '/models/uneven_bars.glb',
@@ -38,9 +38,19 @@ export const FALLBACK_MODEL_SRC = '/fallback/podium.glb'
 
 const MODEL_PATH = /^\/models\/[a-z0-9_]+\.glb$/
 
+/** Label aliases mapping alternate dataset spellings to committed model keys. */
+export const SPORT_MODEL_ALIASES: Readonly<Record<string, string>> = {
+  'american football': 'football',
+}
+
+export function resolveSportModelKey(label: string): string {
+  return Object.hasOwn(SPORT_MODEL_ALIASES, label) ? SPORT_MODEL_ALIASES[label] : label
+}
+
 /** `/models/<label>.glb`, with spaces as underscores ("canoe slamon" -> canoe_slamon.glb). */
 export function sportModelSrc(label: string): string {
-  const slug = label.trim().toLowerCase().replace(/\s+/g, '_')
+  const canonical = resolveSportModelKey(label)
+  const slug = canonical.trim().toLowerCase().replace(/\s+/g, '_')
   return /^[a-z0-9_]+$/.test(slug) ? `/models/${slug}.glb` : TROPHY_MODEL_SRC
 }
 
@@ -57,8 +67,11 @@ export function sportModelAsset(
   label: string,
   assets: Readonly<Partial<Record<string, ArAsset>>> = SPORT_MODEL_ASSETS,
 ): ArAsset {
-  const asset = Object.hasOwn(assets, label) ? assets[label] : undefined
-  return asset && MODEL_PATH.test(asset.glb) ? asset : { glb: sportModelSrc(label) }
+  const canonical = resolveSportModelKey(label)
+  const direct = Object.hasOwn(assets, label) ? assets[label] : undefined
+  const aliased = !direct && canonical !== label && Object.hasOwn(assets, canonical) ? assets[canonical] : undefined
+  const asset = direct ?? aliased
+  return asset && MODEL_PATH.test(asset.glb) ? asset : { glb: sportModelSrc(canonical) }
 }
 
 export const SPORT_MODEL_ASSETS: Readonly<Record<string, ArAsset>> = Object.fromEntries(

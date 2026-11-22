@@ -1,0 +1,379 @@
+[{"stream_name":"stderr","time":10.214236652,"data":"/usr/local/lib/python3.13/dist-packages/nbformat/validator.py:434: MissingIDFieldWarning: Cell is missing an id field, this will become a hard error in future nbformat versions. You may want to use `normalize()` on your notebooks before validations (available since nbformat 5.1.4). Previous versions of nbformat are fixing this issue transparently, and will stop doing so in the future.\n"}
+,{"stream_name":"stderr","time":10.214301766,"data":"  _validate(nbdict, ref, version, version_minor, relax_add_props)\n"}
+,{"stream_name":"stderr","time":11.622897551,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":11.622940227,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":11.622944239,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":11.622946771,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stderr","time":12.349383708,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":12.349423029,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":12.349430573,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":12.349433131,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stdout","time":24.167325623,"data":"[SportSnap Sec12] DATA_ROOT : /kaggle/input/datasets/kienmaitrung287/sportsnap-clean-6900/sports-classification\n"}
+,{"stream_name":"stdout","time":24.168358681,"data":"[SportSnap Sec12] EXT_DIR   : /kaggle/input/datasets/kienmaitrung287/sportsnap-clean-6900/anh-ngoai\n"}
+,{"stream_name":"stdout","time":24.169218539,"data":"[SportSnap Sec12] MODEL_DIR : /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models\n"}
+,{"stream_name":"stdout","time":24.170083036,"data":"[SportSnap Sec12] CLASSES (20): ['american football', 'archery', 'baseball', 'basketball', 'boxing', 'canoe slamon', 'field hockey', 'figure skating women', 'formula 1 racing', 'golf', 'high jump', 'hockey', 'olympic wrestling', 'polo', 'roller derby', 'soccer', 'swimming', 'tennis', 'uneven bars', 'volleyball']\n"}
+,{"stream_name":"stdout","time":24.172269184,"data":"=== BƯỚC 1 SẴN SÀNG ===\n"}
+,{"stream_name":"stdout","time":1883.022348129,"data":"MobileNetV2 seed=100: acc=0.9500, F1=0.9495 (1813.9s)\n"}
+,{"stream_name":"stdout","time":3645.001338022,"data":"MobileNetV2 seed=101: acc=0.9520, F1=0.9511 (1754.5s)\n"}
+,{"stream_name":"stdout","time":5275.574890914,"data":"MobileNetV2 seed=102: acc=0.9620, F1=0.9619 (1623.2s)\n"}
+,{"stream_name":"stdout","time":6966.40576283,"data":"MobileNetV2 seed=103: acc=0.9480, F1=0.9474 (1683.5s)\n"}
+,{"stream_name":"stdout","time":8641.014060512,"data":"MobileNetV2 seed=104: acc=0.9600, F1=0.9600 (1667.2s)\n"}
+,{"stream_name":"stdout","time":10551.652447691,"data":"ResNet50 seed=100: acc=0.9720, F1=0.9722 (1903.1s)\n"}
+,{"stream_name":"stdout","time":12467.2796323,"data":"ResNet50 seed=101: acc=0.9720, F1=0.9721 (1908.0s)\n"}
+,{"stream_name":"stdout","time":14312.04402375,"data":"ResNet50 seed=102: acc=0.9740, F1=0.9739 (1837.1s)\n"}
+,{"stream_name":"stdout","time":14312.045198269,"data":"==\u003e MobileNetV2: acc 0.9544 ± 0.0062 (min 0.9480, max 0.9620) | F1 0.9540 ± 0.0065\n"}
+,{"stream_name":"stdout","time":14312.046163764,"data":"==\u003e ResNet50: acc 0.9727 ± 0.0012 (min 0.9720, max 0.9740) | F1 0.9728 ± 0.0010\n"}
+,{"stream_name":"stdout","time":16573.88957379,"data":"CNN_Scratch seed=100: acc=0.8500, F1=0.8514 (2254.7s)\n"}
+,{"stream_name":"stdout","time":18846.245902325,"data":"CNN_Scratch seed=101: acc=0.8580, F1=0.8599 (2265.1s)\n"}
+,{"stream_name":"stdout","time":21118.205814352,"data":"CNN_Scratch seed=102: acc=0.8580, F1=0.8572 (2264.8s)\n"}
+,{"stream_name":"stdout","time":23367.04437301,"data":"CNN_Scratch seed=103: acc=0.8540, F1=0.8554 (2241.7s)\n"}
+,{"stream_name":"stdout","time":25691.956168375,"data":"CNN_Scratch seed=104: acc=0.8460, F1=0.8474 (2317.7s)\n"}
+,{"stream_name":"stdout","time":25691.95724165,"data":"==\u003e CNN_Scratch: acc 0.8532 ± 0.0052 (min 0.8460, max 0.8580) | F1 0.8543 ± 0.0049\n"}
+,{"stream_name":"stdout","time":27000.091027275,"data":"Train 80%: 4800 ảnh | Test mở rộng 20%: 1200 ảnh (1300.6s)\n"}
+,{"stream_name":"stdout","time":27000.092454011,"data":"==\u003e Test mở rộng n=1200: acc=0.9658 | Macro-F1=0.9660 | Wilson 95% CI [0.9540; 0.9747]\n"}
+,{"stream_name":"stdout","time":27004.308605909,"data":"TF: 2.21.0 | GPU: [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU'), PhysicalDevice(name='/physical_device:GPU:1', device_type='GPU')]\n"}
+,{"stream_name":"stdout","time":27032.63905947,"data":"Số cặp gần trùng pHash (Hamming \u003c= 5): 0 | Số ảnh test trùng: 0\n"}
+,{"stream_name":"stdout","time":27032.640182736,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/MobileNetV2_deploy.keras\n"}
+,{"stream_name":"stdout","time":27048.591831186,"data":"==\u003e MobileNetV2 test sạch (n=500): Acc=0.9660 | Macro-F1=0.9662\n"}
+,{"stream_name":"stdout","time":27048.960344272,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/MobileNetV2_deploy.keras\n"}
+,{"stream_name":"stdout","time":27076.676220487,"data":"==\u003e anh-ngoai (MobileNetV2, n=100): Top-1 = 0.9200 (92/100) | Top-5 = 0.9900 (99/100)\n"}
+,{"stream_name":"stdout","time":27076.677112449,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/ResNet50_finetune_best.keras\n"}
+,{"stream_name":"stdout","time":27106.071744531,"data":"==\u003e anh-ngoai (ResNet50, n=100): Top-1 = 0.9600 (96/100) | Top-5 = 1.0000 (100/100)\n"}
+,{"stream_name":"stdout","time":27106.072639625,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/cnn_scratch_best.keras\n"}
+,{"stream_name":"stdout","time":27110.752407474,"data":"==\u003e anh-ngoai (CNN_Scratch, n=100): Top-1 = 0.8200 (82/100) | Top-5 = 0.9900 (99/100)\n"}
+,{"stream_name":"stdout","time":27133.817186888,"data":"==\u003e CPU MobileNetV2: 193.2 ms/ảnh | 9.72 MB (MobileNetV2_deploy.keras)\n"}
+,{"stream_name":"stdout","time":27172.639167915,"data":"==\u003e CPU ResNet50: 333.6 ms/ảnh | 233.00 MB (ResNet50_finetune_best.keras)\n"}
+,{"stream_name":"stdout","time":27179.780092925,"data":"==\u003e CPU CNN_Scratch: 58.8 ms/ảnh | 7.86 MB (cnn_scratch_best.keras)\n"}
+,{"stream_name":"stdout","time":27199.05265302,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/MobileNetV2_deploy.keras\n"}
+,{"stream_name":"stdout","time":27200.32578989,"data":"[Ablation] DeepLabV3 device: cuda | Classifier: MobileNetV2\n"}
+,{"stream_name":"stdout","time":27200.97199829,"data":"Downloading: \"https://download.pytorch.org/models/deeplabv3_resnet50_coco-cd0a2569.pth\" to /root/.cache/torch/hub/checkpoints/deeplabv3_resnet50_coco-cd0a2569.pth\n"}
+,{"stream_name":"stderr","time":27200.973079717,"data":"\r  0%|          | 0.00/161M [00:00\u003c?, ?B/s]\n"}
+,{"stream_name":"stderr","time":27201.073719022,"data":"\r  0%|          | 0.00/161M [00:00\u003c?, ?B/s]\r  4%|▍         | 7.12M/161M [00:00\u003c00:02, 74.7MB/s]\n"}
+,{"stream_name":"stderr","time":27201.174575341,"data":"\r  4%|▍         | 7.12M/161M [00:00\u003c00:02, 74.7MB/s]\r 15%|█▌        | 24.9M/161M [00:00\u003c00:01, 140MB/s] \n"}
+,{"stream_name":"stderr","time":27201.27420332,"data":"\r 15%|█▌        | 24.9M/161M [00:00\u003c00:01, 140MB/s] \r 29%|██▉       | 47.2M/161M [00:00\u003c00:00, 183MB/s]\n"}
+,{"stream_name":"stderr","time":27201.374308632,"data":"\r 29%|██▉       | 47.2M/161M [00:00\u003c00:00, 183MB/s]\r 44%|████▍     | 71.4M/161M [00:00\u003c00:00, 211MB/s]\n"}
+,{"stream_name":"stderr","time":27201.474870364,"data":"\r 44%|████▍     | 71.4M/161M [00:00\u003c00:00, 211MB/s]\r 59%|█████▉    | 95.2M/161M [00:00\u003c00:00, 225MB/s]\n"}
+,{"stream_name":"stderr","time":27201.574534978,"data":"\r 59%|█████▉    | 95.2M/161M [00:00\u003c00:00, 225MB/s]\r 74%|███████▍  | 119M/161M [00:00\u003c00:00, 232MB/s] \n"}
+,{"stream_name":"stderr","time":27201.675125914,"data":"\r 74%|███████▍  | 119M/161M [00:00\u003c00:00, 232MB/s] \r 89%|████████▉ | 143M/161M [00:00\u003c00:00, 238MB/s]\n"}
+,{"stream_name":"stderr","time":27201.746294592,"data":"\r 89%|████████▉ | 143M/161M [00:00\u003c00:00, 238MB/s]\r100%|██████████| 161M/161M [00:00\u003c00:00, 218MB/s]\n"}
+,{"stream_name":"stderr","time":27201.779679425,"data":"\r100%|██████████| 161M/161M [00:00\u003c00:00, 218MB/s]\n"}
+,{"stream_name":"stderr","time":27201.77970793,"data":"\n"}
+,{"stream_name":"stderr","time":27201.779713223,"data":"\n"}
+,{"stream_name":"stdout","time":27693.338184768,"data":"==\u003e Ablation (MobileNetV2, n=800): Gốc 0.9712 | Chỉ nền 0.5750 | Chỉ người 0.5900 | Grad-CAM trong người 0.3919\n"}
+,{"stream_name":"stdout","time":27693.341465465,"data":"                      orig_ok  bg_ok  person_ok  gradcam_in_person\n"}
+,{"stream_name":"stdout","time":27693.341514619,"data":"cls                                                               \n"}
+,{"stream_name":"stdout","time":27693.341523531,"data":"american football       1.000  0.175      0.925             0.5581\n"}
+,{"stream_name":"stdout","time":27693.341528949,"data":"archery                 1.000  0.850      0.525             0.3766\n"}
+,{"stream_name":"stdout","time":27693.341533664,"data":"baseball                1.000  0.375      0.775             0.4079\n"}
+,{"stream_name":"stdout","time":27693.341537862,"data":"basketball              1.000  0.225      0.625             0.5364\n"}
+,{"stream_name":"stdout","time":27693.341542131,"data":"boxing                  0.975  0.200      0.650             0.5531\n"}
+,{"stream_name":"stdout","time":27693.341546248,"data":"canoe slamon            1.000  1.000      0.375             0.1527\n"}
+,{"stream_name":"stdout","time":27693.341550339,"data":"field hockey            0.925  0.375      0.550             0.3631\n"}
+,{"stream_name":"stdout","time":27693.341554555,"data":"figure skating women    1.000  0.800      0.925             0.3908\n"}
+,{"stream_name":"stdout","time":27693.341563704,"data":"formula 1 racing        1.000  1.000      0.025             0.0064\n"}
+,{"stream_name":"stdout","time":27693.341566683,"data":"golf                    0.925  0.975      0.900             0.3810\n"}
+,{"stream_name":"stdout","time":27693.341569459,"data":"high jump               0.950  0.825      0.675             0.4485\n"}
+,{"stream_name":"stdout","time":27693.341572219,"data":"hockey                  1.000  0.300      0.900             0.5573\n"}
+,{"stream_name":"stdout","time":27693.341575047,"data":"olympic wrestling       0.975  0.000      0.800             0.7476\n"}
+,{"stream_name":"stdout","time":27693.341577807,"data":"polo                    1.000  1.000      0.225             0.1678\n"}
+,{"stream_name":"stdout","time":27693.341580541,"data":"roller derby            1.000  0.075      1.000             0.6631\n"}
+,{"stream_name":"stdout","time":27693.341591902,"data":"soccer                  0.875  0.175      0.150             0.3813\n"}
+,{"stream_name":"stdout","time":27693.341594729,"data":"swimming                1.000  1.000      0.550             0.2163\n"}
+,{"stream_name":"stdout","time":27693.341610479,"data":"tennis                  0.950  0.675      0.600             0.2863\n"}
+,{"stream_name":"stdout","time":27693.341614457,"data":"uneven bars             0.950  0.800      0.200             0.2265\n"}
+,{"stream_name":"stdout","time":27693.34161846,"data":"volleyball              0.900  0.675      0.425             0.4173\n"}
+,{"stream_name":"stdout","time":27694.091331574,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/cnn_scratch_best.keras\n"}
+,{"stream_name":"stdout","time":27694.312357185,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/MobileNetV2_deploy.keras\n"}
+,{"stream_name":"stdout","time":27695.468384013,"data":"[Load] /kaggle/input/datasets/kienmaitrung287/sportsnap-v3-models/ResNet50_finetune_best.keras\n"}
+,{"stream_name":"stdout","time":27710.077553638,"data":"=== KAGGLE EXPERIMENT SUMMARY (COMPLETE) ===\n"}
+,{"stream_name":"stdout","time":27710.079163791,"data":"{\n"}
+,{"stream_name":"stdout","time":27710.079184013,"data":"  \"dataset\": \"kienmaitrung287/sportsnap-clean-6900 (v2 clean, 6900 images, 20 classes, 0 leakage)\",\n"}
+,{"stream_name":"stdout","time":27710.079198023,"data":"  \"class_names\": [\n"}
+,{"stream_name":"stdout","time":27710.079202156,"data":"    \"american football\",\n"}
+,{"stream_name":"stdout","time":27710.079206141,"data":"    \"archery\",\n"}
+,{"stream_name":"stdout","time":27710.079209931,"data":"    \"baseball\",\n"}
+,{"stream_name":"stdout","time":27710.079213502,"data":"    \"basketball\",\n"}
+,{"stream_name":"stdout","time":27710.07921706,"data":"    \"boxing\",\n"}
+,{"stream_name":"stdout","time":27710.07922113,"data":"    \"canoe slamon\",\n"}
+,{"stream_name":"stdout","time":27710.079224835,"data":"    \"field hockey\",\n"}
+,{"stream_name":"stdout","time":27710.079228442,"data":"    \"figure skating women\",\n"}
+,{"stream_name":"stdout","time":27710.079232098,"data":"    \"formula 1 racing\",\n"}
+,{"stream_name":"stdout","time":27710.079236278,"data":"    \"golf\",\n"}
+,{"stream_name":"stdout","time":27710.079239838,"data":"    \"high jump\",\n"}
+,{"stream_name":"stdout","time":27710.079243066,"data":"    \"hockey\",\n"}
+,{"stream_name":"stdout","time":27710.079246265,"data":"    \"olympic wrestling\",\n"}
+,{"stream_name":"stdout","time":27710.079249662,"data":"    \"polo\",\n"}
+,{"stream_name":"stdout","time":27710.079252837,"data":"    \"roller derby\",\n"}
+,{"stream_name":"stdout","time":27710.079256617,"data":"    \"soccer\",\n"}
+,{"stream_name":"stdout","time":27710.079260329,"data":"    \"swimming\",\n"}
+,{"stream_name":"stdout","time":27710.079264257,"data":"    \"tennis\",\n"}
+,{"stream_name":"stdout","time":27710.0792677,"data":"    \"uneven bars\",\n"}
+,{"stream_name":"stdout","time":27710.079271175,"data":"    \"volleyball\"\n"}
+,{"stream_name":"stdout","time":27710.079274599,"data":"  ],\n"}
+,{"stream_name":"stdout","time":27710.079277687,"data":"  \"main_v3_verified\": {\n"}
+,{"stream_name":"stdout","time":27710.079281267,"data":"    \"CNN_Scratch\": {\n"}
+,{"stream_name":"stdout","time":27710.079284783,"data":"      \"val_acc\": 0.8767,\n"}
+,{"stream_name":"stdout","time":27710.079288492,"data":"      \"val_loss\": 1.0589,\n"}
+,{"stream_name":"stdout","time":27710.079292247,"data":"      \"best_epoch\": 42,\n"}
+,{"stream_name":"stdout","time":27710.079297008,"data":"      \"test_acc\": 0.834,\n"}
+,{"stream_name":"stdout","time":27710.07929989,"data":"      \"test_macro_f1\": 0.83\n"}
+,{"stream_name":"stdout","time":27710.079312392,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.079316093,"data":"    \"MobileNetV2\": {\n"}
+,{"stream_name":"stdout","time":27710.07931949,"data":"      \"val_acc\": 0.9867,\n"}
+,{"stream_name":"stdout","time":27710.079323128,"data":"      \"val_loss\": 0.7702,\n"}
+,{"stream_name":"stdout","time":27710.079326553,"data":"      \"best_epoch\": 23,\n"}
+,{"stream_name":"stdout","time":27710.079329763,"data":"      \"head_test_acc\": 0.916,\n"}
+,{"stream_name":"stdout","time":27710.079333534,"data":"      \"test_acc\": 0.966,\n"}
+,{"stream_name":"stdout","time":27710.079337285,"data":"      \"test_tta_acc\": 0.96,\n"}
+,{"stream_name":"stdout","time":27710.079340798,"data":"      \"test_macro_f1\": 0.97,\n"}
+,{"stream_name":"stdout","time":27710.079344655,"data":"      \"deploy_mb\": 9.72\n"}
+,{"stream_name":"stdout","time":27710.079348517,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.07935194,"data":"    \"ResNet50\": {\n"}
+,{"stream_name":"stdout","time":27710.079355833,"data":"      \"val_acc\": 0.98,\n"}
+,{"stream_name":"stdout","time":27710.079359639,"data":"      \"val_loss\": 0.7371,\n"}
+,{"stream_name":"stdout","time":27710.079363452,"data":"      \"best_epoch\": 20,\n"}
+,{"stream_name":"stdout","time":27710.079367209,"data":"      \"head_test_acc\": 0.942,\n"}
+,{"stream_name":"stdout","time":27710.079373358,"data":"      \"test_acc\": 0.978,\n"}
+,{"stream_name":"stdout","time":27710.07937676,"data":"      \"test_tta_acc\": 0.982,\n"}
+,{"stream_name":"stdout","time":27710.079379991,"data":"      \"test_macro_f1\": 0.98\n"}
+,{"stream_name":"stdout","time":27710.079383315,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.079386407,"data":"    \"Ensemble_MNV2_ResNet50\": {\n"}
+,{"stream_name":"stdout","time":27710.079389682,"data":"      \"test_acc\": 0.986,\n"}
+,{"stream_name":"stdout","time":27710.079393191,"data":"      \"test_tta_acc\": 0.986\n"}
+,{"stream_name":"stdout","time":27710.079396583,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.079399693,"data":"    \"kfold_5_resnet50\": {\n"}
+,{"stream_name":"stdout","time":27710.07940301,"data":"      \"n_total\": 6800,\n"}
+,{"stream_name":"stdout","time":27710.079406959,"data":"      \"folds\": [\n"}
+,{"stream_name":"stdout","time":27710.07941071,"data":"        0.9743,\n"}
+,{"stream_name":"stdout","time":27710.079414431,"data":"        0.9772,\n"}
+,{"stream_name":"stdout","time":27710.079418108,"data":"        0.9824,\n"}
+,{"stream_name":"stdout","time":27710.079421905,"data":"        0.9743,\n"}
+,{"stream_name":"stdout","time":27710.079425478,"data":"        0.9735\n"}
+,{"stream_name":"stdout","time":27710.079428986,"data":"      ],\n"}
+,{"stream_name":"stdout","time":27710.079432304,"data":"      \"mean\": 0.9763,\n"}
+,{"stream_name":"stdout","time":27710.079435502,"data":"      \"std\": 0.0033,\n"}
+,{"stream_name":"stdout","time":27710.079439042,"data":"      \"oof_macro_f1\": 0.98\n"}
+,{"stream_name":"stdout","time":27710.079442772,"data":"    }\n"}
+,{"stream_name":"stdout","time":27710.079446363,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.079449575,"data":"  \"multi_seed\": {\n"}
+,{"stream_name":"stdout","time":27710.079453427,"data":"    \"MobileNetV2\": {\n"}
+,{"stream_name":"stdout","time":27710.079457131,"data":"      \"acc_mean\": 0.9544,\n"}
+,{"stream_name":"stdout","time":27710.079461015,"data":"      \"acc_std\": 0.0062,\n"}
+,{"stream_name":"stdout","time":27710.079464314,"data":"      \"f1_mean\": 0.954,\n"}
+,{"stream_name":"stdout","time":27710.079467805,"data":"      \"f1_std\": 0.0065,\n"}
+,{"stream_name":"stdout","time":27710.079477392,"data":"      \"runs\": [\n"}
+,{"stream_name":"stdout","time":27710.079480825,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.07948463,"data":"          0.95,\n"}
+,{"stream_name":"stdout","time":27710.079487898,"data":"          0.9495\n"}
+,{"stream_name":"stdout","time":27710.079491464,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079508162,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079515989,"data":"          0.952,\n"}
+,{"stream_name":"stdout","time":27710.079519667,"data":"          0.9511\n"}
+,{"stream_name":"stdout","time":27710.07952333,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079526908,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079530898,"data":"          0.962,\n"}
+,{"stream_name":"stdout","time":27710.079534633,"data":"          0.9619\n"}
+,{"stream_name":"stdout","time":27710.07953772,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079541457,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079545039,"data":"          0.948,\n"}
+,{"stream_name":"stdout","time":27710.079548366,"data":"          0.9474\n"}
+,{"stream_name":"stdout","time":27710.079551852,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079555548,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079559235,"data":"          0.96,\n"}
+,{"stream_name":"stdout","time":27710.079562645,"data":"          0.96\n"}
+,{"stream_name":"stdout","time":27710.079566357,"data":"        ]\n"}
+,{"stream_name":"stdout","time":27710.079569622,"data":"      ]\n"}
+,{"stream_name":"stdout","time":27710.079572566,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.07957593,"data":"    \"ResNet50\": {\n"}
+,{"stream_name":"stdout","time":27710.0795798,"data":"      \"acc_mean\": 0.9727,\n"}
+,{"stream_name":"stdout","time":27710.079583485,"data":"      \"acc_std\": 0.0012,\n"}
+,{"stream_name":"stdout","time":27710.079587442,"data":"      \"f1_mean\": 0.9728,\n"}
+,{"stream_name":"stdout","time":27710.079591052,"data":"      \"f1_std\": 0.001,\n"}
+,{"stream_name":"stdout","time":27710.079594827,"data":"      \"runs\": [\n"}
+,{"stream_name":"stdout","time":27710.079598678,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079602222,"data":"          0.972,\n"}
+,{"stream_name":"stdout","time":27710.079607477,"data":"          0.9722\n"}
+,{"stream_name":"stdout","time":27710.079611378,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079614715,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079618421,"data":"          0.972,\n"}
+,{"stream_name":"stdout","time":27710.079621843,"data":"          0.9721\n"}
+,{"stream_name":"stdout","time":27710.079625455,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.07962894,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.07963262,"data":"          0.974,\n"}
+,{"stream_name":"stdout","time":27710.079636112,"data":"          0.9739\n"}
+,{"stream_name":"stdout","time":27710.079639711,"data":"        ]\n"}
+,{"stream_name":"stdout","time":27710.079728222,"data":"      ]\n"}
+,{"stream_name":"stdout","time":27710.079733923,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.07973795,"data":"    \"CNN_Scratch\": {\n"}
+,{"stream_name":"stdout","time":27710.079741771,"data":"      \"acc_mean\": 0.8532,\n"}
+,{"stream_name":"stdout","time":27710.079745642,"data":"      \"acc_std\": 0.0052,\n"}
+,{"stream_name":"stdout","time":27710.079749132,"data":"      \"f1_mean\": 0.8543,\n"}
+,{"stream_name":"stdout","time":27710.079752816,"data":"      \"f1_std\": 0.0049,\n"}
+,{"stream_name":"stdout","time":27710.079761963,"data":"      \"runs\": [\n"}
+,{"stream_name":"stdout","time":27710.079766195,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079769407,"data":"          0.85,\n"}
+,{"stream_name":"stdout","time":27710.079791627,"data":"          0.8514\n"}
+,{"stream_name":"stdout","time":27710.079796035,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079799809,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079803405,"data":"          0.858,\n"}
+,{"stream_name":"stdout","time":27710.07980688,"data":"          0.8599\n"}
+,{"stream_name":"stdout","time":27710.079810089,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079813768,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079817452,"data":"          0.858,\n"}
+,{"stream_name":"stdout","time":27710.079821195,"data":"          0.8572\n"}
+,{"stream_name":"stdout","time":27710.079824983,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.07982822,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079832067,"data":"          0.854,\n"}
+,{"stream_name":"stdout","time":27710.079858156,"data":"          0.8554\n"}
+,{"stream_name":"stdout","time":27710.079862942,"data":"        ],\n"}
+,{"stream_name":"stdout","time":27710.079866322,"data":"        [\n"}
+,{"stream_name":"stdout","time":27710.079870003,"data":"          0.846,\n"}
+,{"stream_name":"stdout","time":27710.079873772,"data":"          0.8474\n"}
+,{"stream_name":"stdout","time":27710.079876981,"data":"        ]\n"}
+,{"stream_name":"stdout","time":27710.079880493,"data":"      ]\n"}
+,{"stream_name":"stdout","time":27710.07988424,"data":"    }\n"}
+,{"stream_name":"stdout","time":27710.079887156,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.079890508,"data":"  \"extended_test_20pct\": {\n"}
+,{"stream_name":"stdout","time":27710.07990037,"data":"    \"n\": 1200,\n"}
+,{"stream_name":"stdout","time":27710.079919601,"data":"    \"acc\": 0.9658,\n"}
+,{"stream_name":"stdout","time":27710.079924774,"data":"    \"macro_f1\": 0.966,\n"}
+,{"stream_name":"stdout","time":27710.079928878,"data":"    \"wilson_95_ci\": [\n"}
+,{"stream_name":"stdout","time":27710.079932678,"data":"      0.954,\n"}
+,{"stream_name":"stdout","time":27710.079948817,"data":"      0.9747\n"}
+,{"stream_name":"stdout","time":27710.079953115,"data":"    ]\n"}
+,{"stream_name":"stdout","time":27710.07995608,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.079959228,"data":"  \"phash_check\": {\n"}
+,{"stream_name":"stdout","time":27710.079963018,"data":"    \"near_pairs_le_5\": 0,\n"}
+,{"stream_name":"stdout","time":27710.079966658,"data":"    \"bad_test_removed\": 0,\n"}
+,{"stream_name":"stdout","time":27710.079970837,"data":"    \"clean_test_n\": 500,\n"}
+,{"stream_name":"stdout","time":27710.079974758,"data":"    \"clean_acc\": 0.966,\n"}
+,{"stream_name":"stdout","time":27710.079978213,"data":"    \"clean_macro_f1\": 0.9662\n"}
+,{"stream_name":"stdout","time":27710.079982051,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.079985505,"data":"  \"anh_ngoai\": {\n"}
+,{"stream_name":"stdout","time":27710.079988989,"data":"    \"model\": \"MobileNetV2\",\n"}
+,{"stream_name":"stdout","time":27710.079992883,"data":"    \"n\": 100,\n"}
+,{"stream_name":"stdout","time":27710.080010161,"data":"    \"top1\": 0.92,\n"}
+,{"stream_name":"stdout","time":27710.080014987,"data":"    \"top1_correct\": 92,\n"}
+,{"stream_name":"stdout","time":27710.080018705,"data":"    \"top5\": 0.99,\n"}
+,{"stream_name":"stdout","time":27710.080022553,"data":"    \"top5_correct\": 99,\n"}
+,{"stream_name":"stdout","time":27710.080051364,"data":"    \"per_class\": {\n"}
+,{"stream_name":"stdout","time":27710.080055808,"data":"      \"american football\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.08005987,"data":"      \"archery\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080063705,"data":"      \"baseball\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.08006767,"data":"      \"basketball\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080071517,"data":"      \"boxing\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080075112,"data":"      \"canoe slamon\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080079061,"data":"      \"field hockey\": \"2/5\",\n"}
+,{"stream_name":"stdout","time":27710.080083005,"data":"      \"figure skating women\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080087381,"data":"      \"formula 1 racing\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080091121,"data":"      \"golf\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080094745,"data":"      \"high jump\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080117479,"data":"      \"hockey\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080122182,"data":"      \"olympic wrestling\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080126252,"data":"      \"polo\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.08014154,"data":"      \"roller derby\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.08014588,"data":"      \"soccer\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080149745,"data":"      \"swimming\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080153673,"data":"      \"tennis\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080157412,"data":"      \"uneven bars\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080161395,"data":"      \"volleyball\": \"5/5\"\n"}
+,{"stream_name":"stdout","time":27710.08016492,"data":"    }\n"}
+,{"stream_name":"stdout","time":27710.080168772,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.080172405,"data":"  \"anh_ngoai_resnet50\": {\n"}
+,{"stream_name":"stdout","time":27710.080176197,"data":"    \"model\": \"ResNet50\",\n"}
+,{"stream_name":"stdout","time":27710.080196605,"data":"    \"n\": 100,\n"}
+,{"stream_name":"stdout","time":27710.080201092,"data":"    \"top1\": 0.96,\n"}
+,{"stream_name":"stdout","time":27710.080220122,"data":"    \"top1_correct\": 96,\n"}
+,{"stream_name":"stdout","time":27710.080224847,"data":"    \"top5\": 1.0,\n"}
+,{"stream_name":"stdout","time":27710.080250852,"data":"    \"top5_correct\": 100,\n"}
+,{"stream_name":"stdout","time":27710.08027373,"data":"    \"per_class\": {\n"}
+,{"stream_name":"stdout","time":27710.080290537,"data":"      \"american football\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080304678,"data":"      \"archery\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.08032126,"data":"      \"baseball\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080339389,"data":"      \"basketball\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080353362,"data":"      \"boxing\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080367986,"data":"      \"canoe slamon\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080383677,"data":"      \"field hockey\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080411258,"data":"      \"figure skating women\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.0804322,"data":"      \"formula 1 racing\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080451962,"data":"      \"golf\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080475293,"data":"      \"high jump\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080507619,"data":"      \"hockey\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080515347,"data":"      \"olympic wrestling\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080520005,"data":"      \"polo\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080523747,"data":"      \"roller derby\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080528141,"data":"      \"soccer\": \"2/5\",\n"}
+,{"stream_name":"stdout","time":27710.080531593,"data":"      \"swimming\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080535189,"data":"      \"tennis\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080538741,"data":"      \"uneven bars\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080542357,"data":"      \"volleyball\": \"5/5\"\n"}
+,{"stream_name":"stdout","time":27710.080546455,"data":"    }\n"}
+,{"stream_name":"stdout","time":27710.080551077,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.080554707,"data":"  \"anh_ngoai_cnn_scratch\": {\n"}
+,{"stream_name":"stdout","time":27710.08055826,"data":"    \"model\": \"CNN_Scratch\",\n"}
+,{"stream_name":"stdout","time":27710.080561816,"data":"    \"n\": 100,\n"}
+,{"stream_name":"stdout","time":27710.080565276,"data":"    \"top1\": 0.82,\n"}
+,{"stream_name":"stdout","time":27710.080568725,"data":"    \"top1_correct\": 82,\n"}
+,{"stream_name":"stdout","time":27710.080572181,"data":"    \"top5\": 0.99,\n"}
+,{"stream_name":"stdout","time":27710.080575809,"data":"    \"top5_correct\": 99,\n"}
+,{"stream_name":"stdout","time":27710.080579385,"data":"    \"per_class\": {\n"}
+,{"stream_name":"stdout","time":27710.080582959,"data":"      \"american football\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080586619,"data":"      \"archery\": \"3/5\",\n"}
+,{"stream_name":"stdout","time":27710.080590491,"data":"      \"baseball\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080594094,"data":"      \"basketball\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080597731,"data":"      \"boxing\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080601293,"data":"      \"canoe slamon\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080604929,"data":"      \"field hockey\": \"2/5\",\n"}
+,{"stream_name":"stdout","time":27710.080608701,"data":"      \"figure skating women\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080612358,"data":"      \"formula 1 racing\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080616019,"data":"      \"golf\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080619719,"data":"      \"high jump\": \"2/5\",\n"}
+,{"stream_name":"stdout","time":27710.080623492,"data":"      \"hockey\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080627068,"data":"      \"olympic wrestling\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080631231,"data":"      \"polo\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080634857,"data":"      \"roller derby\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080638477,"data":"      \"soccer\": \"2/5\",\n"}
+,{"stream_name":"stdout","time":27710.080642336,"data":"      \"swimming\": \"5/5\",\n"}
+,{"stream_name":"stdout","time":27710.080646032,"data":"      \"tennis\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080649742,"data":"      \"uneven bars\": \"4/5\",\n"}
+,{"stream_name":"stdout","time":27710.080653544,"data":"      \"volleyball\": \"4/5\"\n"}
+,{"stream_name":"stdout","time":27710.080657147,"data":"    }\n"}
+,{"stream_name":"stdout","time":27710.080660555,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.080663914,"data":"  \"cpu_benchmark\": {\n"}
+,{"stream_name":"stdout","time":27710.080672107,"data":"    \"MobileNetV2\": {\n"}
+,{"stream_name":"stdout","time":27710.080675812,"data":"      \"file\": \"MobileNetV2_deploy.keras\",\n"}
+,{"stream_name":"stdout","time":27710.080679518,"data":"      \"cpu_ms\": 193.24,\n"}
+,{"stream_name":"stdout","time":27710.080683077,"data":"      \"size_mb\": 9.72\n"}
+,{"stream_name":"stdout","time":27710.080686677,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.080690044,"data":"    \"ResNet50\": {\n"}
+,{"stream_name":"stdout","time":27710.080693629,"data":"      \"file\": \"ResNet50_finetune_best.keras\",\n"}
+,{"stream_name":"stdout","time":27710.080697333,"data":"      \"cpu_ms\": 333.6,\n"}
+,{"stream_name":"stdout","time":27710.080700967,"data":"      \"size_mb\": 233.0\n"}
+,{"stream_name":"stdout","time":27710.080704461,"data":"    },\n"}
+,{"stream_name":"stdout","time":27710.080708233,"data":"    \"CNN_Scratch\": {\n"}
+,{"stream_name":"stdout","time":27710.080712095,"data":"      \"file\": \"cnn_scratch_best.keras\",\n"}
+,{"stream_name":"stdout","time":27710.080715806,"data":"      \"cpu_ms\": 58.81,\n"}
+,{"stream_name":"stdout","time":27710.080719435,"data":"      \"size_mb\": 7.86\n"}
+,{"stream_name":"stdout","time":27710.080722985,"data":"    }\n"}
+,{"stream_name":"stdout","time":27710.080726363,"data":"  },\n"}
+,{"stream_name":"stdout","time":27710.080729772,"data":"  \"ablation_deeplabv3\": {\n"}
+,{"stream_name":"stdout","time":27710.080733323,"data":"    \"model\": \"MobileNetV2\",\n"}
+,{"stream_name":"stdout","time":27710.080737225,"data":"    \"n\": 800,\n"}
+,{"stream_name":"stdout","time":27710.08074073,"data":"    \"acc_orig\": 0.9712,\n"}
+,{"stream_name":"stdout","time":27710.080744316,"data":"    \"acc_bg_only\": 0.575,\n"}
+,{"stream_name":"stdout","time":27710.080747876,"data":"    \"acc_person_only\": 0.59,\n"}
+,{"stream_name":"stdout","time":27710.080751499,"data":"    \"gradcam_in_person_mean\": 0.3919\n"}
+,{"stream_name":"stdout","time":27710.080755129,"data":"  }\n"}
+,{"stream_name":"stdout","time":27710.080758531,"data":"}\n"}
+,{"stream_name":"stdout","time":27710.232595862,"data":"[HOÀN TẤT 100%] Đã đóng gói 4 tệp vào sportsnap_sec12_outputs.zip\n"}
+,{"stream_name":"stderr","time":27715.86532937,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":27715.865361901,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":27716.07251036,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":27716.072543574,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":27717.003048533,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to notebook\n"}
+,{"stream_name":"stderr","time":27717.134758679,"data":"[NbConvertApp] Writing 3131044 bytes to __notebook__.ipynb\n"}
+,{"stream_name":"stderr","time":27719.728362772,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to html\n"}
+,{"stream_name":"stderr","time":27720.451882633,"data":"[NbConvertApp] Support files will be in __results___files/\n"}
+,{"stream_name":"stderr","time":27720.451925144,"data":"[NbConvertApp] Making directory __results___files\n"}
+,{"stream_name":"stderr","time":27720.452951814,"data":"[NbConvertApp] Writing 464349 bytes to __results__.html\n"}
+]

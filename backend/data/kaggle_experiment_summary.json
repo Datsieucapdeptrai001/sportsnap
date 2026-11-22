@@ -1,0 +1,279 @@
+{
+  "dataset": "kienmaitrung287/sportsnap-clean-6900 (v2 clean, 6900 images, 20 classes, 0 leakage)",
+  "class_names": [
+    "american football",
+    "archery",
+    "baseball",
+    "basketball",
+    "boxing",
+    "canoe slamon",
+    "field hockey",
+    "figure skating women",
+    "formula 1 racing",
+    "golf",
+    "high jump",
+    "hockey",
+    "olympic wrestling",
+    "polo",
+    "roller derby",
+    "soccer",
+    "swimming",
+    "tennis",
+    "uneven bars",
+    "volleyball"
+  ],
+  "main_v3_verified": {
+    "CNN_Scratch": {
+      "val_acc": 0.8767,
+      "val_loss": 1.0589,
+      "best_epoch": 42,
+      "test_acc": 0.834,
+      "test_macro_f1": 0.83
+    },
+    "MobileNetV2": {
+      "val_acc": 0.9867,
+      "val_loss": 0.7702,
+      "best_epoch": 23,
+      "head_test_acc": 0.916,
+      "test_acc": 0.966,
+      "test_tta_acc": 0.96,
+      "test_macro_f1": 0.97,
+      "deploy_mb": 9.72
+    },
+    "ResNet50": {
+      "val_acc": 0.98,
+      "val_loss": 0.7371,
+      "best_epoch": 20,
+      "head_test_acc": 0.942,
+      "test_acc": 0.978,
+      "test_tta_acc": 0.982,
+      "test_macro_f1": 0.98
+    },
+    "Ensemble_MNV2_ResNet50": {
+      "test_acc": 0.986,
+      "test_tta_acc": 0.986
+    },
+    "kfold_5_resnet50": {
+      "n_total": 6800,
+      "folds": [
+        0.9743,
+        0.9772,
+        0.9824,
+        0.9743,
+        0.9735
+      ],
+      "mean": 0.9763,
+      "std": 0.0033,
+      "oof_macro_f1": 0.98
+    }
+  },
+  "multi_seed": {
+    "MobileNetV2": {
+      "acc_mean": 0.9544,
+      "acc_std": 0.0062,
+      "f1_mean": 0.954,
+      "f1_std": 0.0065,
+      "runs": [
+        [
+          0.95,
+          0.9495
+        ],
+        [
+          0.952,
+          0.9511
+        ],
+        [
+          0.962,
+          0.9619
+        ],
+        [
+          0.948,
+          0.9474
+        ],
+        [
+          0.96,
+          0.96
+        ]
+      ]
+    },
+    "ResNet50": {
+      "acc_mean": 0.9727,
+      "acc_std": 0.0012,
+      "f1_mean": 0.9728,
+      "f1_std": 0.001,
+      "runs": [
+        [
+          0.972,
+          0.9722
+        ],
+        [
+          0.972,
+          0.9721
+        ],
+        [
+          0.974,
+          0.9739
+        ]
+      ]
+    },
+    "CNN_Scratch": {
+      "acc_mean": 0.8532,
+      "acc_std": 0.0052,
+      "f1_mean": 0.8543,
+      "f1_std": 0.0049,
+      "runs": [
+        [
+          0.85,
+          0.8514
+        ],
+        [
+          0.858,
+          0.8599
+        ],
+        [
+          0.858,
+          0.8572
+        ],
+        [
+          0.854,
+          0.8554
+        ],
+        [
+          0.846,
+          0.8474
+        ]
+      ]
+    }
+  },
+  "extended_test_20pct": {
+    "n": 1200,
+    "acc": 0.9658,
+    "macro_f1": 0.966,
+    "wilson_95_ci": [
+      0.954,
+      0.9747
+    ]
+  },
+  "phash_check": {
+    "near_pairs_le_5": 0,
+    "bad_test_removed": 0,
+    "clean_test_n": 500,
+    "clean_acc": 0.966,
+    "clean_macro_f1": 0.9662
+  },
+  "anh_ngoai": {
+    "model": "MobileNetV2",
+    "n": 100,
+    "top1": 0.92,
+    "top1_correct": 92,
+    "top5": 0.99,
+    "top5_correct": 99,
+    "per_class": {
+      "american football": "4/5",
+      "archery": "4/5",
+      "baseball": "5/5",
+      "basketball": "5/5",
+      "boxing": "5/5",
+      "canoe slamon": "5/5",
+      "field hockey": "2/5",
+      "figure skating women": "5/5",
+      "formula 1 racing": "5/5",
+      "golf": "5/5",
+      "high jump": "4/5",
+      "hockey": "5/5",
+      "olympic wrestling": "4/5",
+      "polo": "5/5",
+      "roller derby": "5/5",
+      "soccer": "4/5",
+      "swimming": "5/5",
+      "tennis": "5/5",
+      "uneven bars": "5/5",
+      "volleyball": "5/5"
+    }
+  },
+  "anh_ngoai_resnet50": {
+    "model": "ResNet50",
+    "n": 100,
+    "top1": 0.96,
+    "top1_correct": 96,
+    "top5": 1.0,
+    "top5_correct": 100,
+    "per_class": {
+      "american football": "5/5",
+      "archery": "5/5",
+      "baseball": "5/5",
+      "basketball": "5/5",
+      "boxing": "5/5",
+      "canoe slamon": "5/5",
+      "field hockey": "5/5",
+      "figure skating women": "5/5",
+      "formula 1 racing": "5/5",
+      "golf": "5/5",
+      "high jump": "5/5",
+      "hockey": "5/5",
+      "olympic wrestling": "5/5",
+      "polo": "5/5",
+      "roller derby": "5/5",
+      "soccer": "2/5",
+      "swimming": "5/5",
+      "tennis": "4/5",
+      "uneven bars": "5/5",
+      "volleyball": "5/5"
+    }
+  },
+  "anh_ngoai_cnn_scratch": {
+    "model": "CNN_Scratch",
+    "n": 100,
+    "top1": 0.82,
+    "top1_correct": 82,
+    "top5": 0.99,
+    "top5_correct": 99,
+    "per_class": {
+      "american football": "4/5",
+      "archery": "3/5",
+      "baseball": "5/5",
+      "basketball": "5/5",
+      "boxing": "5/5",
+      "canoe slamon": "5/5",
+      "field hockey": "2/5",
+      "figure skating women": "5/5",
+      "formula 1 racing": "5/5",
+      "golf": "4/5",
+      "high jump": "2/5",
+      "hockey": "4/5",
+      "olympic wrestling": "5/5",
+      "polo": "5/5",
+      "roller derby": "4/5",
+      "soccer": "2/5",
+      "swimming": "5/5",
+      "tennis": "4/5",
+      "uneven bars": "4/5",
+      "volleyball": "4/5"
+    }
+  },
+  "cpu_benchmark": {
+    "MobileNetV2": {
+      "file": "MobileNetV2_deploy.keras",
+      "cpu_ms": 193.24,
+      "size_mb": 9.72
+    },
+    "ResNet50": {
+      "file": "ResNet50_finetune_best.keras",
+      "cpu_ms": 333.6,
+      "size_mb": 233.0
+    },
+    "CNN_Scratch": {
+      "file": "cnn_scratch_best.keras",
+      "cpu_ms": 58.81,
+      "size_mb": 7.86
+    }
+  },
+  "ablation_deeplabv3": {
+    "model": "MobileNetV2",
+    "n": 800,
+    "acc_orig": 0.9712,
+    "acc_bg_only": 0.575,
+    "acc_person_only": 0.59,
+    "gradcam_in_person_mean": 0.3919
+  }
+}

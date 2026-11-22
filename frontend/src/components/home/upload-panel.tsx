@@ -83,7 +83,7 @@ export function UploadPanel({ previewUrl, previewName, busy, activeSampleId, onF
 
       <div className="mt-4">
         <p id="samples-title" className="text-xs text-muted-foreground">Chưa có ảnh? Thử một ảnh mẫu:</p>
-        <ul aria-labelledby="samples-title" className="mt-2 grid grid-cols-4 gap-2.5 sm:gap-3">
+        <ul aria-labelledby="samples-title" className="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-2.5">
           {SAMPLE_PHOTOS.map((sample) => (
             <li key={sample.id}>
               <button

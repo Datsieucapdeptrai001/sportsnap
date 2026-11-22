@@ -22,20 +22,23 @@ function releaseStream(stream: MediaStream | null, video: HTMLVideoElement | nul
 export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>) {
   const [active, setActive] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
   // Insecure pages (http://) and old browsers have no camera API: derive it once, not in an effect.
   const [unsupported] = useState(() => !window.isSecureContext || !navigator.mediaDevices?.getUserMedia)
   const streamRef = useRef<MediaStream | null>(null)
+  const facingRef = useRef<'environment' | 'user'>('environment')
   const pendingRef = useRef(false)
   const aliveRef = useRef(true)
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (preferredFacing?: 'environment' | 'user') => {
+    const targetFacing = preferredFacing ?? facingRef.current
     async function requestCamera(isRetry: boolean): Promise<void> {
       if (unsupported || streamRef.current || pendingRef.current) return
       pendingRef.current = true
       let stream: MediaStream | null = null
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: targetFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
         })
         const video = videoRef.current
@@ -44,6 +47,8 @@ export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>
           return
         }
         streamRef.current = stream
+        facingRef.current = targetFacing
+        setFacingMode(targetFacing)
         video.srcObject = stream
         await video.play()
         setActive(true)
@@ -84,6 +89,17 @@ export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>
     else void start()
   }, [start, stop])
 
+  const flip = useCallback(() => {
+    const next: 'environment' | 'user' = facingRef.current === 'environment' ? 'user' : 'environment'
+    facingRef.current = next
+    setFacingMode(next)
+    if (streamRef.current) {
+      releaseStream(streamRef.current, videoRef.current)
+      streamRef.current = null
+      void start(next)
+    }
+  }, [start, videoRef])
+
   useEffect(() => {
     aliveRef.current = true
     // Wait for the previous camera owner (e.g. camera-scanner) to finish releasing its tracks
@@ -99,7 +115,9 @@ export function useCameraBackground(videoRef: RefObject<HTMLVideoElement | null>
 
   return {
     active,
+    facingMode,
     error: unsupported ? 'Camera cần kết nối HTTPS. Bạn vẫn chơi được ở chế độ nền ảo.' : error,
     toggle,
+    flip,
   }
 }

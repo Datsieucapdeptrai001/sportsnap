@@ -60,9 +60,9 @@ Dành riêng cho bóng rổ mô phỏng vật lý 3D:
     - $v_z = (\text{rim.z} - \text{start.z}) / T$
     - $v_y = (\text{rim.y} - \text{start.y} - 0.5 \cdot g \cdot T \cdot (T + 1/60)) / T$
   - Lực vuốt: $p = \text{swipeSpeedY} / S_{REF}$ với $S_{REF} = 1.70$ px/ms.
-  - Sai lệch $e = p - 1$. Trong cửa sổ $|e| \le 0.265$, sai số được nén mạnh bằng hệ số $0.01$ ($e' = e \cdot 0.01$) để kéo quỹ đạo về gần quỹ đạo chuẩn vào rổ.
+  - Sai lệch $e = p - 1$. Trong cửa sổ $|e| \le 0.265$, sai số được nén bằng hệ số $0.05$ ($e' = e \cdot 0.05$): quỹ đạo được kéo về gần quỹ đạo chuẩn nhưng lực vuốt vẫn ảnh hưởng nhẹ đến đường bay.
   - Hỗ trợ góc ngang: độ lệch góc $\Delta x / |\Delta y|$ trong cửa sổ $\pm 0.22$ được nén theo hệ số $0.15$.
-  - Khoảng tốc độ vuốt ghi bàn thực tế: **1.21 đến 2.18 px/ms (98 tốc độ)** (đo bởi unit test M3).
+  - Khoảng tốc độ vuốt ghi bàn thực tế: **1.23 đến 2.16 px/ms** với bước mô phỏng 1/60 s (unit test M3); **1.22 đến 2.15 px/ms** với bước 1/120 s mà game thực sự dùng. Đổi `BASKETBALL_ASSIST_FACTOR` từ 0.01 lên 0.05 ngày 2026-11-20; giá trị 0.08 làm dải trong game chỉ còn tới 1.99 px/ms nên không dùng.
   - Vuốt quá yếu ($s \le 0.90$ px/ms) hoặc quá mạnh ($s \ge 2.80$ px/ms) hoặc lệch góc lớn ($|\Delta x| \ge 0.60 |\Delta y|$) đều trượt hoàn toàn.
 
 ---
@@ -108,7 +108,7 @@ export const SPORT_GAMES: Readonly<Record<string, SportGameConfig>> = {
 - **Để game chạm liên tục (`mash`) dễ hơn**: Giảm `goal` hoặc giảm `rival`.
 - **Để game bóng rổ 3D (`basketball`) nới rộng cửa sổ vào rổ**:
   - Hằng số ngắm: `BASKETBALL_S_REF = 1.70` px/ms, `BASKETBALL_AIM_T = 0.90` s.
-  - Cửa sổ hỗ trợ lực vuốt: `BASKETBALL_ASSIST_WIN = 0.265`, `BASKETBALL_ASSIST_FACTOR = 0.01`.
+  - Cửa sổ hỗ trợ lực vuốt: `BASKETBALL_ASSIST_WIN = 0.265`, `BASKETBALL_ASSIST_FACTOR = 0.05`.
   - Cửa sổ hỗ trợ góc ngang: `BASKETBALL_LATERAL_WIN = 0.22`, `BASKETBALL_LATERAL_FACTOR = 0.15`.
 - **Ràng buộc kiểm thử bắt buộc (tests pass)**:
   - `goal / seconds <= 6` (tốc độ chạm người chơi tối đa có thể duy trì).

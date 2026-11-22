@@ -268,7 +268,10 @@ export function CameraScanner({ onResult, result, autoOverlay, onReset, ref }: {
         )}
         {arAsset && result && <CameraArOverlay key={`${result.label}:${result.confidence}`} label={result.label}
           confidence={result.confidence} asset={arAsset} cameraReady={state.status === 'ready'}
-          onNativeAr={openNativeAr} onRescan={() => void scan()} />}
+          videoRef={videoRef}
+          onNativeAr={openNativeAr}
+          onOpenGame={() => arHandoffRef.current?.begin()}
+          onRescan={() => void scan()} />}
         {state.status === 'error' && !arAsset && (
           <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card/95 px-6 text-center">
             <TriangleAlert className="shrink-0 text-destructive" aria-hidden="true" />

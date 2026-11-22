@@ -207,3 +207,19 @@ def test_gradcam_supports_resnet_conv5_block3_out_and_preprocess(image_bytes: by
     assert result.heatmap.shape == (224, 224)
     assert np.isfinite(result.heatmap).all()
     assert result.explanation.label in {"a", "b"}
+
+
+def test_extended_insights_and_gradcam_comparison_image(real_client: TestClient) -> None:
+    response = real_client.get("/api/insights/extended")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload["class_names"]) == 20
+    assert {m["name"] for m in payload["models"]} == {"ResNet50", "MobileNetV2", "CNN_Scratch"}
+    assert payload["kfold"]["mean"] == pytest.approx(0.9763)
+    assert payload["phash_check"]["near_pairs_le_5"] == 0
+    assert len(payload["external_eval"]) == 3
+    assert len(payload["ablation_per_class"]) == 20
+    assert payload["gradcam_comparison_image"] == "gradcam_compare_3models.png"
+    img_resp = real_client.get("/api/insights/files/gradcam_compare_3models.png")
+    assert img_resp.status_code == 200
+    assert img_resp.headers["content-type"] == "image/png"

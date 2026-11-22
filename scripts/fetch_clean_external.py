@@ -35,6 +35,7 @@ TARGETS: dict[str, list[str]] = {
     "swimming": ["1.jpg", "2.jpg"],
     "tennis": ["1.jpg", "2.jpg"],
     "uneven bars": ["1.jpg", "5.jpg"],
+    "canoe slamon": ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg"],
 }
 
 SEARCH_QUERIES: dict[str, list[str]] = {
@@ -50,6 +51,7 @@ SEARCH_QUERIES: dict[str, list[str]] = {
     "swimming": ["swimming competition pool swimmer", "olympic swimming freestyle race"],
     "tennis": ["tennis player hitting ball match", "wimbledon tennis match action"],
     "uneven bars": ["uneven bars artistic gymnastics", "gymnast on uneven bars olympics"],
+    "canoe slamon": ["canoe slalom olympics", "canoe slalom athlete rapids"],
 }
 
 BLOCKED_TITLE_WORDS = (

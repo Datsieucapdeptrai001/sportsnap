@@ -20,14 +20,21 @@ export const sportNamesVi: Readonly<Record<string, string>> = {
   'roller derby': 'Trượt patin đối kháng',
   'rollerblade racing': 'Đua patin',
   rugby: 'Bóng bầu dục',
+  soccer: 'Bóng đá',
   swimming: 'Bơi lội',
   tennis: 'Quần vợt',
   'uneven bars': 'Thể dục xà lệch',
   volleyball: 'Bóng chuyền',
 }
 
+const sportNameAliasesVi: Readonly<Record<string, string>> = {
+  'american football': 'Bóng bầu dục Mỹ',
+}
+
 export function sportNameVi(label: string): string {
-  return Object.hasOwn(sportNamesVi, label) ? sportNamesVi[label] : label
+  if (Object.hasOwn(sportNamesVi, label)) return sportNamesVi[label]
+  if (Object.hasOwn(sportNameAliasesVi, label)) return sportNameAliasesVi[label]
+  return label
 }
 
 export function splitSportLabel(label: string): { display: string; raw: string | null } {

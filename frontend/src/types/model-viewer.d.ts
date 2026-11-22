@@ -17,6 +17,11 @@ declare module 'react' {
         'rotation-per-second'?: string
         'shadow-intensity'?: string
         'environment-image'?: string
+        exposure?: string
+        scale?: string
+        'camera-orbit'?: string
+        'camera-target'?: string
+        'interaction-prompt'?: 'auto' | 'none'
         loading?: 'lazy' | 'eager'
       }
     }

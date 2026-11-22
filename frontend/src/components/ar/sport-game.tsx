@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Camera, RotateCcw, Sparkles, Trophy, Volume2, VolumeX } from 'lucide-react'
+import { Camera, RotateCcw, Sparkles, SwitchCamera, Trophy, Volume2, VolumeX } from 'lucide-react'
 import {
   SHOOT_ATTEMPTS, SHOOT_FLIGHT_MS, TARGET_Y, TIMING_ATTEMPTS,
-  getSportGame, highJumpBarHeight, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, streakBonus,
-  targetX, timingGrade, timingPoints, zoneAfterStreak,
+  aimArcPoints, getSportGame, highJumpBarHeight, isBlockedByKeeper, keeperX, landingFromSwipe,
+  markerPos, mashScore, mashSnapshot, shootPoints, streakBonus, targetX, timingGrade, timingPoints, zoneAfterStreak,
   type Point, type SportGameConfig, type TargetKind,
 } from '../../lib/interactive-ar/games'
 import { soundEngine } from '../../lib/interactive-ar/sound-effects'
@@ -13,6 +13,8 @@ import { useCameraBackground } from './use-camera-background'
 type Phase = 'ready' | 'playing' | 'over'
 
 interface Fx { text: string; x: number; y: number; born: number; color: string }
+interface Particle { x: number; y: number; vx: number; vy: number; color: string; size: number; born: number; life: number }
+interface Ring { x: number; y: number; color: string; born: number }
 interface Shot { landing: Point; start: number }
 interface Round { center: number; zone: number; start: number; frozenUntil: number; frozenPos: number }
 interface Runtime {
@@ -21,7 +23,7 @@ interface Runtime {
   streak: number
   left: number
   startedAt: number
-  swipe: { x: number; y: number; t: number } | null
+  swipe: { x: number; y: number; t: number; curX: number; curY: number } | null
   shot: Shot | null
   round: Round
   taps: number
@@ -29,6 +31,8 @@ interface Runtime {
   result: 'win' | 'lose' | null
   lastHudAt: number
   fx: Fx[]
+  particles: Particle[]
+  rings: Ring[]
 }
 
 interface Hud {
@@ -44,6 +48,7 @@ interface Hud {
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'
 const TEXT_FONT = 'system-ui,-apple-system,"Segoe UI",sans-serif'
+const KEEPER_SPORTS = new Set(['hockey', 'field hockey', 'polo', 'soccer'])
 
 function createRuntime(cfg: SportGameConfig): Runtime {
   return {
@@ -51,7 +56,7 @@ function createRuntime(cfg: SportGameConfig): Runtime {
     left: cfg.mode === 'shoot' ? SHOOT_ATTEMPTS : cfg.mode === 'timing' ? TIMING_ATTEMPTS : 1,
     startedAt: 0, swipe: null, shot: null,
     round: { center: 0.5, zone: cfg.zone ?? 0.2, start: 0, frozenUntil: 0, frozenPos: 0 },
-    taps: 0, overAt: null, result: null, lastHudAt: 0, fx: [],
+    taps: 0, overAt: null, result: null, lastHudAt: 0, fx: [], particles: [], rings: [],
   }
 }
 
@@ -82,11 +87,15 @@ function writeBest(label: string, value: number): void {
 
 // ------------------------------------------------------------------ drawing
 
-function emoji(ctx: CanvasRenderingContext2D, ch: string, x: number, y: number, size: number): void {
+function emoji(ctx: CanvasRenderingContext2D, ch: string, x: number, y: number, size: number, rotation = 0): void {
+  ctx.save()
+  ctx.translate(x, y)
+  if (rotation !== 0) ctx.rotate(rotation)
   ctx.font = `${Math.round(size)}px ${EMOJI_FONT}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText(ch, x, y)
+  ctx.fillText(ch, 0, 0)
+  ctx.restore()
 }
 
 function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, color = '#fff', align: CanvasTextAlign = 'center'): void {
@@ -97,6 +106,38 @@ function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number
   ctx.fillText(text, x, y)
 }
 
+function drawCourtBackdrop(ctx: CanvasRenderingContext2D, sport: string, width: number, height: number, now: number): void {
+  ctx.save()
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'
+  ctx.lineWidth = 2
+  if (sport === 'swimming' || sport === 'canoe slamon') {
+    for (let i = 0; i < 4; i += 1) {
+      const y = height * (0.28 + i * 0.16)
+      ctx.beginPath()
+      for (let x = 0; x <= width; x += 24) {
+        const wy = y + Math.sin(x * 0.03 + now * 0.004 + i) * 4
+        if (x === 0) ctx.moveTo(x, wy)
+        else ctx.lineTo(x, wy)
+      }
+      ctx.stroke()
+    }
+  } else if (sport === 'formula 1 racing') {
+    const offset = (now * 0.18) % 48
+    for (let y = offset; y < height; y += 48) {
+      ctx.beginPath(); ctx.moveTo(width * 0.5, y); ctx.lineTo(width * 0.5, y + 22); ctx.stroke()
+    }
+  } else if (sport === 'boxing' || sport === 'olympic wrestling') {
+    for (let i = 0; i < 3; i += 1) {
+      const y = height * (0.24 + i * 0.08)
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke()
+    }
+  } else if (sport === 'soccer' || sport === 'field hockey' || sport === 'hockey') {
+    ctx.strokeRect(width * 0.12, height * 0.18, width * 0.76, height * 0.54)
+    ctx.beginPath(); ctx.arc(width * 0.5, height * 0.72, width * 0.14, Math.PI, 0); ctx.stroke()
+  }
+  ctx.restore()
+}
+
 function drawTarget(ctx: CanvasRenderingContext2D, kind: TargetKind, cx: number, cy: number, r: number): void {
   ctx.save()
   ctx.lineCap = 'round'
@@ -104,7 +145,7 @@ function drawTarget(ctx: CanvasRenderingContext2D, kind: TargetKind, cx: number,
   if (kind === 'goal') {
     const w = r * 2
     const h = r * 1.2
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'
+    ctx.fillStyle = 'rgba(255,255,255,0.14)'
     ctx.fillRect(cx - w / 2, cy - h / 2, w, h)
     ctx.strokeStyle = 'rgba(255,255,255,0.45)'
     ctx.lineWidth = 1
@@ -225,19 +266,10 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
           }
           if (cfg.mode === 'timing') {
             const pos = rt.round.frozenUntil > now ? rt.round.frozenPos : markerPos((now - rt.round.start) / 1000, cfg.sweepSpeed ?? 0.8)
-            return {
-              ...base,
-              markerPos: pos,
-              zoneCenter: rt.round.center,
-              zoneWidth: rt.round.zone,
-            }
+            return { ...base, markerPos: pos, zoneCenter: rt.round.center, zoneWidth: rt.round.zone }
           }
           if (cfg.mode === 'shoot') {
-            return {
-              ...base,
-              targetX: targetX(now / 1000, cfg.targetSpeed ?? 0),
-              targetY: TARGET_Y,
-            }
+            return { ...base, targetX: targetX(now / 1000, cfg.targetSpeed ?? 0), targetY: TARGET_Y }
           }
           return base
         }
@@ -253,6 +285,7 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const hasKeeper = cfg.mode === 'shoot' && KEEPER_SPORTS.has(name)
     let width = 0
     let height = 0
     let raf = 0
@@ -278,6 +311,25 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
       rtRef.current.fx.push({ text, x, y, born: now, color })
     }
 
+    const spawnBurst = (x: number, y: number, color: string, now: number, count = 18) => {
+      if (reduced) return
+      const palette = [color, '#fde047', '#34d399', '#38bdf8', '#ffffff']
+      rtRef.current.rings.push({ x, y, color, born: now })
+      for (let i = 0; i < count; i += 1) {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4
+        const spd = 70 + Math.random() * 140
+        rtRef.current.particles.push({
+          x, y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd - 40,
+          color: palette[i % palette.length],
+          size: 3 + Math.random() * 4,
+          born: now,
+          life: 650 + Math.random() * 350,
+        })
+      }
+    }
+
     const scheduleEnd = (now: number) => { rtRef.current.overAt = now + 900 }
 
     // ---- inputs
@@ -287,9 +339,18 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
       if (rt.phase !== 'playing') return
       try { canvas.setPointerCapture?.(event.pointerId) } catch { /* ignore capture error */ }
       if (cfg.mode === 'shoot') {
-        if (!rt.shot && rt.left > 0 && !rt.overAt) rt.swipe = { x: event.clientX, y: event.clientY, t: now }
+        if (!rt.shot && rt.left > 0 && !rt.overAt) {
+          rt.swipe = { x: event.clientX, y: event.clientY, t: now, curX: event.clientX, curY: event.clientY }
+        }
       } else if (cfg.mode === 'timing') tapTiming(now)
       else tapMash(now)
+    }
+
+    const onMove = (event: PointerEvent) => {
+      const rt = rtRef.current
+      if (!rt.swipe || cfg.mode !== 'shoot') return
+      rt.swipe.curX = event.clientX
+      rt.swipe.curY = event.clientY
     }
 
     const onUp = (event: PointerEvent) => {
@@ -331,6 +392,7 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
       rt.round.frozenPos = pos
       const color = grade === 'miss' ? '#fca5a5' : grade === 'perfect' ? '#fde047' : '#86efac'
       addFx(grade === 'perfect' ? `HOÀN HẢO +${points}` : grade === 'good' ? `TỐT +${points}` : 'TRƯỢT', width / 2, height * 0.5, color, now)
+      if (grade !== 'miss') spawnBurst(width * (0.1 + pos * 0.8), height * 0.62, color, now, grade === 'perfect' ? 24 : 12)
       play(grade === 'miss' ? 'miss' : 'hit')
       soundEngine.triggerHaptic(grade === 'miss' ? 'medium' : 'success')
       emit({
@@ -348,6 +410,7 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
     }
 
     canvas.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onCancel)
     window.addEventListener('keydown', onKey)
@@ -367,17 +430,30 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
         const u = (now - rt.shot.start) / SHOOT_FLIGHT_MS
         if (u >= 1) {
           const tx = targetX(now / 1000, cfg.targetSpeed ?? 0)
-          const base = shootPoints(rt.shot.landing, { x: tx, y: TARGET_Y }, cfg.targetRadius ?? 0.18, aspect, cfg.rings ?? false)
+          const radius = cfg.targetRadius ?? 0.18
+          const kx = hasKeeper ? keeperX(now / 1000, tx, radius) : -1
+          const blocked = hasKeeper && isBlockedByKeeper(rt.shot.landing, kx, TARGET_Y, radius)
+          const base = blocked ? 0 : shootPoints(rt.shot.landing, { x: tx, y: TARGET_Y }, radius, aspect, cfg.rings ?? false)
           rt.streak = base > 0 ? rt.streak + 1 : 0
           const points = base > 0 ? base + streakBonus(rt.streak) : 0
           rt.score += points
           rt.left -= 1
-          addFx(points > 0 ? `+${points}` : 'TRƯỢT', rt.shot.landing.x * width, rt.shot.landing.y * height, points > 0 ? '#fde047' : '#fca5a5', now)
+          const lx = rt.shot.landing.x * width
+          const ly = rt.shot.landing.y * height
+          addFx(
+            blocked ? '🧤 BỊ CẢN!' : points > 0 ? `+${points}` : 'TRƯỢT',
+            lx, ly, points > 0 ? '#fde047' : '#fca5a5', now,
+          )
+          if (points > 0) spawnBurst(lx, ly, '#fde047', now, 20)
           play(points > 0 ? 'hit' : 'miss')
           soundEngine.triggerHaptic(points > 0 ? 'success' : 'medium')
           emit({
             score: rt.score, streak: rt.streak, left: rt.left,
-            message: points > 0 ? (rt.streak > 1 ? `TRÚNG! Chuỗi ${rt.streak} 🔥` : 'TRÚNG ĐÍCH! 🎉') : 'Trượt rồi! Thử lại nào.',
+            message: blocked
+              ? '🧤 Thủ môn đã cản phá! Nhắm sang góc trống nhé.'
+              : points > 0
+                ? (rt.streak > 1 ? `TRÚNG! Chuỗi ${rt.streak} 🔥` : 'TRÚNG ĐÍCH! 🎉')
+                : 'Trượt rồi! Thử lại nào.',
           })
           rt.shot = null
           if (rt.left <= 0) scheduleEnd(now)
@@ -392,6 +468,7 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
         const elapsed = Math.max(0, (now - rt.startedAt) / 1000)
         const snap = mashSnapshot(rt.taps, elapsed, cfg.goal ?? 40, cfg.seconds ?? 10, cfg.rival ?? 4)
         if (snap.state !== 'running') {
+          if (snap.state === 'won') spawnBurst(width * 0.85, height * 0.34, '#34d399', now, 28)
           rt.overAt = now
           finish(snap.state === 'won' ? 'win' : 'lose', mashScore(snap))
           return
@@ -407,26 +484,62 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
     const draw = (now: number) => {
       const rt = rtRef.current
       ctx.clearRect(0, 0, width, height)
+      drawCourtBackdrop(ctx, name, width, height, now)
       const bob = reduced ? 0 : Math.sin(now * 0.004) * height * 0.008
 
       if (cfg.mode === 'shoot') {
-        const r = (cfg.targetRadius ?? 0.18) * width
-        const tx = targetX(now / 1000, cfg.targetSpeed ?? 0) * width
+        const radiusNorm = cfg.targetRadius ?? 0.18
+        const r = radiusNorm * width
+        const txNorm = targetX(now / 1000, cfg.targetSpeed ?? 0)
+        const tx = txNorm * width
         const ty = TARGET_Y * height
-        ctx.fillStyle = 'rgba(0,0,0,0.25)'
-        ctx.fillRect(0, height * 0.72, width, height * 0.28)
+        ctx.fillStyle = 'rgba(0,0,0,0.22)'
+        ctx.fillRect(0, height * 0.74, width, height * 0.26)
         drawTarget(ctx, cfg.targetKind ?? 'goal', tx, ty, r)
+
+        if (hasKeeper) {
+          const kx = keeperX(now / 1000, txNorm, radiusNorm) * width
+          emoji(ctx, '🧤', kx, ty + r * 0.18, Math.min(width * 0.095, 42))
+        }
+
         const size = Math.min(width * 0.13, 72)
         const sx = width / 2
         const sy = height * 0.88
+
+        // Live aim trajectory preview dots while swiping
+        if (rt.swipe && rt.phase === 'playing' && !rt.shot) {
+          const dx = rt.swipe.curX - rt.swipe.x
+          const dy = rt.swipe.curY - rt.swipe.y
+          const dt = Math.max(now - rt.swipe.t, 45)
+          const dots = aimArcPoints(dx, dy, dt, 8)
+          ctx.save()
+          dots.forEach((pt, idx) => {
+            const frac = (idx + 1) / dots.length
+            ctx.beginPath()
+            ctx.arc(pt.x * width, pt.y * height, Math.max(2.5, 6 * (1 - frac * 0.5)), 0, Math.PI * 2)
+            ctx.fillStyle = idx === dots.length - 1 ? 'rgba(253,224,71,0.9)' : `rgba(52,211,153,${0.85 - frac * 0.45})`
+            ctx.fill()
+          })
+          ctx.restore()
+        }
+
         if (rt.shot) {
           const u = Math.min(1, (now - rt.shot.start) / SHOOT_FLIGHT_MS)
           const x = sx + (rt.shot.landing.x * width - sx) * u
-          const y = sy + (rt.shot.landing.y * height - sy) * u - Math.sin(Math.PI * u) * height * 0.1
-          emoji(ctx, cfg.prop, x, y, size * (1 - 0.55 * u))
+          const groundY = sy + (rt.shot.landing.y * height - sy) * u
+          const arcLift = Math.sin(Math.PI * u) * height * 0.12
+          const y = groundY - arcLift
+          // Ground shadow under flying prop
+          ctx.save()
+          ctx.beginPath()
+          ctx.ellipse(x, groundY + size * 0.22 * (1 - 0.5 * u), size * 0.34 * (1 - 0.5 * u), size * 0.11 * (1 - 0.5 * u), 0, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(0,0,0,0.35)'
+          ctx.fill()
+          ctx.restore()
+          emoji(ctx, cfg.prop, x, y, size * (1 - 0.52 * u), reduced ? 0 : u * Math.PI * 4)
         } else if (rt.phase === 'playing' && rt.left > 0) {
           emoji(ctx, cfg.prop, sx, sy + bob, size)
-          if (!rt.swipe) label(ctx, '⬆ vuốt lên', sx, sy - size * 0.95, 13, 'rgba(255,255,255,0.8)')
+          if (!rt.swipe) label(ctx, '⬆ vuốt lên để nhắm & ném', sx, sy - size * 0.95, 13, 'rgba(255,255,255,0.85)')
         }
       } else if (cfg.mode === 'timing') {
         const x0 = width * 0.1
@@ -473,9 +586,9 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
           [lanes[0], snap.you, cfg.prop, '#22c55e'],
           [lanes[1], snap.rival, cfg.rivalIcon ?? cfg.prop, '#ef4444'],
         ]
-        rows.forEach(([name, value, icon, color], i) => {
+        rows.forEach(([laneName, value, icon, color], i) => {
           const y = height * (0.34 + i * 0.2)
-          label(ctx, name, x0, y - height * 0.07, 14, '#fff', 'left')
+          label(ctx, laneName, x0, y - height * 0.07, 14, '#fff', 'left')
           bar(ctx, x0, y, bw, 14, value, color)
           emoji(ctx, icon, x0 + value * bw, y - 14, Math.min(width * 0.1, 46))
         })
@@ -486,6 +599,32 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
         ctx.setLineDash([])
         label(ctx, '🏁', x0 + bw, height * 0.2, 18)
         if (rt.phase === 'playing') label(ctx, `Chạm: ${rt.taps} / ${goal}`, width / 2, height * 0.78, 18, '#fde047')
+      }
+
+      // Expanding hit shockwave rings
+      rt.rings = rt.rings.filter((ring) => now - ring.born < 500)
+      for (const ring of rt.rings) {
+        const age = (now - ring.born) / 500
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(ring.x, ring.y, 12 + age * 54, 0, Math.PI * 2)
+        ctx.strokeStyle = ring.color
+        ctx.globalAlpha = 1 - age
+        ctx.lineWidth = 3 * (1 - age)
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      // Particle confetti burst
+      rt.particles = rt.particles.filter((pt) => now - pt.born < pt.life)
+      for (const pt of rt.particles) {
+        const t = (now - pt.born) / 1000
+        const alpha = 1 - (now - pt.born) / pt.life
+        ctx.save()
+        ctx.globalAlpha = Math.max(0, alpha)
+        ctx.fillStyle = pt.color
+        ctx.fillRect(pt.x + pt.vx * t, pt.y + pt.vy * t + 160 * t * t, pt.size, pt.size)
+        ctx.restore()
       }
 
       rt.fx = rt.fx.filter((fx) => now - fx.born < 900)
@@ -508,6 +647,7 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
       cancelAnimationFrame(raf)
       observer.disconnect()
       canvas.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onCancel)
       window.removeEventListener('keydown', onKey)
@@ -530,11 +670,16 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
       {camera.active && <div className="absolute inset-0 bg-black/25" aria-hidden="true" />}
       <canvas ref={canvasRef} className="absolute inset-0 size-full touch-none" aria-label={`Trò chơi AR: ${cfg.title}`} role="img" />
 
-      <div className="relative z-10 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent p-3">
-        <div className="flex items-center gap-2">
+      <div className="relative z-10 flex items-center justify-between gap-2 bg-gradient-to-b from-black/80 via-black/40 to-transparent p-3">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-3 py-1 font-bold text-emerald-300">
             <Trophy size={16} aria-hidden="true" /><span className="text-sm">Điểm:</span><span className="text-lg tabular-nums">{hud.score}</span>
           </div>
+          {hud.best > 0 && (
+            <div className="rounded-lg border border-white/20 bg-black/50 px-2.5 py-1 text-xs text-white/85 tabular-nums">
+              Kỷ lục: {hud.best}
+            </div>
+          )}
           {hud.streak > 1 && (
             <div className="flex items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-500/20 px-2.5 py-1 text-xs font-semibold text-amber-300 motion-safe:animate-pulse">
               <Sparkles size={14} aria-hidden="true" /><span>Chuỗi: {hud.streak}🔥</span>
@@ -546,6 +691,10 @@ function GameView({ cfg, name }: { cfg: SportGameConfig; name: string }) {
             aria-label={soundOn ? 'Tắt âm thanh' : 'Bật âm thanh'}>{soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}</Button>
           <Button variant="ghost" onClick={camera.toggle} aria-label={camera.active ? 'Tắt camera thực tế' : 'Bật camera thực tế'}
             className={`size-8 min-h-0 rounded-full p-0 ${camera.active ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-white hover:bg-white/20'}`}><Camera size={16} /></Button>
+          {camera.active && (
+            <Button variant="ghost" onClick={camera.flip} aria-label="Đổi camera trước/sau"
+              className="size-8 min-h-0 rounded-full bg-white/10 p-0 text-white hover:bg-white/20"><SwitchCamera size={16} /></Button>
+          )}
           <Button variant="ghost" className="size-8 min-h-0 rounded-full bg-white/10 p-0 text-white hover:bg-white/20" onClick={start} aria-label="Chơi lại"><RotateCcw size={16} /></Button>
         </div>
       </div>

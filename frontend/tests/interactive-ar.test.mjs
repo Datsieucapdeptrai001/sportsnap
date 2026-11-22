@@ -3,10 +3,12 @@ import { readdirSync, readFileSync } from 'node:fs'
 import test from 'node:test'
 import { cameraErrorMessage, shouldRetryCamera } from '../src/lib/interactive-ar/camera.ts'
 import {
-  BASKETBALL_GRAVITY, BASKETBALL_LABEL, BASKETBALL_RIM, BASKETBALL_RIM_RADIUS, BASKETBALL_START, SPORT_GAMES, TARGET_Y,
-  calculateBasketballVelocity, getSportGame, hasInteractiveGame, hasSportGame, highJumpBarHeight, interactiveTabLabel,
-  isBasketballGoal, landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, simulateBasketballShot, streakBonus,
-  targetX, timingGrade, timingPoints, zoneAfterStreak,
+  BASKETBALL_GRAVITY, BASKETBALL_LABEL, BASKETBALL_RIM, BASKETBALL_RIM_RADIUS, BASKETBALL_START,
+  SOCCER_GOAL_HALF_W, SOCCER_GOAL_Z, SOCCER_LABEL, SPORT_GAMES, TARGET_Y,
+  aimArcPoints, calculateBasketballVelocity, calculateSoccerVelocity, getSportGame, hasInteractiveGame, hasSportGame,
+  highJumpBarHeight, interactiveTabLabel, isBasketballGoal, isBlockedByKeeper, isSoccerInGoal, keeperX,
+  landingFromSwipe, markerPos, mashScore, mashSnapshot, shootPoints, simulateBasketballShot, soccerKeeperWorldX,
+  streakBonus, targetX, timingGrade, timingPoints, zoneAfterStreak,
 } from '../src/lib/interactive-ar/games.ts'
 import { sportNamesVi } from '../src/lib/sport-names.ts'
 
@@ -46,7 +48,7 @@ test('game configs are complete for their mode and use Vietnamese text', () => {
       assert.ok(rivalWork >= 0.95 * cfg.goal && rivalWork <= 1.05 * cfg.goal, `${label}: rival work ${rivalWork} not in [0.95, 1.05] * goal (${cfg.goal})`)
     }
   }
-  assert.deepEqual(modes, { shoot: 7, timing: 5, mash: 7 })
+  assert.deepEqual(modes, { shoot: 8, timing: 5, mash: 6 })
 })
 
 test('tab label names the game; basketball keeps its original wording', () => {
@@ -286,6 +288,39 @@ test('production build does not leak __SPORTSNAP_AR__ test hook into bundle', ()
   for (const file of files) {
     const content = readFileSync(new URL(`../dist/assets/${file}`, import.meta.url), 'utf8')
     assert.ok(!content.includes('__SPORTSNAP_AR__'), `Found __SPORTSNAP_AR__ in ${file}`)
+  }
+})
+
+test('american football alias resolves to football game and soccer uses 3D penalty label', () => {
+  assert.equal(hasInteractiveGame('american football'), true)
+  assert.equal(hasSportGame('american football'), true)
+  assert.equal(getSportGame('american football')?.title, 'Sút bóng bầu dục')
+  assert.equal(interactiveTabLabel('american football'), '🏈 Sút bóng bầu dục')
+  assert.equal(interactiveTabLabel(SOCCER_LABEL), '⚽ Sút phạt đền 3D AR')
+})
+
+test('shoot trajectory preview and patrolling goalkeeper physics stay bounded', () => {
+  assert.deepEqual(aimArcPoints(0, 20, 100), [])
+  const arc = aimArcPoints(30, -240, 120, 7)
+  assert.equal(arc.length, 7)
+  for (const pt of arc) {
+    assert.ok(pt.x >= 0 && pt.x <= 1 && pt.y >= 0 && pt.y <= 1)
+  }
+  const kx = keeperX(0.25, 0.5, 0.2)
+  assert.ok(kx >= 0.08 && kx <= 0.92)
+  assert.equal(isBlockedByKeeper({ x: kx, y: TARGET_Y }, kx, TARGET_Y, 0.2), true)
+  assert.equal(isBlockedByKeeper({ x: 0.9, y: TARGET_Y }, 0.3, TARGET_Y, 0.2), false)
+})
+
+test('3D soccer penalty velocity, goal bounds and keeper movement work cleanly', () => {
+  assert.equal(calculateSoccerVelocity(0, 15, 100), null)
+  const shot = calculateSoccerVelocity(40, -240, 150)
+  assert.ok(shot && shot.vz < 0 && shot.vy > 0)
+  assert.equal(isSoccerInGoal({ x: 0, y: 0.7, z: SOCCER_GOAL_Z - 0.1 }), true)
+  assert.equal(isSoccerInGoal({ x: SOCCER_GOAL_HALF_W + 0.5, y: 0.7, z: SOCCER_GOAL_Z - 0.1 }), false)
+  assert.equal(isSoccerInGoal({ x: 0, y: 2.5, z: SOCCER_GOAL_Z - 0.1 }), false)
+  for (let t = 0; t < 10; t += 0.3) {
+    assert.ok(Math.abs(soccerKeeperWorldX(t)) <= SOCCER_GOAL_HALF_W)
   }
 })
 

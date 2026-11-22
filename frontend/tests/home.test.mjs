@@ -33,8 +33,12 @@ test('fallback GLB and sample photos are committed files', () => {
   const glb = readFileSync(new URL(`../public${FALLBACK_MODEL_SRC}`, import.meta.url))
   assert.equal(glb.toString('ascii', 0, 4), 'glTF')
   assert.equal(glb.readUInt32LE(8), glb.length)
-  assert.ok(SAMPLE_PHOTOS.length >= 3 && SAMPLE_PHOTOS.length <= 4)
+  assert.ok(SAMPLE_PHOTOS.length >= 3 && SAMPLE_PHOTOS.length <= 5)
   for (const sample of SAMPLE_PHOTOS) assert.ok(existsSync(new URL(`../public${sample.src}`, import.meta.url)), sample.src)
+})
+
+test('american football alias resolves to football.glb rather than a missing file', () => {
+  assert.equal(pickSportModel({ label: 'american football', is_uncertain: false }).src, '/models/football.glb')
 })
 
 test('client-side type check accepts only JPG, PNG and WebP', () => {

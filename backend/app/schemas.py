@@ -236,5 +236,88 @@ class UndoCorrectionResponse(BaseModel):
     message: str
 
 
-class ErrorResponse(BaseModel):
-    error: ErrorDetail
+class ExtendedMainModel(BaseModel):
+    name: str
+    val_acc: float | None = Field(default=None, ge=0, le=1)
+    val_loss: float | None = Field(default=None, ge=0)
+    best_epoch: int | None = Field(default=None, ge=1)
+    head_test_acc: float | None = Field(default=None, ge=0, le=1)
+    test_acc: float = Field(ge=0, le=1)
+    test_tta_acc: float | None = Field(default=None, ge=0, le=1)
+    test_macro_f1: float | None = Field(default=None, ge=0, le=1)
+    size_mb: float | None = Field(default=None, ge=0)
+    cpu_ms: float | None = Field(default=None, ge=0)
+
+
+class KFoldSummary(BaseModel):
+    n_total: int = Field(gt=0)
+    folds: list[float]
+    mean: float = Field(ge=0, le=1)
+    std: float = Field(ge=0)
+    oof_macro_f1: float = Field(ge=0, le=1)
+
+
+class MultiSeedMetric(BaseModel):
+    model: str
+    acc_mean: float = Field(ge=0, le=1)
+    acc_std: float = Field(ge=0)
+    f1_mean: float = Field(ge=0, le=1)
+    f1_std: float = Field(ge=0)
+    runs: list[list[float]]
+
+
+class ExtendedTestMetric(BaseModel):
+    n: int = Field(gt=0)
+    acc: float = Field(ge=0, le=1)
+    macro_f1: float = Field(ge=0, le=1)
+    wilson_95_ci: list[float]
+
+
+class PhashCheckMetric(BaseModel):
+    near_pairs_le_5: int = Field(ge=0)
+    bad_test_removed: int = Field(ge=0)
+    clean_test_n: int = Field(gt=0)
+    clean_acc: float = Field(ge=0, le=1)
+    clean_macro_f1: float = Field(ge=0, le=1)
+
+
+class ExternalEvalMetric(BaseModel):
+    model: str
+    n: int = Field(gt=0)
+    top1: float = Field(ge=0, le=1)
+    top1_correct: int = Field(ge=0)
+    top5: float = Field(ge=0, le=1)
+    top5_correct: int = Field(ge=0)
+    per_class: dict[str, str] = Field(default_factory=dict)
+
+
+class AblationSummaryMetric(BaseModel):
+    model: str
+    n: int = Field(gt=0)
+    acc_orig: float = Field(ge=0, le=1)
+    acc_bg_only: float = Field(ge=0, le=1)
+    acc_person_only: float = Field(ge=0, le=1)
+    gradcam_in_person_mean: float = Field(ge=0, le=1)
+
+
+class AblationClassRow(BaseModel):
+    label: str
+    orig_ok: float = Field(ge=0, le=1)
+    bg_ok: float = Field(ge=0, le=1)
+    person_ok: float = Field(ge=0, le=1)
+    gradcam_in_person: float = Field(ge=0, le=1)
+
+
+class ExtendedInsightsResponse(BaseModel):
+    dataset: str
+    class_names: list[str]
+    models: list[ExtendedMainModel]
+    ensemble_test_acc: float | None = Field(default=None, ge=0, le=1)
+    kfold: KFoldSummary | None = None
+    multi_seed: list[MultiSeedMetric] = Field(default_factory=list)
+    extended_test_20pct: ExtendedTestMetric | None = None
+    phash_check: PhashCheckMetric | None = None
+    external_eval: list[ExternalEvalMetric] = Field(default_factory=list)
+    ablation_deeplabv3: AblationSummaryMetric | None = None
+    ablation_per_class: list[AblationClassRow] = Field(default_factory=list)
+    gradcam_comparison_image: str | None = None

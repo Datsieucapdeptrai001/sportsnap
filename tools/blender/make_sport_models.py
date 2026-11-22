@@ -25,7 +25,7 @@ TAU = math.tau
 Point = tuple[float, float, float]
 M: dict[str, Any] = {}
 DISPLAY_SPORTS = frozenset({'archery', 'baseball', 'boxing', 'field hockey', 'hockey', 'polo',
-                          'rugby', 'tennis', 'volleyball', 'figure skating women',
+                          'rugby', 'soccer', 'tennis', 'volleyball', 'figure skating women',
                           'figure skating pairs', 'olympic wrestling', 'swimming'})
 
 
@@ -887,6 +887,35 @@ def volleyball() -> None:
         line('Volleyball panel seam', pts, .0013, 'navy', True)
 
 
+def soccer() -> None:
+    display_base('grass')
+    line('Soccer pitch outline', [(-.16, -.12, .017), (.16, -.12, .017), (.16, .12, .017),
+         (-.16, .12, .017)], .0019, 'white', True)
+    line('Penalty box', [(-.108, .12, .017), (-.108, .012, .017), (.108, .012, .017),
+         (.108, .12, .017)], .0019, 'white', False)
+    arc('Penalty arc', (0, .012), (.048, .042), math.pi, TAU, .017, .0019, 'white')
+    ball('Penalty spot', (0, -.005, .017), (.006, .006, .0012), 'white', 16, 8)
+    goal_frame(False)
+    # Oversized classic black-and-white soccer ball placed clearly in front of the goal.
+    c = Vector((0, -.058, .063))
+    r = .047
+    ball('Classic white soccer ball', tuple(c), (r, r, r), 'white', 48, 24)
+    phi = (1.0 + math.sqrt(5.0)) / 2.0
+    ico_dirs = [
+        Vector((0, s1, s2 * phi)).normalized() for s1 in (-1, 1) for s2 in (-1, 1)
+    ] + [
+        Vector((s1, s2 * phi, 0)).normalized() for s1 in (-1, 1) for s2 in (-1, 1)
+    ] + [
+        Vector((s2 * phi, 0, s1)).normalized() for s1 in (-1, 1) for s2 in (-1, 1)
+    ]
+    patch_r = .0185
+    for idx, d in enumerate(ico_dirs):
+        bpy.ops.mesh.primitive_cylinder_add(vertices=5, radius=patch_r, depth=.0045, location=tuple(c + d * (r - .0008)))
+        patch = bpy.context.object
+        patch.rotation_euler = d.to_track_quat('Z', 'Y').to_euler()
+        finish(patch, f'Soccer black pentagon {idx}', 'black')
+
+
 BUILDERS: dict[str, Callable[[], None]] = {
     'archery': archery, 'baseball': baseball, 'basketball': basketball, 'boxing': boxing,
     'canoe slamon': canoe_slamon, 'field hockey': field_hockey,
@@ -895,8 +924,9 @@ BUILDERS: dict[str, Callable[[], None]] = {
     'formula 1 racing': formula_1_racing, 'golf': golf, 'high jump': high_jump,
     'hockey': hockey, 'nascar racing': nascar_racing, 'olympic wrestling': olympic_wrestling,
     'polo': polo, 'rings': rings, 'roller derby': roller_derby,
-    'rollerblade racing': rollerblade_racing, 'rugby': rugby, 'swimming': swimming,
-    'tennis': tennis, 'uneven bars': uneven_bars, 'volleyball': volleyball,
+    'rollerblade racing': rollerblade_racing, 'rugby': rugby, 'soccer': soccer,
+    'swimming': swimming, 'tennis': tennis, 'uneven bars': uneven_bars,
+    'volleyball': volleyball,
 }
 
 

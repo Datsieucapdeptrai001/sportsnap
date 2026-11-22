@@ -83,6 +83,8 @@ def test_ingest_idempotency_and_hybrid_search(tmp_path: Path) -> None:
         index_dir=data_dir / "index",
         thumbs_dir=data_dir / "thumbs",
         registry_dir=data_dir / "models_registry",
+        source_model_path=tmp_path / "models" / "ResNet50_finetune_best.keras",
+        source_labels_path=tmp_path / "models" / "labels.json",
     )
     settings.ensure_dirs()
     ckpt = settings.registry_dir / "v1" / "dummy.keras"

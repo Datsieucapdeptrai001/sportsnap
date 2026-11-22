@@ -28,7 +28,7 @@ MODEL_CATALOG: tuple[ModelSpec, ...] = (
     ModelSpec(
         id="resnet50_finetune",
         name="ResNet50 (Fine-tune · 20 môn mới)",
-        description="Tinh chỉnh ResNet50 trên bộ 20 môn mới (có archery, boxing, tennis, volleyball)",
+        description="Tinh chỉnh ResNet50 trên bộ 20 môn mới (Kaggle Test 97.8%, Val 98.0%)",
         model_rel_path="models/ResNet50_finetune_best.keras",
         labels_rel_path="models/labels.json",
         preprocess="resnet50",

@@ -1,3 +1,5 @@
+import csv
+import json
 import logging
 from typing import Annotated
 
@@ -8,7 +10,16 @@ from starlette.concurrency import run_in_threadpool
 
 from app.api.scan import locked_prediction, read_image
 from app.core.errors import APIError
-from app.schemas import ErrorResponse, Explanation, InsightsResponse
+from app.schemas import (
+    AblationClassRow,
+    ErrorResponse,
+    Explanation,
+    ExtendedInsightsResponse,
+    ExtendedMainModel,
+    ExternalEvalMetric,
+    InsightsResponse,
+    MultiSeedMetric,
+)
 from app.services.gradcam import explain_image
 
 
@@ -55,6 +66,86 @@ def insights(request: Request) -> InsightsResponse:
     except (OSError, ValueError, ValidationError) as exc:
         logger.exception("Failed to validate insights JSON: %s", exc)
         raise APIError(500, "internal_error", "Chưa thể tải dữ liệu thí nghiệm. Vui lòng thử lại sau.") from exc
+
+
+@router.get("/insights/extended", response_model=ExtendedInsightsResponse)
+def extended_insights(request: Request) -> ExtendedInsightsResponse:
+    data_dir = request.app.state.settings.EXPERIMENTS_PATH.parent
+    summary_path = data_dir / "kaggle_experiment_summary.json"
+    if not summary_path.is_file():
+        raise APIError(404, "extended_insights_missing", "Chưa có dữ liệu thực nghiệm mở rộng từ Kaggle.")
+    try:
+        raw = json.loads(summary_path.read_text(encoding="utf-8"))
+        main_v3 = raw.get("main_v3_verified", {})
+        cpu_bench = raw.get("cpu_benchmark", {})
+        models: list[ExtendedMainModel] = []
+        for name in ("ResNet50", "MobileNetV2", "CNN_Scratch"):
+            entry = main_v3.get(name)
+            if not isinstance(entry, dict):
+                continue
+            bench = cpu_bench.get(name, {}) if isinstance(cpu_bench, dict) else {}
+            models.append(
+                ExtendedMainModel(
+                    name=name,
+                    val_acc=entry.get("val_acc"),
+                    val_loss=entry.get("val_loss"),
+                    best_epoch=entry.get("best_epoch"),
+                    head_test_acc=entry.get("head_test_acc"),
+                    test_acc=entry["test_acc"],
+                    test_tta_acc=entry.get("test_tta_acc"),
+                    test_macro_f1=entry.get("test_macro_f1"),
+                    size_mb=bench.get("size_mb", entry.get("deploy_mb")),
+                    cpu_ms=bench.get("cpu_ms"),
+                )
+            )
+
+        multi_seed_raw = raw.get("multi_seed", {})
+        multi_seed = [
+            MultiSeedMetric(model=model_name, **vals)
+            for model_name, vals in multi_seed_raw.items()
+            if isinstance(vals, dict)
+        ]
+
+        external_eval: list[ExternalEvalMetric] = []
+        for key in ("anh_ngoai_resnet50", "anh_ngoai", "anh_ngoai_cnn_scratch"):
+            entry = raw.get(key)
+            if isinstance(entry, dict):
+                external_eval.append(ExternalEvalMetric(**entry))
+
+        ablation_rows: list[AblationClassRow] = []
+        ablation_csv = data_dir / "ablation_per_class.csv"
+        if ablation_csv.is_file():
+            with ablation_csv.open("r", encoding="utf-8-sig", newline="") as fh:
+                for row in csv.DictReader(fh):
+                    ablation_rows.append(
+                        AblationClassRow(
+                            label=row["cls"],
+                            orig_ok=float(row["orig_ok"]),
+                            bg_ok=float(row["bg_ok"]),
+                            person_ok=float(row["person_ok"]),
+                            gradcam_in_person=float(row["gradcam_in_person"]),
+                        )
+                    )
+
+        gradcam_img = "gradcam_compare_3models.png" if (request.app.state.settings.INSIGHTS_DIR / "gradcam_compare_3models.png").is_file() else None
+        ens = main_v3.get("Ensemble_MNV2_ResNet50", {})
+        return ExtendedInsightsResponse(
+            dataset=str(raw.get("dataset", "")),
+            class_names=[str(c) for c in raw.get("class_names", [])],
+            models=models,
+            ensemble_test_acc=ens.get("test_acc") if isinstance(ens, dict) else None,
+            kfold=main_v3.get("kfold_5_resnet50"),
+            multi_seed=multi_seed,
+            extended_test_20pct=raw.get("extended_test_20pct"),
+            phash_check=raw.get("phash_check"),
+            external_eval=external_eval,
+            ablation_deeplabv3=raw.get("ablation_deeplabv3"),
+            ablation_per_class=ablation_rows,
+            gradcam_comparison_image=gradcam_img,
+        )
+    except (OSError, KeyError, ValueError, ValidationError) as exc:
+        logger.exception("Failed to build extended insights: %s", exc)
+        raise APIError(500, "internal_error", "Không thể đọc dữ liệu thực nghiệm mở rộng.") from exc
 
 
 @router.get("/insights/files/{name:path}")

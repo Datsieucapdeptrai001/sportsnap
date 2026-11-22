@@ -72,15 +72,14 @@ def get_confidence_tier(confidence: float, tau_high: float = 0.75, tau_low: floa
         return "uncertain", "Chưa chắc"
 
 
-def predict_image(
-    data: bytes,
+def predict_preprocessed_batch(
+    batch: NDArray[np.float32],
     model: Classifier,
     labels: list[str],
     threshold: float,
-    preprocess: str = "mobilenet_v2",
+    started_ns: int | None = None,
 ) -> Prediction:
-    started = perf_counter_ns()
-    batch = preprocess_image(data, preprocess=preprocess)
+    started = started_ns if started_ns is not None else perf_counter_ns()
     outputs = np.asarray(model.predict(batch, verbose=0))
     if (
         outputs.shape != (1, len(labels))
@@ -104,6 +103,18 @@ def predict_image(
         threshold=threshold,
         latency_ms=(perf_counter_ns() - started) // 1_000_000,
     )
+
+
+def predict_image(
+    data: bytes,
+    model: Classifier,
+    labels: list[str],
+    threshold: float,
+    preprocess: str = "mobilenet_v2",
+) -> Prediction:
+    started = perf_counter_ns()
+    batch = preprocess_image(data, preprocess=preprocess)
+    return predict_preprocessed_batch(batch, model, labels, threshold, started_ns=started)
 
 
 def predict_frames(

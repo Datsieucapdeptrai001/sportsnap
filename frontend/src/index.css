@@ -65,7 +65,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     color-scheme: dark;
     --background: #0d161d;
     --foreground: #e6edf2;
@@ -93,6 +93,35 @@
     --glass-glow: rgb(52 211 153 / 0.12);
     --hud-surface: rgb(15 23 42 / 0.85);
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0d161d;
+  --foreground: #e6edf2;
+  --card: #15212a;
+  --card-foreground: #e6edf2;
+  --primary: #34d399;
+  --primary-foreground: #052e22;
+  --primary-soft: #12352b;
+  --ink: #e6edf2;
+  --ink-foreground: #0d161d;
+  --muted: #1e2c36;
+  --muted-foreground: #9db0bd;
+  --border: #2f404d;
+  --lane: #1a2730;
+  --lane-line: #0d161d;
+  --rank: #8193a3;
+  --destructive: #fca5a5;
+  --destructive-surface: #2a1517;
+  --warning: #fbbf24;
+  --warning-surface: #2a2111;
+  --warning-line: #6b5216;
+  --warning-bar: #f59e0b;
+  --glass-shadow: rgb(0 0 0 / 0.3);
+  --glass-highlight: rgb(255 255 255 / 0.05);
+  --glass-glow: rgb(52 211 153 / 0.12);
+  --hud-surface: rgb(15 23 42 / 0.85);
 }
 
 @theme inline {

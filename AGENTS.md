@@ -11,6 +11,8 @@ University course project (Computer Vision, IUH). **Read SPEC.md before every ta
 - **Never** change preprocessing on your own. It must match the training notebook (SPEC.md §4).
 - **Never invent numbers.** Any metric shown in the UI must come from `backend/data/experiments.json`.
 - One small commit per slice, message `slice N: <summary>`. Run tests before committing.
+- **Never** write new or replacement images into `datasets/sports-classification/` or `datasets/anh-ngoai/` before the user (Claude) reviews and approves the candidate list in `_moi_tai/`. Automated filters and pytest cannot detect non-action photos (podiums, medal ceremonies, buildings, celebrations, crowd/fans); human visual review is mandatory.
+- **Always prevent event leakage across splits**: For every class, explicitly verify and eliminate event leakage (same tournament banners, ring/court branding, competition backdrop, date/roster) between `train` and `valid`/`test`/`anh-ngoai`. dHash alone cannot detect distinct camera angles or frames from the same event; event-level isolation is mandatory.
 - Keep it simple: no database, no auth, no extra frameworks unless SPEC.md says so.
 - If SPEC.md is ambiguous, or a dependency fails to install, **stop and report** instead of guessing.
 - Do not delete or rewrite files outside the current slice's scope.

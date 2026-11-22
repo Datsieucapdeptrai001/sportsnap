@@ -1,0 +1,21 @@
+﻿cls,orig_ok,bg_ok,person_ok,gradcam_in_person
+american football,1.0,0.175,0.925,0.5581
+archery,1.0,0.85,0.525,0.3766
+baseball,1.0,0.375,0.775,0.4079
+basketball,1.0,0.225,0.625,0.5364
+boxing,0.975,0.2,0.65,0.5531
+canoe slamon,1.0,1.0,0.375,0.1527
+field hockey,0.925,0.375,0.55,0.3631
+figure skating women,1.0,0.8,0.925,0.3908
+formula 1 racing,1.0,1.0,0.025,0.0064
+golf,0.925,0.975,0.9,0.381
+high jump,0.95,0.825,0.675,0.4485
+hockey,1.0,0.3,0.9,0.5573
+olympic wrestling,0.975,0.0,0.8,0.7476
+polo,1.0,1.0,0.225,0.1678
+roller derby,1.0,0.075,1.0,0.6631
+soccer,0.875,0.175,0.15,0.3813
+swimming,1.0,1.0,0.55,0.2163
+tennis,0.95,0.675,0.6,0.2863
+uneven bars,0.95,0.8,0.2,0.2265
+volleyball,0.9,0.675,0.425,0.4173
