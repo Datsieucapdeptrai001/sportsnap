@@ -223,3 +223,10 @@ def test_extended_insights_and_gradcam_comparison_image(real_client: TestClient)
     img_resp = real_client.get("/api/insights/files/gradcam_compare_3models.png")
     assert img_resp.status_code == 200
     assert img_resp.headers["content-type"] == "image/png"
+    assert payload["color_ablation"] is not None
+    assert payload["color_ablation"]["n_test"] == 500
+    assert len(payload["color_ablation"]["models"]) == 3
+    assert len(payload["color_ablation"]["per_class_mobilenet_v2"]) == 20
+    color_img_resp = real_client.get(f"/api/insights/files/{payload['color_ablation']['chart_image']}")
+    assert color_img_resp.status_code == 200
+    assert color_img_resp.headers["content-type"] == "image/png"

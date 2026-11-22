@@ -1,8 +1,13 @@
 # SportSnap
 
-Ứng dụng nhận diện môn thể thao qua ảnh, sử dụng FastAPI và React + TypeScript.
-Slice 5 bổ sung xem 3D và Web AR từ kết quả Quét và lightbox phân loại hàng loạt.
-Slice 7 bổ sung Docker và CI để bàn giao; Slice 6 chưa được triển khai.
+Ứng dụng nhận diện **20 môn thể thao** qua hình ảnh (FastAPI backend + React/TypeScript frontend), thực hiện cho học phần **Thị giác máy tính & Ứng dụng (Đề tài số 16 · Nhóm 08 · DHKHMT19ATT · IUH)**.
+
+Tính năng chính của bản hoàn thiện:
+- **Nhận diện ảnh đơn, chụp camera đa khung hình & phân loại hàng loạt (Bulk ZIP/CSV)** trên mô hình MobileNetV2 Kaggle v3 (`9,27 MB`, 20 lớp sạch gồm `american football` và `soccer`).
+- **Giải thích trực quan Grad-CAM theo yêu cầu** (`/api/explain`) kèm Top-3 xác suất và ngưỡng cảnh báo không chắc chắn (`0,60`).
+- **Xem 3D tương tác (26 mô hình GLB tự dựng bằng Blender 5.2), Live Camera AR** (tỷ lệ `0.7×/1.0×/1.4×`, chụp ảnh AR PNG) và **20 Mini-Game AR** (gồm game 3D Three.js *Bóng rổ* & *Sút phạt đền Bóng đá* và 18 game Canvas có đường ngắm + thủ môn).
+- **Trang Phân tích mở rộng (`/api/insights` & `/api/insights/extended`)**: so sánh 3 kiến trúc, 5-Fold CV, Multi-seed, `anh-ngoai`, DeepLabV3 Background Ablation, **Color Ablation (ảnh màu vs ảnh xám vs hoán đổi kênh R↔B)** và đối chiếu Grad-CAM 3 mô hình.
+- **Giao diện Sáng / Tối / Theo hệ thống**, lịch sử phiên quét cục bộ (trong RAM), Docker Compose và CI tự động (`184` backend pytest + `226` frontend unit tests).
 
 ## Run it
 
@@ -606,3 +611,41 @@ Giai đoạn mở rộng chạy cục bộ trên CPU (`ResNet50` mặc định q
   ```powershell
   .\backend\.venv\Scripts\python.exe -c "from sportsnap_lib.config import LibrarySettings; from sportsnap_lib.db import init_db; from sportsnap_lib.registry import ensure_initial_version; s=LibrarySettings(); c=init_db(s.db_path); print(ensure_initial_version(c, s).version)"
   ```
+
+## Kết quả thực nghiệm Kaggle v3 & Thí nghiệm giải thích
+
+Toàn bộ số liệu hiển thị trên trang **Phân tích** được đọc trực tiếp từ `backend/data/experiments.json`, `backend/data/kaggle_experiment_summary.json`, `backend/data/ablation_per_class.csv` và `backend/data/color_ablation.json` (bộ dữ liệu sạch `6.900` ảnh: `6.000 train / 300 valid / 500 test + 100 anh-ngoai`, `0` cặp rò rỉ pHash).
+
+| Mô hình | Val Acc | Test Acc (`n=500`) | Ảnh ngoài Top-1 / Top-5 (`n=100`) | Color Ablation: Ảnh xám (`-đ.p.t`) | Color Ablation: Đổi kênh R↔B (`-đ.p.t`) |
+|---|---:|---:|---:|---:|---:|
+| **ResNet50** | `98,00%` | `97,80%` *(98,00% local eval)* | `96,0%` / `100,0%` | `89,80%` (`-8,20`) | `88,40%` (`-9,60`) |
+| **MobileNetV2** *(chọn theo Val · deploy 9,27 MB)* | `98,67%` | `96,60%` | `92,0%` / `99,0%` | `82,40%` (`-14,20`) | `82,60%` (`-14,00`) |
+| **CNN_Scratch** | `87,67%` | `83,40%` *(84,40% local eval)* | `67,0%` / `88,0%` | `23,00%` (`-61,40`) | `39,60%` (`-44,80`) |
+
+- **Ensemble (MobileNetV2 + ResNet50):** Test Accuracy **`98,60%`**; **Stratified 5-Fold CV (ResNet50, `n=6.800`):** **`97,63% ± 0,33%`** (OOF Macro-F1 `0,98`).
+- **DeepLabV3 Background Ablation (MobileNetV2, `n=800`):** Ảnh gốc `97,12%` → Chỉ còn nền `57,50%`, Chỉ còn người `59,00%` (tỷ lệ năng lượng Grad-CAM nằm trong vùng người trung bình `39,19%`).
+- **Tái lập bảng thực nghiệm và thí nghiệm Color Ablation cục bộ:**
+  ```powershell
+  .\backend\.venv\Scripts\python.exe backend\scripts\build_experiments.py
+  .\backend\.venv\Scripts\python.exe backend\scripts\run_color_ablation.py
+  ```
+
+## Cấu trúc đóng gói nộp đồ án môn học (`.RAR`)
+
+Thư mục chuẩn bị nộp đặt tại `DHKHMT19ATT_Nhom08_XayDungUngDungPhanLoaiMonTheThaoQuaHinhAnhBangCNN/`:
+
+```text
+DHKHMT19ATT_Nhom08_XayDungUngDungPhanLoaiMonTheThaoQuaHinhAnhBangCNN.rar
+├── DHKHMT19ATT_Nhom08_XayDungUngDungPhanLoaiMonTheThaoQuaHinhAnhBangCNN.docx  (bổ sung bản Word cuối + .pdf nếu nộp kèm)
+├── DHKHMT19ATT_Nhom08_XayDungUngDungPhanLoaiMonTheThaoQuaHinhAnhBangCNN.pptx  (bổ sung slide thuyết trình)
+└── Source_code/
+    ├── notebook.ipynb          (80 cells, 52 code cells đã chạy đầy đủ output & biểu đồ, gồm Mục 12.9 Color Ablation)
+    └── link_colab.txt          (link GitHub & Kaggle — nhớ bật chế độ công khai trước khi nộp)
+```
+
+Sau khi đặt đủ file `.docx` và `.pptx` vào thư mục trên, đóng gói `.RAR` bằng WinRAR CLI từ thư mục gốc dự án:
+
+```powershell
+& "C:\Program Files\WinRAR\Rar.exe" a -r -ep1 DHKHMT19ATT_Nhom08_XayDungUngDungPhanLoaiMonTheThaoQuaHinhAnhBangCNN.rar DHKHMT19ATT_Nhom08_XayDungUngDungPhanLoaiMonTheThaoQuaHinhAnhBangCNN
+```
+

@@ -308,6 +308,42 @@ class AblationClassRow(BaseModel):
     gradcam_in_person: float = Field(ge=0, le=1)
 
 
+class ColorAblationConditionMetric(BaseModel):
+    accuracy: float = Field(ge=0, le=1)
+    macro_f1: float = Field(ge=0, le=1)
+    correct: int = Field(ge=0)
+    total: int = Field(gt=0)
+
+
+class ColorAblationModelMetric(BaseModel):
+    name: str
+    checkpoint: str
+    rgb_orig: ColorAblationConditionMetric
+    grayscale: ColorAblationConditionMetric
+    rb_swap: ColorAblationConditionMetric
+    grayscale_drop_pp: float
+    rb_swap_drop_pp: float
+
+
+class ColorAblationClassRow(BaseModel):
+    class_name: str
+    rgb_orig: float = Field(ge=0, le=1)
+    grayscale: float = Field(ge=0, le=1)
+    rb_swap: float = Field(ge=0, le=1)
+    grayscale_drop_pp: float
+    rb_swap_drop_pp: float
+
+
+class ColorAblationSummary(BaseModel):
+    n_test: int = Field(gt=0)
+    num_classes: int = Field(gt=0)
+    split: str
+    conditions: list[str] = Field(default_factory=list)
+    models: list[ColorAblationModelMetric] = Field(default_factory=list)
+    per_class_mobilenet_v2: list[ColorAblationClassRow] = Field(default_factory=list)
+    chart_image: str | None = None
+
+
 class ExtendedInsightsResponse(BaseModel):
     dataset: str
     class_names: list[str]
@@ -321,3 +357,4 @@ class ExtendedInsightsResponse(BaseModel):
     ablation_deeplabv3: AblationSummaryMetric | None = None
     ablation_per_class: list[AblationClassRow] = Field(default_factory=list)
     gradcam_comparison_image: str | None = None
+    color_ablation: ColorAblationSummary | None = None

@@ -285,6 +285,42 @@ export interface AblationClassRow {
   gradcam_in_person: number
 }
 
+export interface ColorAblationConditionMetric {
+  accuracy: number
+  macro_f1: number
+  correct: number
+  total: number
+}
+
+export interface ColorAblationModelMetric {
+  name: string
+  checkpoint: string
+  rgb_orig: ColorAblationConditionMetric
+  grayscale: ColorAblationConditionMetric
+  rb_swap: ColorAblationConditionMetric
+  grayscale_drop_pp: number
+  rb_swap_drop_pp: number
+}
+
+export interface ColorAblationClassRow {
+  class_name: string
+  rgb_orig: number
+  grayscale: number
+  rb_swap: number
+  grayscale_drop_pp: number
+  rb_swap_drop_pp: number
+}
+
+export interface ColorAblationSummary {
+  n_test: number
+  num_classes: number
+  split: string
+  conditions: string[]
+  models: ColorAblationModelMetric[]
+  per_class_mobilenet_v2: ColorAblationClassRow[]
+  chart_image: string | null
+}
+
 export interface ExtendedInsights {
   dataset: string
   class_names: string[]
@@ -298,6 +334,7 @@ export interface ExtendedInsights {
   ablation_deeplabv3: AblationSummaryMetric | null
   ablation_per_class: AblationClassRow[]
   gradcam_comparison_image: string | null
+  color_ablation: ColorAblationSummary | null
 }
 
 export async function getInsights(signal?: AbortSignal): Promise<Insights> {

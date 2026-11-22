@@ -1,0 +1,23 @@
+================================================================================
+SPORTSNAP — ĐỀ TÀI SỐ 16 (NHÓM 08 · DHKHMT19ATT · IUH)
+Xây dựng Ứng dụng Phân loại Môn Thể thao qua Hình ảnh bằng CNN
+================================================================================
+
+1. Mã nguồn đầy đủ (Backend FastAPI + Frontend React/TypeScript + 3D/AR + Tests):
+   https://github.com/Datsieucapdeptrai001/sportsnap
+
+2. Notebook huấn luyện & đánh giá trên Kaggle GPU (đã chạy đầy đủ output):
+   - Bản hợp nhất đầy đủ (Mục 1 -> Mục 13, kèm toàn bộ biểu đồ & output) nằm trực tiếp tại:
+     Source_code/notebook.ipynb
+   - Kaggle Notebook Phần chính (Mục 1 -> 11):
+     https://www.kaggle.com/code/kienmaitrung287/sportsnap-full-run-2026
+   - Kaggle Notebook Thí nghiệm mở rộng (Mục 12):
+     https://www.kaggle.com/code/kienmaitrung287/sportsnap-section-12-run-2026
+
+3. Bộ dữ liệu sạch đã kiểm định 0 rò rỉ (6.900 ảnh · 20 môn thể thao):
+   https://www.kaggle.com/datasets/kienmaitrung287/sportsnap-clean-6900
+
+[LƯU Ý TRƯỚC KHI NỘP]:
+- Đảm bảo các link Kaggle (và repo GitHub) đã bật chế độ công khai
+  ("Public" / "Anyone with the link can view") trước khi nộp bài.
+- Sau khi bật công khai, xóa mục "[LƯU Ý TRƯỚC KHI NỘP]" này nếu cần.

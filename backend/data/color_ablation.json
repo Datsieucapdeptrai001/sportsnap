@@ -1,0 +1,247 @@
+{
+  "n_test": 500,
+  "num_classes": 20,
+  "split": "test",
+  "conditions": [
+    "rgb_orig (ảnh màu RGB gốc 224x224)",
+    "grayscale (ảnh xám 3 kênh độ chói ITU-R BT.601 — loại bỏ màu sắc, giữ biên & độ sáng)",
+    "rb_swap (hoán đổi kênh R<->B — làm sai màu sân/trang phục, giữ nguyên độ tương phản & hình dạng)"
+  ],
+  "models": [
+    {
+      "name": "MobileNetV2",
+      "checkpoint": "best_model.keras",
+      "rgb_orig": {
+        "accuracy": 0.966,
+        "macro_f1": 0.9661,
+        "correct": 483,
+        "total": 500
+      },
+      "grayscale": {
+        "accuracy": 0.824,
+        "macro_f1": 0.8141,
+        "correct": 412,
+        "total": 500
+      },
+      "rb_swap": {
+        "accuracy": 0.826,
+        "macro_f1": 0.8213,
+        "correct": 413,
+        "total": 500
+      },
+      "grayscale_drop_pp": 14.2,
+      "rb_swap_drop_pp": 14.0
+    },
+    {
+      "name": "ResNet50",
+      "checkpoint": "ResNet50_finetune_best.keras",
+      "rgb_orig": {
+        "accuracy": 0.98,
+        "macro_f1": 0.9798,
+        "correct": 490,
+        "total": 500
+      },
+      "grayscale": {
+        "accuracy": 0.898,
+        "macro_f1": 0.896,
+        "correct": 449,
+        "total": 500
+      },
+      "rb_swap": {
+        "accuracy": 0.884,
+        "macro_f1": 0.8814,
+        "correct": 442,
+        "total": 500
+      },
+      "grayscale_drop_pp": 8.2,
+      "rb_swap_drop_pp": 9.6
+    },
+    {
+      "name": "CNN_Scratch",
+      "checkpoint": "cnn_scratch_best.keras",
+      "rgb_orig": {
+        "accuracy": 0.844,
+        "macro_f1": 0.8435,
+        "correct": 422,
+        "total": 500
+      },
+      "grayscale": {
+        "accuracy": 0.23,
+        "macro_f1": 0.1722,
+        "correct": 115,
+        "total": 500
+      },
+      "rb_swap": {
+        "accuracy": 0.396,
+        "macro_f1": 0.3921,
+        "correct": 198,
+        "total": 500
+      },
+      "grayscale_drop_pp": 61.4,
+      "rb_swap_drop_pp": 44.8
+    }
+  ],
+  "per_class_mobilenet_v2": [
+    {
+      "class_name": "american football",
+      "rgb_orig": 1.0,
+      "grayscale": 0.96,
+      "rb_swap": 1.0,
+      "grayscale_drop_pp": 4.0,
+      "rb_swap_drop_pp": 0.0
+    },
+    {
+      "class_name": "archery",
+      "rgb_orig": 1.0,
+      "grayscale": 1.0,
+      "rb_swap": 0.96,
+      "grayscale_drop_pp": 0.0,
+      "rb_swap_drop_pp": 4.0
+    },
+    {
+      "class_name": "baseball",
+      "rgb_orig": 1.0,
+      "grayscale": 0.92,
+      "rb_swap": 0.88,
+      "grayscale_drop_pp": 8.0,
+      "rb_swap_drop_pp": 12.0
+    },
+    {
+      "class_name": "basketball",
+      "rgb_orig": 1.0,
+      "grayscale": 0.72,
+      "rb_swap": 0.56,
+      "grayscale_drop_pp": 28.0,
+      "rb_swap_drop_pp": 44.0
+    },
+    {
+      "class_name": "boxing",
+      "rgb_orig": 0.96,
+      "grayscale": 0.92,
+      "rb_swap": 0.76,
+      "grayscale_drop_pp": 4.0,
+      "rb_swap_drop_pp": 20.0
+    },
+    {
+      "class_name": "canoe slamon",
+      "rgb_orig": 1.0,
+      "grayscale": 1.0,
+      "rb_swap": 1.0,
+      "grayscale_drop_pp": 0.0,
+      "rb_swap_drop_pp": 0.0
+    },
+    {
+      "class_name": "field hockey",
+      "rgb_orig": 0.88,
+      "grayscale": 0.28,
+      "rb_swap": 0.48,
+      "grayscale_drop_pp": 60.0,
+      "rb_swap_drop_pp": 40.0
+    },
+    {
+      "class_name": "figure skating women",
+      "rgb_orig": 1.0,
+      "grayscale": 0.96,
+      "rb_swap": 0.92,
+      "grayscale_drop_pp": 4.0,
+      "rb_swap_drop_pp": 8.0
+    },
+    {
+      "class_name": "formula 1 racing",
+      "rgb_orig": 1.0,
+      "grayscale": 1.0,
+      "rb_swap": 1.0,
+      "grayscale_drop_pp": 0.0,
+      "rb_swap_drop_pp": 0.0
+    },
+    {
+      "class_name": "golf",
+      "rgb_orig": 0.92,
+      "grayscale": 0.92,
+      "rb_swap": 0.8,
+      "grayscale_drop_pp": 0.0,
+      "rb_swap_drop_pp": 12.0
+    },
+    {
+      "class_name": "high jump",
+      "rgb_orig": 0.92,
+      "grayscale": 0.72,
+      "rb_swap": 0.84,
+      "grayscale_drop_pp": 20.0,
+      "rb_swap_drop_pp": 8.0
+    },
+    {
+      "class_name": "hockey",
+      "rgb_orig": 1.0,
+      "grayscale": 0.96,
+      "rb_swap": 0.92,
+      "grayscale_drop_pp": 4.0,
+      "rb_swap_drop_pp": 8.0
+    },
+    {
+      "class_name": "olympic wrestling",
+      "rgb_orig": 0.96,
+      "grayscale": 0.8,
+      "rb_swap": 0.8,
+      "grayscale_drop_pp": 16.0,
+      "rb_swap_drop_pp": 16.0
+    },
+    {
+      "class_name": "polo",
+      "rgb_orig": 1.0,
+      "grayscale": 1.0,
+      "rb_swap": 1.0,
+      "grayscale_drop_pp": 0.0,
+      "rb_swap_drop_pp": 0.0
+    },
+    {
+      "class_name": "roller derby",
+      "rgb_orig": 1.0,
+      "grayscale": 0.96,
+      "rb_swap": 1.0,
+      "grayscale_drop_pp": 4.0,
+      "rb_swap_drop_pp": 0.0
+    },
+    {
+      "class_name": "soccer",
+      "rgb_orig": 0.88,
+      "grayscale": 0.52,
+      "rb_swap": 0.32,
+      "grayscale_drop_pp": 36.0,
+      "rb_swap_drop_pp": 56.0
+    },
+    {
+      "class_name": "swimming",
+      "rgb_orig": 1.0,
+      "grayscale": 0.64,
+      "rb_swap": 1.0,
+      "grayscale_drop_pp": 36.0,
+      "rb_swap_drop_pp": 0.0
+    },
+    {
+      "class_name": "tennis",
+      "rgb_orig": 0.96,
+      "grayscale": 0.64,
+      "rb_swap": 0.76,
+      "grayscale_drop_pp": 32.0,
+      "rb_swap_drop_pp": 20.0
+    },
+    {
+      "class_name": "uneven bars",
+      "rgb_orig": 0.92,
+      "grayscale": 0.84,
+      "rb_swap": 0.88,
+      "grayscale_drop_pp": 8.0,
+      "rb_swap_drop_pp": 4.0
+    },
+    {
+      "class_name": "volleyball",
+      "rgb_orig": 0.92,
+      "grayscale": 0.72,
+      "rb_swap": 0.64,
+      "grayscale_drop_pp": 20.0,
+      "rb_swap_drop_pp": 28.0
+    }
+  ],
+  "chart_image": "color_ablation_chart.png"
+}

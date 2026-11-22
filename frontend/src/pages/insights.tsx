@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Cpu, Eye, Layers, RotateCcw, ShieldCheck, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { CheckCircle2, Cpu, Eye, Layers, Palette, RotateCcw, ShieldCheck, Sparkles, TriangleAlert, X } from 'lucide-react'
 import { getExtendedInsights, getInsights, type ExtendedInsights, type Insights } from '../lib/api'
 import { confusionStrength, metric } from '../lib/insights'
 import { sportNameVi } from '../lib/sport-names'
@@ -13,7 +13,7 @@ const pct = (value: number | null | undefined) =>
   value === null || value === undefined ? '—' : `${(value * 100).toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`
 
 function ExtendedKaggleSection({ ext }: { ext: ExtendedInsights }) {
-  const [zoomOpen, setZoomOpen] = useState(false)
+  const [zoomImg, setZoomImg] = useState<{ src: string; alt: string } | null>(null)
   const [abSort, setAbSort] = useState<'label' | 'person' | 'bg'>('person')
 
   const sortedAblation = [...ext.ablation_per_class].sort((a, b) => {
@@ -262,7 +262,87 @@ function ExtendedKaggleSection({ ext }: { ext: ExtendedInsights }) {
         </Card>
       )}
 
-      {/* 4. Side-by-side 3-Model Grad-CAM Gallery */}
+      {/* 4. Color Ablation (Court / Environment Color Sensitivity) */}
+      {ext.color_ablation && (
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Palette size={19} className="text-primary" aria-hidden="true" />
+                Thí nghiệm Mất màu (Color Ablation · n = {ext.color_ablation.n_test.toLocaleString('vi-VN')} ảnh test)
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Định lượng vai trò màu sắc / màu sân bằng cách so sánh ảnh màu gốc (RGB), ảnh xám (Grayscale) và hoán đổi kênh màu (R↔B).
+              </p>
+            </div>
+            {ext.color_ablation.chart_image && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setZoomImg({
+                    src: `/api/insights/files/${ext.color_ablation!.chart_image}`,
+                    alt: 'Biểu đồ Color Ablation 3 mô hình và 12 lớp nhạy cảm màu sắc nhất',
+                  })
+                }
+              >
+                Phóng to biểu đồ
+              </Button>
+            )}
+          </div>
+          <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[620px] text-left text-sm">
+              <thead className="bg-muted/40">
+                <tr>
+                  <th className="p-3 font-medium">Mô hình</th>
+                  <th className="p-3 font-medium">Ảnh màu gốc (RGB)</th>
+                  <th className="p-3 font-medium">Ảnh xám (Grayscale)</th>
+                  <th className="p-3 font-medium">Giảm khi mất màu</th>
+                  <th className="p-3 font-medium">Hoán đổi kênh (R↔B)</th>
+                  <th className="p-3 font-medium">Giảm khi sai màu</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ext.color_ablation.models.map((row) => (
+                  <tr key={row.name} className="border-t border-border">
+                    <th scope="row" className="p-3 font-semibold">{row.name}</th>
+                    <td className="p-3 font-medium text-primary tabular-nums">{pct(row.rgb_orig.accuracy)}</td>
+                    <td className="p-3 tabular-nums">{pct(row.grayscale.accuracy)}</td>
+                    <td className="p-3 font-medium text-amber-600 dark:text-amber-400 tabular-nums">
+                      -{row.grayscale_drop_pp.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} đ.p.t
+                    </td>
+                    <td className="p-3 tabular-nums">{pct(row.rb_swap.accuracy)}</td>
+                    <td className="p-3 font-medium text-amber-600 dark:text-amber-400 tabular-nums">
+                      -{row.rb_swap_drop_pp.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} đ.p.t
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {ext.color_ablation.chart_image && (
+            <button
+              type="button"
+              onClick={() =>
+                setZoomImg({
+                  src: `/api/insights/files/${ext.color_ablation!.chart_image}`,
+                  alt: 'Biểu đồ Color Ablation 3 mô hình và 12 lớp nhạy cảm màu sắc nhất',
+                })
+              }
+              className="mt-4 block w-full overflow-hidden rounded-xl border border-border bg-white transition-opacity hover:opacity-95"
+              aria-label="Phóng to biểu đồ Color Ablation"
+            >
+              <img
+                src={`/api/insights/files/${ext.color_ablation.chart_image}`}
+                alt="Biểu đồ Color Ablation 3 mô hình và 12 lớp nhạy cảm màu sắc nhất"
+                loading="lazy"
+                className="w-full object-contain"
+              />
+            </button>
+          )}
+        </Card>
+      )}
+
+      {/* 5. Side-by-side 3-Model Grad-CAM Gallery */}
       {ext.gradcam_comparison_image && (
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -274,11 +354,26 @@ function ExtendedKaggleSection({ ext }: { ext: ExtendedInsights }) {
                 So sánh vùng tập trung của CNN_Scratch, MobileNetV2 và ResNet50 trên cùng 6 ảnh kiểm thử (bao gồm lớp mới <code>soccer</code>). Bấm vào ảnh để phóng to.
               </p>
             </div>
-            <Button variant="outline" onClick={() => setZoomOpen(true)}>Phóng to ảnh</Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setZoomImg({
+                  src: `/api/insights/files/${ext.gradcam_comparison_image}`,
+                  alt: 'Đối chiếu Grad-CAM phóng to',
+                })
+              }
+            >
+              Phóng to ảnh
+            </Button>
           </div>
           <button
             type="button"
-            onClick={() => setZoomOpen(true)}
+            onClick={() =>
+              setZoomImg({
+                src: `/api/insights/files/${ext.gradcam_comparison_image}`,
+                alt: 'Đối chiếu Grad-CAM phóng to',
+              })
+            }
             className="mt-4 block w-full overflow-hidden rounded-xl border border-border bg-black/5 transition-opacity hover:opacity-95"
             aria-label="Phóng to ảnh đối chiếu Grad-CAM 3 mô hình"
           >
@@ -289,32 +384,33 @@ function ExtendedKaggleSection({ ext }: { ext: ExtendedInsights }) {
               className="w-full object-contain"
             />
           </button>
-          {zoomOpen && (
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Ảnh Grad-CAM phóng to"
-              onClick={() => setZoomOpen(false)}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
-            >
-              <div className="relative max-h-[94svh] max-w-5xl overflow-auto rounded-2xl bg-card p-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <Button
-                  variant="outline"
-                  onClick={() => setZoomOpen(false)}
-                  aria-label="Đóng ảnh phóng to"
-                  className="sticky top-2 float-right z-10 size-10 p-0"
-                >
-                  <X size={18} aria-hidden="true" />
-                </Button>
-                <img
-                  src={`/api/insights/files/${ext.gradcam_comparison_image}`}
-                  alt="Đối chiếu Grad-CAM phóng to"
-                  className="w-full rounded-xl"
-                />
-              </div>
-            </div>
-          )}
         </Card>
+      )}
+
+      {zoomImg && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={zoomImg.alt}
+          onClick={() => setZoomImg(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+        >
+          <div className="relative max-h-[94svh] max-w-5xl overflow-auto rounded-2xl bg-card p-2 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <Button
+              variant="outline"
+              onClick={() => setZoomImg(null)}
+              aria-label="Đóng ảnh phóng to"
+              className="sticky top-2 float-right z-10 size-10 p-0"
+            >
+              <X size={18} aria-hidden="true" />
+            </Button>
+            <img
+              src={zoomImg.src}
+              alt={zoomImg.alt}
+              className="w-full rounded-xl bg-white"
+            />
+          </div>
+        </div>
       )}
     </div>
   )

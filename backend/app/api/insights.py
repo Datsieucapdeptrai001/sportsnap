@@ -12,6 +12,7 @@ from app.api.scan import locked_prediction, read_image
 from app.core.errors import APIError
 from app.schemas import (
     AblationClassRow,
+    ColorAblationSummary,
     ErrorResponse,
     Explanation,
     ExtendedInsightsResponse,
@@ -128,6 +129,14 @@ def extended_insights(request: Request) -> ExtendedInsightsResponse:
                     )
 
         gradcam_img = "gradcam_compare_3models.png" if (request.app.state.settings.INSIGHTS_DIR / "gradcam_compare_3models.png").is_file() else None
+        color_ablation: ColorAblationSummary | None = None
+        color_path = data_dir / "color_ablation.json"
+        if color_path.is_file():
+            color_raw = json.loads(color_path.read_text(encoding="utf-8"))
+            chart_name = color_raw.get("chart_image")
+            if chart_name and not (request.app.state.settings.INSIGHTS_DIR / str(chart_name)).is_file():
+                color_raw["chart_image"] = None
+            color_ablation = ColorAblationSummary.model_validate(color_raw)
         ens = main_v3.get("Ensemble_MNV2_ResNet50", {})
         return ExtendedInsightsResponse(
             dataset=str(raw.get("dataset", "")),
@@ -142,6 +151,7 @@ def extended_insights(request: Request) -> ExtendedInsightsResponse:
             ablation_deeplabv3=raw.get("ablation_deeplabv3"),
             ablation_per_class=ablation_rows,
             gradcam_comparison_image=gradcam_img,
+            color_ablation=color_ablation,
         )
     except (OSError, KeyError, ValueError, ValidationError) as exc:
         logger.exception("Failed to build extended insights: %s", exc)
